@@ -16,10 +16,30 @@ const allowedOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ??
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+function isAllowedOrigin(origin: string) {
+  return allowedOrigins.some((allowedOrigin) => {
+    if (allowedOrigin === origin) {
+      return true;
+    }
+
+    if (!allowedOrigin.includes("*")) {
+      return false;
+    }
+
+    const pattern = new RegExp(
+      `^${allowedOrigin
+        .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*")}$`,
+    );
+
+    return pattern.test(origin);
+  });
+}
+
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         callback(null, true);
         return;
       }
