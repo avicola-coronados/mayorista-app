@@ -11,6 +11,7 @@ import { requireAuth } from "./middleware/auth.middleware";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
+console.log(`Booting Coronados backend with PORT=${PORT}`);
 const allowedOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
@@ -51,6 +52,10 @@ app.use(
 );
 app.use(express.json());
 
+app.get("/", (_request, response) => {
+  response.json({ ok: true, service: "coronados-backend" });
+});
+
 app.get("/api/health", (_request, response) => {
   response.json({ ok: true });
 });
@@ -67,6 +72,6 @@ app.use((error: Error, _request: Request, response: Response, _next: NextFunctio
   response.status(500).json({ message: "Ocurrió un error interno" });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
