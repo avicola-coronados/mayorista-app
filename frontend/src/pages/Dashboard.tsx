@@ -8,6 +8,8 @@ import { useAuthStore } from "../store/authStore";
 export function Dashboard() {
   const { jornada: jornadaQuery, metricas: metricasQuery, sobrante: sobranteQuery } = useDashboard();
   const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
+  const currentRole = getRoleFromToken(token) ?? user?.role;
 
   useEffect(() => {
     if (jornadaQuery.isError) {
@@ -59,7 +61,7 @@ export function Dashboard() {
   const vendidoKg = metricas?.vendido_total_kg ?? 0;
   const pisoDisponibleKg = metricas?.piso_disponible_kg ?? 0;
 
-  if (user?.role === "admin") {
+  if (currentRole === "admin") {
     return (
       <Layout
         title={`Dashboard admin · ${jornada.codigo || jornadaFecha}`}
@@ -192,6 +194,26 @@ export function Dashboard() {
       </div>
     </Layout>
   );
+}
+
+function getRoleFromToken(token: string | null) {
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payload = token.split(".")[1];
+
+    if (!payload) {
+      return null;
+    }
+
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decodedPayload = JSON.parse(window.atob(normalizedPayload)) as { role?: string };
+    return decodedPayload.role ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function formatKg(value: number) {
