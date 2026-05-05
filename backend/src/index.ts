@@ -10,12 +10,22 @@ import { sobranteRouter } from "./routes/sobrante.routes";
 import { requireAuth } from "./middleware/auth.middleware";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+const PORT = Number(process.env.PORT ?? 3000);
+const allowedOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(
   cors({
-    origin: frontendUrl,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origen no permitido por CORS: ${origin}`));
+    },
     credentials: true,
   }),
 );
