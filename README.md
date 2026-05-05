@@ -203,4 +203,3 @@ npm run preview
 - No incluye CRUD de clientes/granjas
 - No incluye registro UI de devoluciones, sobrantes o entradas de granja
 - No incluye recuperación de contraseña ni historial de jornadas
-..lll
