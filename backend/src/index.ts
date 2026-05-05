@@ -1,13 +1,14 @@
 import "dotenv/config";
 import cors from "cors";
-import express, { NextFunction, Request, Response } from "express";
-import { authRouter } from "./routes/auth.routes";
-import { jornadasRouter } from "./routes/jornadas.routes";
-import { granjasRouter } from "./routes/granjas.routes";
-import { clientesRouter } from "./routes/clientes.routes";
-import { lineasVentaRouter } from "./routes/lineas-venta.routes";
-import { sobranteRouter } from "./routes/sobrante.routes";
+import express from "express";
+import { errorMiddleware } from "./errors/error.middleware";
 import { requireAuth } from "./middleware/auth.middleware";
+import { authRouter } from "./modules/auth/auth.routes";
+import { clientesRouter } from "./modules/clientes/clientes.routes";
+import { granjasRouter } from "./modules/granjas/granjas.routes";
+import { jornadasRouter } from "./modules/jornadas/jornadas.routes";
+import { lineasVentaRouter } from "./modules/lineas-venta/lineas-venta.routes";
+import { sobranteRouter } from "./modules/sobrante/sobrante.routes";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
@@ -62,11 +63,8 @@ app.use("/api/clientes", requireAuth, clientesRouter);
 app.use("/api/lineas-venta", requireAuth, lineasVentaRouter);
 app.use("/api/sobrante", requireAuth, sobranteRouter);
 
-app.use((error: Error, _request: Request, response: Response, _next: NextFunction) => {
-  console.error(error);
-  response.status(500).json({ message: "Ocurrió un error interno" });
-});
+app.use(errorMiddleware);
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
