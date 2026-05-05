@@ -7,6 +7,7 @@ import { granjasRouter } from "./routes/granjas.routes";
 import { clientesRouter } from "./routes/clientes.routes";
 import { lineasVentaRouter } from "./routes/lineas-venta.routes";
 import { sobranteRouter } from "./routes/sobrante.routes";
+import { adminRouter } from "./routes/admin.routes";
 import { requireAuth } from "./middleware/auth.middleware";
 
 const app = express();
@@ -66,6 +67,7 @@ app.use("/api/granjas", requireAuth, granjasRouter);
 app.use("/api/clientes", requireAuth, clientesRouter);
 app.use("/api/lineas-venta", requireAuth, lineasVentaRouter);
 app.use("/api/sobrante", requireAuth, sobranteRouter);
+app.use("/api/admin", requireAuth, adminRouter);
 
 app.use((error: Error, _request: Request, response: Response, _next: NextFunction) => {
   console.error(error);

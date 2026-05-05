@@ -46,6 +46,7 @@ export async function login(request: Request, response: Response) {
       id: user.id,
       username: user.username,
       role: user.role,
+      nombre: user.role === "admin" ? "María" : "Operario",
     },
   });
 }

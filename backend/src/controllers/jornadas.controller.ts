@@ -72,7 +72,12 @@ const cierreSchema = z.object({
 
 export async function getActiveJornada(_request: Request, response: Response) {
   const jornada = await getOrCreateActiveJornada();
-  return response.json(serializePrisma(jornada));
+  const serialized = serializePrisma(jornada) as Record<string, unknown>;
+
+  return response.json({
+    ...serialized,
+    updated_at: serialized.created_at,
+  });
 }
 
 export async function getJornadaMetricas(request: Request, response: Response) {

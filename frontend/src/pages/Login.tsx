@@ -20,7 +20,7 @@ export function Login() {
     onSuccess: (data) => {
       setAuth(data.token, data.user);
       toast.success("Sesión iniciada");
-      navigate("/");
+      navigate(data.user.role === "admin" ? "/admin" : "/");
     },
     onError: (error: Error) => {
       toast.error(error.message);

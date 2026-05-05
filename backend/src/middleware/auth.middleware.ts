@@ -17,3 +17,11 @@ export function requireAuth(request: Request, response: Response, next: NextFunc
     return response.status(401).json({ message: "Sesión inválida o expirada" });
   }
 }
+
+export function requireAdmin(request: Request, response: Response, next: NextFunction) {
+  if (request.user?.role !== "admin") {
+    return response.status(403).json({ message: "Acceso restringido a administradores" });
+  }
+
+  return next();
+}

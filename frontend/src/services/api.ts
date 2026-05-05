@@ -10,6 +10,7 @@ export type Jornada = {
   desperdicio_kg: number | null;
   muertero_kg: number | null;
   created_at: string;
+  updated_at?: string;
 };
 
 export type Granja = {
@@ -33,6 +34,33 @@ export type MetricasJornada = {
   clientes_atendidos: number;
   pesadas_realizadas: number;
   promedio_por_cliente: number;
+};
+
+export type AdminMetricasDashboard = {
+  entrada_total_kg: number;
+  vendido_total_kg: number;
+  devoluciones_kg: number;
+  merma_estimada_kg: number;
+  merma_porcentaje: number;
+  merma_estado: "normal" | "alta" | "critica";
+  ultima_actualizacion: string;
+};
+
+export type AdminMermaHistorica = {
+  datos: Array<{
+    dia: number;
+    merma_kg: number;
+  }>;
+};
+
+export type AdminTopClientes = {
+  clientes: Array<{
+    nombre: string;
+    jabas: number;
+    granjas: string;
+    kg_neto: number;
+    estado: "OK" | "Dev.";
+  }>;
 };
 
 export type LineaVentaPayload = {
@@ -151,6 +179,36 @@ export const apiClient = {
   async getMetricas(jornadaId: number) {
     try {
       const response = await api.get<MetricasJornada>(`/jornadas/${jornadaId}/metricas`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getAdminMetricasDashboard(jornadaId: number) {
+    try {
+      const response = await api.get<AdminMetricasDashboard>("/admin/metricas-dashboard", {
+        params: { jornada_id: jornadaId },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getAdminMermaHistorica(dias = 7) {
+    try {
+      const response = await api.get<AdminMermaHistorica>("/admin/merma-historica", {
+        params: { dias },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getAdminTopClientes(jornadaId: number, limit = 4) {
+    try {
+      const response = await api.get<AdminTopClientes>("/admin/top-clientes", {
+        params: { jornada_id: jornadaId, limit },
+      });
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
