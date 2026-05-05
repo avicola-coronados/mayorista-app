@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JornadaEstado {
+  abierta
+  cerrada
+}
+
+enum OrigenLineaVenta {
+  partida
+  piso
+}
+
+enum TipoDevolucion {
+  pelado
+  muerto
+  vivo
+}
+
+enum UserRole {
+  operario
+  admin
+}
+
+model Usuario {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  password_hash String
+  role          UserRole
+  activo        Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  @@map("usuario")
+}
+
+model Jornada {
+  id             Int            @id @default(autoincrement())
+  fecha          DateTime       @default(now())
+  codigo         String         @unique
+  estado         JornadaEstado  @default(abierta)
+  desperdicio_kg Decimal?       @db.Decimal(10, 2)
+  muertero_kg    Decimal?       @db.Decimal(10, 2)
+  created_at     DateTime       @default(now())
+  entradas       EntradaGranja[]
+  lineas_venta   LineaVenta[]
+  devoluciones   Devolucion[]
+  sobrantes      Sobrante[]     @relation("SobrantesActuales")
+  sobrantes_de   Sobrante[]     @relation("SobrantesOrigen")
+
+  @@map("jornada")
+}
+
+model Granja {
+  id         Int            @id @default(autoincrement())
+  nombre     String         @unique
+  activo     Boolean        @default(true)
+  created_at DateTime       @default(now())
+  entradas   EntradaGranja[]
+  ventas     LineaVenta[]
+
+  @@map("granja")
+}
+
+model Cliente {
+  id           Int          @id @default(autoincrement())
+  nombre       String       @unique
+  activo       Boolean      @default(true)
+  created_at   DateTime     @default(now())
+  lineas_venta LineaVenta[]
+  devoluciones Devolucion[]
+
+  @@map("cliente")
+}
+
+model EntradaGranja {
+  id                  Int      @id @default(autoincrement())
+  jornada_id          Int
+  granja_id           Int
+  jabas_total         Int
+  peso_bruto          Decimal  @db.Decimal(10, 2)
+  tara                Decimal  @db.Decimal(10, 2)
+  peso_neto           Decimal  @db.Decimal(10, 2)
+  peso_salida_granja  Decimal? @db.Decimal(10, 2)
+  peso_ingreso_local  Decimal? @db.Decimal(10, 2)
+  combustible_kg      Decimal  @default(0) @db.Decimal(10, 2)
+  created_at          DateTime @default(now())
+  jornada             Jornada  @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
+  granja              Granja   @relation(fields: [granja_id], references: [id])
+
+  @@map("entrada_granja")
+}
+
+model LineaVenta {
+  id             Int              @id @default(autoincrement())
+  jornada_id     Int
+  cliente_id     Int
+  granja_id      Int
+  origen         OrigenLineaVenta
+  jabas          Int
+  peso_bruto     Decimal          @db.Decimal(10, 2)
+  tara           Decimal          @db.Decimal(10, 2)
+  tara_por_jaba  Decimal          @default(5.8) @db.Decimal(10, 2)
+  peso_neto      Decimal          @db.Decimal(10, 2)
+  created_at     DateTime         @default(now())
+  jornada        Jornada          @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
+  cliente        Cliente          @relation(fields: [cliente_id], references: [id])
+  granja         Granja           @relation(fields: [granja_id], references: [id])
+
+  @@map("linea_venta")
+}
+
+model Devolucion {
+  id         Int            @id @default(autoincrement())
+  jornada_id Int
+  cliente_id Int
+  tipo       TipoDevolucion
+  jabas      Int?
+  peso_bruto Decimal        @db.Decimal(10, 2)
+  tara       Decimal        @db.Decimal(10, 2)
+  peso_neto  Decimal        @db.Decimal(10, 2)
+  created_at DateTime       @default(now())
+  jornada    Jornada        @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
+  cliente    Cliente        @relation(fields: [cliente_id], references: [id])
+
+  @@map("devolucion")
+}
+
+model Sobrante {
+  id                Int      @id @default(autoincrement())
+  jornada_id        Int
+  jornada_origen_id Int
+  jabas             Int
+  peso_bruto        Decimal  @db.Decimal(10, 2)
+  tara              Decimal  @db.Decimal(10, 2)
+  peso_neto         Decimal  @db.Decimal(10, 2)
+  created_at        DateTime @default(now())
+  jornada           Jornada  @relation("SobrantesActuales", fields: [jornada_id], references: [id], onDelete: Cascade)
+  jornada_origen    Jornada  @relation("SobrantesOrigen", fields: [jornada_origen_id], references: [id])
+
+  @@map("sobrante")
+}

@@ -1,0 +1,49 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: "Space Grotesk", sans-serif;
+    color: #0f172a;
+    background:
+      radial-gradient(circle at top left, rgba(232, 71, 26, 0.08), transparent 28%),
+      radial-gradient(circle at top right, rgba(46, 139, 58, 0.08), transparent 22%),
+      linear-gradient(180deg, #fffdf8 0%, #f8fafc 100%);
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  input,
+  select,
+  button,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-3xl border border-white/60 bg-white/90 shadow-soft backdrop-blur;
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-semibold text-slate-700;
+  }
+
+  .field-input {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100;
+  }
+
+  .primary-button {
+    @apply inline-flex items-center justify-center rounded-2xl bg-coronados-orange px-5 py-3 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-slate-300;
+  }
+
+  .secondary-button {
+    @apply inline-flex items-center justify-center rounded-2xl bg-coronados-green px-5 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300;
+  }
+}

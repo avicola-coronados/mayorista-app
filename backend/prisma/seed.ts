@@ -1,0 +1,125 @@
+import "dotenv/config";
+import bcrypt from "bcryptjs";
+import { PrismaClient, UserRole } from "@prisma/client";
+
+const prisma = new PrismaClient();
+const DEFAULT_TARA_POR_JABA = 5.8;
+const APP_TIMEZONE = process.env.APP_TIMEZONE ?? "America/Lima";
+
+function getTodayCode() {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIMEZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const [day, month, year] = formatter.format(new Date()).split("/");
+  return `${day}${month}${year}`;
+}
+
+async function main() {
+  const granjas = ["Redondos 1", "Redondos 2", "San Fernando"];
+  const clientes = ["PIZARRO", "MILAGROS", "PERCY", "MARINO", "NAVARRO"];
+  const passwordHash = await bcrypt.hash("coronados2024", 10);
+
+  const createdGranjas = await Promise.all(
+    granjas.map((nombre) =>
+      prisma.granja.upsert({
+        where: { nombre },
+        update: { activo: true },
+        create: { nombre, activo: true },
+      }),
+    ),
+  );
+
+  await Promise.all(
+    clientes.map((nombre) =>
+      prisma.cliente.upsert({
+        where: { nombre },
+        update: { activo: true },
+        create: { nombre, activo: true },
+      }),
+    ),
+  );
+
+  await prisma.usuario.upsert({
+    where: { username: "operario" },
+    update: {
+      password_hash: passwordHash,
+      role: UserRole.operario,
+      activo: true,
+    },
+    create: {
+      username: "operario",
+      password_hash: passwordHash,
+      role: UserRole.operario,
+      activo: true,
+    },
+  });
+
+  await prisma.usuario.upsert({
+    where: { username: "admin" },
+    update: {
+      password_hash: passwordHash,
+      role: UserRole.admin,
+      activo: true,
+    },
+    create: {
+      username: "admin",
+      password_hash: passwordHash,
+      role: UserRole.admin,
+      activo: true,
+    },
+  });
+
+  const codigo = getTodayCode();
+  const jornada = await prisma.jornada.upsert({
+    where: { codigo },
+    update: {
+      estado: "abierta",
+      fecha: new Date(),
+    },
+    create: {
+      codigo,
+      estado: "abierta",
+      fecha: new Date(),
+    },
+  });
+
+  const granja = createdGranjas[0];
+  const tara = Number((100 * DEFAULT_TARA_POR_JABA).toFixed(2));
+  const pesoBruto = 2000;
+  const pesoNeto = Number((pesoBruto - tara).toFixed(2));
+
+  const existingEntrada = await prisma.entradaGranja.findFirst({
+    where: {
+      jornada_id: jornada.id,
+      granja_id: granja.id,
+    },
+  });
+
+  if (!existingEntrada) {
+    await prisma.entradaGranja.create({
+      data: {
+        jornada_id: jornada.id,
+        granja_id: granja.id,
+        jabas_total: 100,
+        peso_bruto: pesoBruto,
+        tara,
+        peso_neto: pesoNeto,
+        combustible_kg: 0,
+      },
+    });
+  }
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (error) => {
+    console.error(error);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
