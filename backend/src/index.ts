@@ -10,7 +10,7 @@ import { sobranteRouter } from "./routes/sobrante.routes";
 import { requireAuth } from "./middleware/auth.middleware";
 
 const app = express();
-const port = Number(process.env.PORT ?? 3000);
+const PORT = process.env.PORT || 3000;
 const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
 
 app.use(
@@ -37,6 +37,6 @@ app.use((error: Error, _request: Request, response: Response, _next: NextFunctio
   response.status(500).json({ message: "Ocurrió un error interno" });
 });
 
-app.listen(port, () => {
-  console.log(`Backend escuchando en http://localhost:${port}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
 });
