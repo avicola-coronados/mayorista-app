@@ -199,7 +199,7 @@ npm run preview
 
 ## Observaciones Del MVP
 
-- No incluye PWA instalable
-- No incluye CRUD de clientes/granjas
-- No incluye registro UI de devoluciones, sobrantes o entradas de granja
-- No incluye recuperación de contraseña ni historial de jornadas
+- No incluye PWA instalable.
+- No incluye CRUD de clientes/granjas.
+- No incluye registro UI de devoluciones, sobrantes o entradas de granja.
+- No incluye recuperación de contraseña ni historial de jornadas.
