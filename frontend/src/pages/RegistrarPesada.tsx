@@ -188,7 +188,7 @@ export function RegistrarPesada() {
               }
             >
               <option value={0}>Selecciona una granja</option>
-              {granjasQuery.data?.map((granja) => (
+              {granjasQuery.data?.filter((granja) => granja.activo).map((granja) => (
                 <option key={granja.id} value={granja.id}>
                   {granja.nombre}
                 </option>

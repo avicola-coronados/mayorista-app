@@ -17,6 +17,8 @@ export type Granja = {
   id: number;
   nombre: string;
   activo: boolean;
+  created_at?: string;
+  total_entregas?: number;
 };
 
 export type Cliente = {
@@ -119,6 +121,15 @@ export type Sobrante = {
   peso_neto: number;
 };
 
+export type GranjasResponse = {
+  granjas: Granja[];
+};
+
+export type GranjaPayload = {
+  nombre: string;
+  activo?: boolean;
+};
+
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api`,
 });
@@ -153,7 +164,7 @@ api.interceptors.response.use(
 
 function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
-    return error.response?.data?.message ?? "Ocurrió un error inesperado";
+    return error.response?.data?.message ?? error.response?.data?.error ?? "Ocurrió un error inesperado";
   }
 
   return "Ocurrió un error inesperado";
@@ -226,7 +237,41 @@ export const apiClient = {
   },
   async getGranjas() {
     try {
-      const response = await api.get<Granja[]>("/granjas");
+      const response = await api.get<GranjasResponse | Granja[]>("/granjas");
+      return Array.isArray(response.data) ? response.data : response.data.granjas;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getGranja(id: number) {
+    try {
+      const response = await api.get<Granja>(`/granjas/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createGranja(payload: GranjaPayload) {
+    try {
+      const response = await api.post<Granja & { mensaje: string }>("/granjas", {
+        nombre: payload.nombre,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateGranja(id: number, payload: Required<GranjaPayload>) {
+    try {
+      const response = await api.put<Granja & { mensaje: string }>(`/granjas/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteGranja(id: number) {
+    try {
+      const response = await api.delete<{ mensaje: string }>(`/granjas/${id}`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
