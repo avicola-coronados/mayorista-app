@@ -12,6 +12,7 @@ import { sobranteRouter } from "./modules/sobrante/sobrante.routes";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
+console.log(`Booting Coronados backend with PORT=${PORT}`);
 const allowedOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
@@ -52,6 +53,10 @@ app.use(
 );
 app.use(express.json());
 
+app.get("/", (_request, response) => {
+  response.json({ ok: true, service: "coronados-backend" });
+});
+
 app.get("/api/health", (_request, response) => {
   response.json({ ok: true });
 });
@@ -62,6 +67,7 @@ app.use("/api/granjas", requireAuth, granjasRouter);
 app.use("/api/clientes", requireAuth, clientesRouter);
 app.use("/api/lineas-venta", requireAuth, lineasVentaRouter);
 app.use("/api/sobrante", requireAuth, sobranteRouter);
+app.use("/api/admin", requireAuth, adminRouter);
 
 app.use(errorMiddleware);
 

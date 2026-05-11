@@ -21,7 +21,8 @@ function getTodayCode() {
 async function main() {
   const granjas = ["Redondos 1", "Redondos 2", "San Fernando"];
   const clientes = ["PIZARRO", "MILAGROS", "PERCY", "MARINO", "NAVARRO"];
-  const passwordHash = await bcrypt.hash("coronados2024", 10);
+  const operarioPasswordHash = await bcrypt.hash("coronados2024", 10);
+  const adminPasswordHash = await bcrypt.hash("admin2024", 10);
 
   const createdGranjas = await Promise.all(
     granjas.map((nombre) =>
@@ -46,13 +47,13 @@ async function main() {
   await prisma.usuario.upsert({
     where: { username: "operario" },
     update: {
-      password_hash: passwordHash,
+      password_hash: operarioPasswordHash,
       role: UserRole.operario,
       activo: true,
     },
     create: {
       username: "operario",
-      password_hash: passwordHash,
+      password_hash: operarioPasswordHash,
       role: UserRole.operario,
       activo: true,
     },
@@ -61,13 +62,13 @@ async function main() {
   await prisma.usuario.upsert({
     where: { username: "admin" },
     update: {
-      password_hash: passwordHash,
+      password_hash: adminPasswordHash,
       role: UserRole.admin,
       activo: true,
     },
     create: {
       username: "admin",
-      password_hash: passwordHash,
+      password_hash: adminPasswordHash,
       role: UserRole.admin,
       activo: true,
     },
