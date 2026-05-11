@@ -1,7 +1,1 @@
-import { Router } from "express";
-import { login } from "../controllers/auth.controller";
-import { asyncHandler } from "../utils/async-handler";
-
-export const authRouter = Router();
-
-authRouter.post("/login", asyncHandler(login));
+export { authRouter } from "../modules/auth/auth.routes";
