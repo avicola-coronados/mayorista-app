@@ -13,6 +13,37 @@ export type Jornada = {
   updated_at?: string;
 };
 
+export type JornadaResumen = {
+  id: number;
+  codigo: string;
+  fecha: string;
+  entrada_total_kg: number;
+  vendido_total_kg: number;
+  devoluciones_total_kg: number;
+  desperdicio_kg: number;
+  muertero_kg: number;
+  merma_kg: number;
+  merma_porcentaje: number;
+  estado: "abierta" | "cerrada";
+};
+
+export type JornadasListParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  estado?: "abierta" | "cerrada";
+};
+
+export type JornadasListResponse = {
+  jornadas: JornadaResumen[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+};
+
 export type Granja = {
   id: number;
   nombre: string;
@@ -183,6 +214,44 @@ export const apiClient = {
     try {
       const response = await api.get<Jornada>("/jornadas/activa");
       return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getJornadas(params: JornadasListParams, signal?: AbortSignal) {
+    try {
+      const response = await api.get<JornadasListResponse>("/jornadas", { params, signal });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getJornadaDetalle(id: number) {
+    try {
+      const response = await api.get<JornadaResumen>(`/jornadas/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async exportJornada(id: number) {
+    try {
+      const response = await api.get<Blob>(`/jornadas/${id}/export`, {
+        params: { format: "pdf" },
+        responseType: "blob",
+      });
+      return response;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async exportJornadas(params: JornadasListParams) {
+    try {
+      const response = await api.get<Blob>("/jornadas/export", {
+        params: { ...params, format: "excel" },
+        responseType: "blob",
+      });
+      return response;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
