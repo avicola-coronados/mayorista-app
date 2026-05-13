@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../../utils/async-handler";
 import {
   closeJornada,
+  exportClientesJornada,
   exportJornada,
   exportJornadas,
   getActiveJornada,
@@ -16,6 +17,7 @@ export const jornadasRouter = Router();
 jornadasRouter.get("/activa", asyncHandler(getActiveJornada));
 jornadasRouter.get("/", requireAdmin, asyncHandler(getJornadas));
 jornadasRouter.get("/export", requireAdmin, asyncHandler(exportJornadas));
+jornadasRouter.get("/:id/clientes/export", requireAdmin, asyncHandler(exportClientesJornada));
 jornadasRouter.get("/:id/export", requireAdmin, asyncHandler(exportJornada));
 jornadasRouter.get("/:id", requireAdmin, asyncHandler(getJornada));
 jornadasRouter.get("/:id/metricas", asyncHandler(getJornadaMetricas));

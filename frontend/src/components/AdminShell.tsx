@@ -6,6 +6,7 @@ type AdminShellProps = {
   title: string;
   subtitle: string;
   actions?: ReactNode;
+  beforeTitle?: ReactNode;
   children: ReactNode;
 };
 
@@ -19,7 +20,7 @@ const navItems = [
   { to: "/admin/config", label: "Config." },
 ];
 
-export function AdminShell({ actions, children, subtitle, title }: AdminShellProps) {
+export function AdminShell({ actions, beforeTitle, children, subtitle, title }: AdminShellProps) {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -79,9 +80,12 @@ export function AdminShell({ actions, children, subtitle, title }: AdminShellPro
 
         <main className="min-w-0 flex-1 bg-[#F5F5F5]">
           <header className="flex items-center justify-between gap-4 bg-coronados-orange px-[30px] py-5 text-white">
-            <div className="min-w-0">
-              <h1 className="truncate text-[22px] font-medium leading-tight">{title}</h1>
-              <p className="mt-1 text-[13px] font-medium text-white/85">{subtitle}</p>
+            <div className="flex min-w-0 items-start gap-3">
+              {beforeTitle}
+              <div className="min-w-0">
+                <h1 className="truncate text-[22px] font-medium leading-tight">{title}</h1>
+                <p className="mt-1 text-[13px] font-medium text-white/85">{subtitle}</p>
+              </div>
             </div>
             {actions}
           </header>

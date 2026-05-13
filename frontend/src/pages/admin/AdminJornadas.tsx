@@ -2,18 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
+  IconArrowLeft,
   IconCalendar,
   IconCalendarOff,
   IconDownload,
   IconEye,
+  IconFileSpreadsheet,
   IconLoader2,
+  IconPrinter,
   IconSearch,
+  IconShoppingCartOff,
   IconX,
 } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import { AdminShell } from "../../components/AdminShell";
 import {
   apiClient,
+  type JornadaDetalle,
   type JornadaResumen,
   type JornadasListParams,
 } from "../../services/api";
@@ -189,54 +194,165 @@ export function AdminJornadaDetalle() {
     queryKey: ["admin-jornada", jornadaId],
     queryFn: () => apiClient.getJornadaDetalle(jornadaId),
     enabled: Number.isInteger(jornadaId) && jornadaId > 0,
+    staleTime: 5 * 60 * 1000,
   });
+  const detalle = jornadaQuery.data;
+  const jornada = detalle?.jornada;
+
+  useEffect(() => {
+    if (jornadaQuery.isError) {
+      toast.error("No se pudo cargar la jornada");
+    }
+  }, [jornadaQuery.isError]);
+
+  async function handleExportPdf() {
+    if (!jornada) {
+      return;
+    }
+
+    const toastId = toast.loading("Generando PDF...");
+
+    try {
+      const response = await apiClient.exportJornada(jornada.id);
+      downloadBlob(response.data, getFilename(response.headers["content-disposition"]) ?? `jornada_${jornada.codigo}.pdf`);
+      toast.success("PDF descargado", { id: toastId });
+    } catch (error) {
+      toast.error((error as Error).message, { id: toastId });
+    }
+  }
+
+  async function handleExportClientes() {
+    if (!jornada) {
+      return;
+    }
+
+    const toastId = toast.loading("Descargando Excel...");
+
+    try {
+      const response = await apiClient.exportClientesJornada(jornada.id);
+      downloadBlob(response.data, getFilename(response.headers["content-disposition"]) ?? `clientes_jornada_${jornada.codigo}.xlsx`);
+      toast.success("Excel descargado", { id: toastId });
+    } catch (error) {
+      toast.error((error as Error).message, { id: toastId });
+    }
+  }
+
+  const soldPercent = jornada ? calculatePercent(jornada.vendido_total_kg, jornada.entrada_total_kg) : 0;
+  const devolucionesPercent = jornada ? calculatePercent(jornada.devoluciones_total_kg, jornada.entrada_total_kg) : 0;
+  const clientesTotal = detalle?.consolidado_clientes.reduce((sum, cliente) => sum + cliente.peso_neto_kg, 0) ?? 0;
+  const hasRoundingWarning = jornada ? Math.abs(clientesTotal - jornada.vendido_total_kg) > 1 : false;
 
   return (
-    <AdminShell title="Detalle de jornada" subtitle="Resumen consolidado de la jornada">
-      <div className="p-[30px]">
+    <AdminShell
+      title={jornada ? `Jornada ${jornada.codigo}` : "Jornada"}
+      subtitle={jornada ? formatFullDate(jornada.fecha) : "Cargando detalle"}
+      actions={
+        <div className="no-print flex gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex items-center gap-[6px] rounded-[6px] border border-white/30 bg-white/15 px-[14px] py-2 text-[14px] font-medium text-white transition hover:bg-white/20"
+          >
+            <IconPrinter size={16} />
+            <span className="hidden lg:inline">Imprimir</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={!jornada}
+            className="flex items-center gap-[6px] rounded-[6px] bg-coronados-green px-[14px] py-2 text-[14px] font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <IconDownload size={16} />
+            <span className="hidden lg:inline">Exportar PDF</span>
+          </button>
+        </div>
+      }
+      beforeTitle={
         <button
           type="button"
           onClick={() => navigate("/admin/jornadas")}
-          className="mb-5 rounded-[8px] border border-neutral-200 bg-white px-4 py-2 text-[13px] font-medium text-neutral-700 transition hover:bg-neutral-50"
+          aria-label="Volver a jornadas"
+          className="no-print flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-white/20 text-white transition hover:bg-white/30"
         >
-          Volver a jornadas
+          <IconArrowLeft size={18} />
         </button>
+      }
+    >
+      <style>
+        {`@media print {
+          aside, .no-print { display: none !important; }
+          main { width: 100% !important; }
+          body, html { background: white !important; }
+          .print-break-after { break-after: page; page-break-after: always; }
+          table { page-break-inside: auto; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+        }`}
+      </style>
 
+      <div className="p-[30px]">
         {jornadaQuery.isLoading ? (
-          <div className="h-[260px] animate-pulse rounded-[12px] border border-neutral-200 bg-white" />
+          <JornadaDetalleSkeleton />
         ) : jornadaQuery.isError || !jornadaQuery.data ? (
           <ErrorState
             message={(jornadaQuery.error as Error)?.message ?? "Error al cargar la jornada"}
             onRetry={() => jornadaQuery.refetch()}
           />
         ) : (
-          <section className="rounded-[12px] border border-neutral-200 bg-white p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-100 pb-5">
-              <div>
-                <h2 className="text-[22px] font-semibold text-neutral-950">Jornada {jornadaQuery.data.codigo}</h2>
-                <p className="mt-1 text-[14px] font-medium text-neutral-500">
-                  {formatLongDate(jornadaQuery.data.fecha)}
-                </p>
+          <>
+            <section className="mb-6 grid gap-[14px] md:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                label="Entrada total"
+                value={formatKg(jornadaQuery.data.jornada.entrada_total_kg)}
+                secondary={`${jornadaQuery.data.jornada.entrada_total_jabas} jabas`}
+                colorClass="text-coronados-orange"
+              />
+              <MetricCard
+                label="Vendido"
+                value={formatKg(jornadaQuery.data.jornada.vendido_total_kg)}
+                secondary={`${soldPercent.toFixed(2)}% de entrada`}
+              />
+              <MetricCard
+                label="Devoluciones"
+                value={formatKg(jornadaQuery.data.jornada.devoluciones_total_kg)}
+                secondary={`${devolucionesPercent.toFixed(2)}% de entrada`}
+              />
+              <MetricCard
+                label="Merma"
+                value={formatKg(jornadaQuery.data.jornada.merma_kg)}
+                secondary={`${jornadaQuery.data.jornada.merma_porcentaje.toFixed(2)}%`}
+                colorClass={getMermaTextClass(jornadaQuery.data.jornada.merma_porcentaje)}
+                secondaryClass={getMermaTextClass(jornadaQuery.data.jornada.merma_porcentaje)}
+              />
+            </section>
+
+            <section className="print-break-after mb-6 rounded-[12px] border border-neutral-200 bg-white p-5">
+              <h2 className="mb-4 text-[16px] font-medium text-neutral-950">Detalle de Entradas</h2>
+              <div className="grid gap-3 lg:grid-cols-3">
+                {jornadaQuery.data.entradas_granjas.map((entrada) => (
+                  <article key={entrada.granja_id} className="rounded-[8px] bg-neutral-50 p-[14px]">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-coronados-green" />
+                      <h3 className="text-[13px] font-medium text-neutral-950">{entrada.granja_nombre}</h3>
+                    </div>
+                    <p className="text-[18px] font-medium text-coronados-orange">{formatKg(entrada.peso_neto_kg)}</p>
+                    <p className="mt-1 text-[11px] font-medium text-neutral-500">{entrada.jabas} jabas</p>
+                  </article>
+                ))}
               </div>
-              <EstadoBadge estado={jornadaQuery.data.estado} />
-            </div>
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <DetailMetric label="Entrada" value={formatKg(jornadaQuery.data.entrada_total_kg)} highlight />
-              <DetailMetric label="Vendido" value={formatKg(jornadaQuery.data.vendido_total_kg)} />
-              <DetailMetric label="Devoluciones" value={formatKg(jornadaQuery.data.devoluciones_total_kg)} />
-              <DetailMetric label="Desperdicio" value={formatKg(jornadaQuery.data.desperdicio_kg)} />
-              <DetailMetric label="Muertero" value={formatKg(jornadaQuery.data.muertero_kg)} />
-              <div className="rounded-[8px] bg-neutral-50 p-4">
-                <p className="text-[13px] font-medium text-neutral-500">Merma</p>
-                <div className="mt-2">
-                  <MermaBadge value={jornadaQuery.data.merma_porcentaje} />
-                </div>
-                <p className="mt-2 text-[18px] font-semibold text-neutral-950">
-                  {formatKg(jornadaQuery.data.merma_kg)}
-                </p>
+            </section>
+
+            {hasRoundingWarning ? (
+              <div className="mb-4 rounded-[8px] border border-orange-200 bg-orange-50 px-4 py-3 text-[13px] font-medium text-orange-800">
+                Los totales pueden tener diferencias por redondeo.
               </div>
-            </div>
-          </section>
+            ) : null}
+
+            <ClientesConsolidado
+              detalle={jornadaQuery.data}
+              onExportExcel={handleExportClientes}
+              onSelectCliente={(clienteId) => navigate(`/admin/clientes/${clienteId}?jornada_id=${jornadaId}`)}
+            />
+          </>
         )}
       </div>
     </AdminShell>
@@ -323,6 +439,146 @@ function JornadasTable({
         ))}
       </div>
     </>
+  );
+}
+
+function MetricCard({
+  colorClass = "text-neutral-950",
+  label,
+  secondary,
+  secondaryClass = "text-neutral-500",
+  value,
+}: {
+  label: string;
+  value: string;
+  secondary: string;
+  colorClass?: string;
+  secondaryClass?: string;
+}) {
+  return (
+    <article className="rounded-[10px] border border-neutral-200 bg-white p-4">
+      <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-neutral-500">{label}</p>
+      <p className={`mt-2 text-[24px] font-medium leading-tight ${colorClass}`}>{value}</p>
+      <p className={`mt-1 text-[12px] font-medium ${secondaryClass}`}>{secondary}</p>
+    </article>
+  );
+}
+
+function ClientesConsolidado({
+  detalle,
+  onExportExcel,
+  onSelectCliente,
+}: {
+  detalle: JornadaDetalle;
+  onExportExcel: () => void;
+  onSelectCliente: (clienteId: number) => void;
+}) {
+  const totals = detalle.consolidado_clientes.reduce(
+    (accumulator, cliente) => ({
+      pesadas: accumulator.pesadas + cliente.total_pesadas,
+      jabas: accumulator.jabas + cliente.total_jabas,
+      bruto: accumulator.bruto + cliente.peso_bruto_kg,
+      tara: accumulator.tara + cliente.tara_kg,
+      neto: accumulator.neto + cliente.peso_neto_kg,
+    }),
+    { pesadas: 0, jabas: 0, bruto: 0, tara: 0, neto: 0 },
+  );
+
+  return (
+    <section className="overflow-hidden rounded-[12px] border border-neutral-200 bg-white">
+      <div className="flex items-center justify-between gap-4 border-b border-neutral-200 p-5">
+        <div>
+          <h2 className="text-[16px] font-medium text-neutral-950">Consolidado por Cliente</h2>
+          <p className="mt-1 text-[13px] font-medium text-neutral-500">Ventas registradas en esta jornada</p>
+        </div>
+        <button
+          type="button"
+          onClick={onExportExcel}
+          className="no-print flex items-center gap-[6px] rounded-[6px] border border-coronados-green bg-transparent px-3 py-[7px] text-[12px] font-medium text-coronados-green transition hover:bg-green-50"
+        >
+          <IconFileSpreadsheet size={14} />
+          Exportar Excel
+        </button>
+      </div>
+
+      {detalle.consolidado_clientes.length === 0 ? (
+        <div className="px-6 py-14 text-center">
+          <IconShoppingCartOff size={48} className="mx-auto text-neutral-400" />
+          <p className="mt-3 text-[15px] font-medium text-neutral-900">No hay ventas registradas en esta jornada</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] border-collapse">
+            <caption className="sr-only">Consolidado de ventas por cliente para la jornada {detalle.jornada.codigo}</caption>
+            <thead className="bg-coronados-green text-white">
+              <tr>
+                <ClienteHead align="left">Cliente</ClienteHead>
+                <ClienteHead align="right">Jabas</ClienteHead>
+                <ClienteHead align="right">Peso Bruto</ClienteHead>
+                <ClienteHead align="right">Tara</ClienteHead>
+                <ClienteHead align="right">Peso Neto</ClienteHead>
+                <ClienteHead align="right">% del Total</ClienteHead>
+              </tr>
+            </thead>
+            <tbody>
+              {detalle.consolidado_clientes.map((cliente) => (
+                <tr
+                  key={cliente.cliente_id}
+                  onClick={() => onSelectCliente(cliente.cliente_id)}
+                  className="cursor-pointer border-b border-neutral-200 transition hover:bg-neutral-50"
+                >
+                  <td className="px-5 py-[14px]">
+                    <div className="flex items-center gap-[10px]">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#E8F5E9] text-[13px] font-medium text-coronados-green">
+                        {getIniciales(cliente.cliente_nombre)}
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-medium text-neutral-950">{cliente.cliente_nombre}</p>
+                        <p className="mt-0.5 text-[12px] font-medium text-neutral-500">{cliente.total_pesadas} pesadas</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-[14px] text-right text-[14px] font-medium text-neutral-950">{cliente.total_jabas}</td>
+                  <td className="px-5 py-[14px] text-right text-[14px] font-medium text-neutral-950">{formatKg(cliente.peso_bruto_kg)}</td>
+                  <td className="px-5 py-[14px] text-right text-[13px] font-medium text-neutral-500">{formatKg(cliente.tara_kg)}</td>
+                  <td className="px-5 py-[14px] text-right text-[14px] font-medium text-coronados-orange">{formatKg(cliente.peso_neto_kg)}</td>
+                  <td className="px-5 py-[14px] text-right">
+                    <span className="inline-flex rounded-full bg-[#FEF0EB] px-[10px] py-1 text-[12px] font-medium text-coronados-orange">
+                      {cliente.porcentaje_total.toFixed(2)}%
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-neutral-50">
+                <td className="px-5 py-[14px] text-[14px] font-medium text-neutral-950">Total Consolidado</td>
+                <td className="px-5 py-[14px] text-right text-[14px] font-medium text-neutral-950">{totals.jabas}</td>
+                <td className="px-5 py-[14px] text-right text-[14px] font-medium text-neutral-950">{formatKg(totals.bruto)}</td>
+                <td className="px-5 py-[14px] text-right text-[13px] font-medium text-neutral-700">{formatKg(totals.tara)}</td>
+                <td className="px-5 py-[14px] text-right text-[15px] font-medium text-coronados-orange">{formatKg(totals.neto)}</td>
+                <td className="px-5 py-[14px] text-right">
+                  <span className="inline-flex rounded-full bg-coronados-green px-[10px] py-1 text-[12px] font-medium text-white">
+                    100%
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ClienteHead({ align, children }: { align: "left" | "right"; children: string }) {
+  const alignClass = align === "left" ? "text-left" : "text-right";
+
+  return (
+    <th
+      scope="col"
+      className={`px-5 py-3 ${alignClass} text-[11px] font-medium uppercase tracking-[0.5px]`}
+    >
+      {children}
+    </th>
   );
 }
 
@@ -606,6 +862,37 @@ function JornadasSkeleton() {
   );
 }
 
+function JornadaDetalleSkeleton() {
+  return (
+    <div className="grid gap-6">
+      <div className="grid gap-[14px] md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="h-[112px] animate-pulse rounded-[10px] border border-neutral-200 bg-white" />
+        ))}
+      </div>
+      <div className="rounded-[12px] border border-neutral-200 bg-white p-5">
+        <div className="mb-4 h-5 w-40 animate-pulse rounded bg-neutral-100" />
+        <div className="grid gap-3 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-[92px] animate-pulse rounded-[8px] bg-neutral-100" />
+          ))}
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-[12px] border border-neutral-200 bg-white">
+        <div className="h-[76px] animate-pulse border-b border-neutral-100 bg-white" />
+        <div className="h-10 bg-coronados-green" />
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="grid grid-cols-6 gap-4 border-b border-neutral-100 px-5 py-[14px]">
+            {Array.from({ length: 6 }).map((__, cellIndex) => (
+              <div key={cellIndex} className="h-5 animate-pulse rounded bg-neutral-100" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
     <div className="rounded-[12px] border border-neutral-200 bg-white px-6 py-16 text-center">
@@ -655,6 +942,26 @@ function formatKg(value: number) {
   return `${new Intl.NumberFormat("es-PE", { maximumFractionDigits: 0 }).format(value)} kg`;
 }
 
+function calculatePercent(value: number, total: number) {
+  if (total <= 0) {
+    return 0;
+  }
+
+  return Number(((value / total) * 100).toFixed(2));
+}
+
+function getMermaTextClass(value: number) {
+  if (value > 2) {
+    return "text-[#C62828]";
+  }
+
+  if (value >= 1) {
+    return "text-[#BA7517]";
+  }
+
+  return "text-coronados-green";
+}
+
 function formatLongDate(value: string) {
   const date = new Date(value);
   const day = new Intl.DateTimeFormat("es-PE", { weekday: "short" }).format(date).replace(".", "");
@@ -667,6 +974,28 @@ function formatLongDate(value: string) {
     .replace(".", "");
 
   return `${capitalize(day)} ${capitalize(rest)}`;
+}
+
+function formatFullDate(value: string) {
+  const date = new Date(value);
+  const weekday = new Intl.DateTimeFormat("es-PE", { weekday: "long" }).format(date);
+  const rest = new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+
+  return `${capitalize(weekday)} ${rest}`;
+}
+
+function getIniciales(nombre: string) {
+  const words = nombre.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+
+  return nombre.substring(0, 2).toUpperCase();
 }
 
 function capitalize(value: string) {

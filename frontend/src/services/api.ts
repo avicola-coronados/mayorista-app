@@ -27,6 +27,28 @@ export type JornadaResumen = {
   estado: "abierta" | "cerrada";
 };
 
+export type JornadaDetalle = {
+  jornada: JornadaResumen & {
+    entrada_total_jabas: number;
+  };
+  entradas_granjas: Array<{
+    granja_id: number;
+    granja_nombre: string;
+    peso_neto_kg: number;
+    jabas: number;
+  }>;
+  consolidado_clientes: Array<{
+    cliente_id: number;
+    cliente_nombre: string;
+    total_pesadas: number;
+    total_jabas: number;
+    peso_bruto_kg: number;
+    tara_kg: number;
+    peso_neto_kg: number;
+    porcentaje_total: number;
+  }>;
+};
+
 export type JornadasListParams = {
   page?: number;
   limit?: number;
@@ -228,7 +250,7 @@ export const apiClient = {
   },
   async getJornadaDetalle(id: number) {
     try {
-      const response = await api.get<JornadaResumen>(`/jornadas/${id}`);
+      const response = await api.get<JornadaDetalle>(`/jornadas/${id}`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
@@ -238,6 +260,16 @@ export const apiClient = {
     try {
       const response = await api.get<Blob>(`/jornadas/${id}/export`, {
         params: { format: "pdf" },
+        responseType: "blob",
+      });
+      return response;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async exportClientesJornada(id: number) {
+    try {
+      const response = await api.get<Blob>(`/jornadas/${id}/clientes/export`, {
         responseType: "blob",
       });
       return response;

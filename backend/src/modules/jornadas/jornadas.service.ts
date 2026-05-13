@@ -22,6 +22,28 @@ type JornadaSummary = {
   estado: "abierta" | "cerrada";
 };
 
+type JornadaDetalle = {
+  jornada: JornadaSummary & {
+    entrada_total_jabas: number;
+  };
+  entradas_granjas: Array<{
+    granja_id: number;
+    granja_nombre: string;
+    peso_neto_kg: number;
+    jabas: number;
+  }>;
+  consolidado_clientes: Array<{
+    cliente_id: number;
+    cliente_nombre: string;
+    total_pesadas: number;
+    total_jabas: number;
+    peso_bruto_kg: number;
+    tara_kg: number;
+    peso_neto_kg: number;
+    porcentaje_total: number;
+  }>;
+};
+
 export async function calculateJornadaMetrics(jornadaId: number) {
   const [entradaAggregate, ventaAggregate, devolucionAggregate, sobranteAggregate, counts] =
     await Promise.all([
@@ -126,27 +148,115 @@ export async function getJornadaDetalle(jornadaId: number) {
     throw new AppError("Jornada no encontrada", 404);
   }
 
-  return buildJornadaSummary(jornada);
+  return buildJornadaDetalle(jornada);
 }
 
 export async function exportJornadaPdf(jornadaId: number) {
-  const jornada = await getJornadaDetalle(jornadaId);
+  const detalle = await getJornadaDetalle(jornadaId);
+  const { jornada } = detalle;
   const lines = [
     "Coronados Avicola",
     `Jornada ${jornada.codigo}`,
     `Fecha: ${jornada.fecha.toISOString().slice(0, 10)}`,
     `Estado: ${jornada.estado}`,
-    `Entrada: ${jornada.entrada_total_kg} kg`,
+    "",
+    "Metricas principales",
+    `Entrada: ${jornada.entrada_total_kg} kg / ${jornada.entrada_total_jabas} jabas`,
     `Vendido: ${jornada.vendido_total_kg} kg`,
     `Devoluciones: ${jornada.devoluciones_total_kg} kg`,
     `Desperdicio: ${jornada.desperdicio_kg} kg`,
     `Muertero: ${jornada.muertero_kg} kg`,
     `Merma: ${jornada.merma_kg} kg (${jornada.merma_porcentaje}%)`,
+    "",
+    "Entradas por granja",
+    ...detalle.entradas_granjas.map(
+      (entrada) => `${entrada.granja_nombre}: ${entrada.peso_neto_kg} kg / ${entrada.jabas} jabas`,
+    ),
+    "",
+    "Consolidado clientes",
+    ...detalle.consolidado_clientes.map(
+      (cliente) =>
+        `${cliente.cliente_nombre}: ${cliente.peso_neto_kg} kg / ${cliente.total_jabas} jabas / ${cliente.porcentaje_total}%`,
+    ),
+    "",
+    `Generado: ${new Date().toISOString()}`,
   ];
 
   return {
     filename: `jornada_${jornada.codigo}.pdf`,
     content: buildSimplePdf(lines),
+  };
+}
+
+export async function exportClientesJornadaXlsx(jornadaId: number) {
+  const detalle = await getJornadaDetalle(jornadaId);
+  const workbook = new ExcelJS.Workbook();
+  const consolidadoSheet = workbook.addWorksheet("Consolidado");
+  const detalleSheet = workbook.addWorksheet("Detalle pesadas");
+
+  consolidadoSheet.columns = [
+    { header: "Cliente", key: "cliente", width: 28 },
+    { header: "Pesadas", key: "pesadas", width: 12 },
+    { header: "Jabas", key: "jabas", width: 12 },
+    { header: "Peso bruto kg", key: "bruto", width: 16 },
+    { header: "Tara kg", key: "tara", width: 12 },
+    { header: "Peso neto kg", key: "neto", width: 16 },
+    { header: "% del total", key: "porcentaje", width: 14 },
+  ];
+
+  detalle.consolidado_clientes.forEach((cliente) => {
+    consolidadoSheet.addRow({
+      cliente: cliente.cliente_nombre,
+      pesadas: cliente.total_pesadas,
+      jabas: cliente.total_jabas,
+      bruto: cliente.peso_bruto_kg,
+      tara: cliente.tara_kg,
+      neto: cliente.peso_neto_kg,
+      porcentaje: cliente.porcentaje_total,
+    });
+  });
+
+  detalleSheet.columns = [
+    { header: "Cliente", key: "cliente", width: 28 },
+    { header: "Granja", key: "granja", width: 24 },
+    { header: "Origen", key: "origen", width: 12 },
+    { header: "Jabas", key: "jabas", width: 10 },
+    { header: "Peso bruto kg", key: "bruto", width: 16 },
+    { header: "Tara kg", key: "tara", width: 12 },
+    { header: "Peso neto kg", key: "neto", width: 16 },
+    { header: "Fecha", key: "fecha", width: 22 },
+  ];
+
+  const lineas = await prisma.lineaVenta.findMany({
+    where: { jornada_id: jornadaId },
+    orderBy: { created_at: "asc" },
+    include: {
+      cliente: { select: { nombre: true } },
+      granja: { select: { nombre: true } },
+    },
+  });
+
+  lineas.forEach((linea) => {
+    detalleSheet.addRow({
+      cliente: linea.cliente.nombre,
+      granja: linea.granja.nombre,
+      origen: linea.origen,
+      jabas: linea.jabas,
+      bruto: linea.peso_bruto.toNumber(),
+      tara: linea.tara.toNumber(),
+      neto: linea.peso_neto.toNumber(),
+      fecha: linea.created_at.toISOString(),
+    });
+  });
+
+  styleWorksheetHeader(consolidadoSheet);
+  styleWorksheetHeader(detalleSheet);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+
+  return {
+    filename: `clientes_jornada_${detalle.jornada.codigo}.xlsx`,
+    content: Buffer.from(buffer),
   };
 }
 
@@ -189,11 +299,7 @@ export async function exportJornadasXlsx(query: JornadasListQuery) {
   });
 
   worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
-  worksheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FF2E8B3A" },
-  };
+  styleWorksheetHeader(worksheet);
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
 
   const start = query.fecha_inicio ?? "todo";
@@ -318,6 +424,102 @@ async function buildJornadaSummary(jornada: {
     merma_porcentaje: mermaPorcentaje,
     estado: jornada.estado,
   };
+}
+
+async function buildJornadaDetalle(jornada: {
+  id: number;
+  codigo: string;
+  fecha: Date;
+  estado: "abierta" | "cerrada";
+  desperdicio_kg: { toNumber(): number } | null;
+  muertero_kg: { toNumber(): number } | null;
+}): Promise<JornadaDetalle> {
+  const [summary, entradaJabasAggregate, entradasGrouped, ventasGrouped] = await Promise.all([
+    buildJornadaSummary(jornada),
+    prisma.entradaGranja.aggregate({
+      where: { jornada_id: jornada.id },
+      _sum: { jabas_total: true },
+    }),
+    prisma.entradaGranja.groupBy({
+      by: ["granja_id"],
+      where: { jornada_id: jornada.id },
+      _sum: {
+        peso_neto: true,
+        jabas_total: true,
+      },
+      orderBy: { granja_id: "asc" },
+    }),
+    prisma.lineaVenta.groupBy({
+      by: ["cliente_id"],
+      where: { jornada_id: jornada.id },
+      _count: { _all: true },
+      _sum: {
+        jabas: true,
+        peso_bruto: true,
+        tara: true,
+        peso_neto: true,
+      },
+      orderBy: {
+        _sum: {
+          peso_neto: "desc",
+        },
+      },
+    }),
+  ]);
+
+  const [granjas, clientes] = await Promise.all([
+    prisma.granja.findMany({
+      where: { id: { in: entradasGrouped.map((entrada) => entrada.granja_id) } },
+      select: { id: true, nombre: true },
+    }),
+    prisma.cliente.findMany({
+      where: { id: { in: ventasGrouped.map((venta) => venta.cliente_id) } },
+      select: { id: true, nombre: true },
+    }),
+  ]);
+
+  const granjaNames = new Map(granjas.map((granja) => [granja.id, granja.nombre]));
+  const clienteNames = new Map(clientes.map((cliente) => [cliente.id, cliente.nombre]));
+
+  return {
+    jornada: {
+      ...summary,
+      entrada_total_jabas: entradaJabasAggregate._sum.jabas_total ?? 0,
+    },
+    entradas_granjas: entradasGrouped.map((entrada) => ({
+      granja_id: entrada.granja_id,
+      granja_nombre: granjaNames.get(entrada.granja_id) ?? "Granja sin nombre",
+      peso_neto_kg: entrada._sum.peso_neto?.toNumber() ?? 0,
+      jabas: entrada._sum.jabas_total ?? 0,
+    })),
+    consolidado_clientes: ventasGrouped.map((venta) => {
+      const pesoNeto = venta._sum.peso_neto?.toNumber() ?? 0;
+
+      return {
+        cliente_id: venta.cliente_id,
+        cliente_nombre: clienteNames.get(venta.cliente_id) ?? "Cliente sin nombre",
+        total_pesadas: venta._count._all,
+        total_jabas: venta._sum.jabas ?? 0,
+        peso_bruto_kg: venta._sum.peso_bruto?.toNumber() ?? 0,
+        tara_kg: venta._sum.tara?.toNumber() ?? 0,
+        peso_neto_kg: pesoNeto,
+        porcentaje_total:
+          summary.vendido_total_kg > 0
+            ? Number(((pesoNeto / summary.vendido_total_kg) * 100).toFixed(2))
+            : 0,
+      };
+    }),
+  };
+}
+
+function styleWorksheetHeader(worksheet: ExcelJS.Worksheet) {
+  worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  worksheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF2E8B3A" },
+  };
+  worksheet.views = [{ state: "frozen", ySplit: 1 }];
 }
 
 function startOfDay(date: Date) {

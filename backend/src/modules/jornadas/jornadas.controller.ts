@@ -8,6 +8,7 @@ import {
 } from "./jornadas.schemas";
 import {
   closeJornadaById,
+  exportClientesJornadaXlsx,
   exportJornadaPdf,
   exportJornadasXlsx,
   getJornadaDetalle,
@@ -56,6 +57,15 @@ export async function exportJornada(request: Request, response: Response) {
   const file = await exportJornadaPdf(id);
 
   response.setHeader("Content-Type", "application/pdf");
+  response.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+  return response.send(file.content);
+}
+
+export async function exportClientesJornada(request: Request, response: Response) {
+  const { id } = jornadaIdParamSchema.parse(request.params);
+  const file = await exportClientesJornadaXlsx(id);
+
+  response.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   response.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
   return response.send(file.content);
 }
