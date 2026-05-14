@@ -19,7 +19,7 @@ const initialState: FormState = {
   cliente_id: 0,
   granja_id: 0,
   origen: "partida",
-  jabas: "",
+  jabas: "5",
   tara_por_jaba: DEFAULT_TARA_POR_JABA.toString(),
   peso_bruto: "",
 };
