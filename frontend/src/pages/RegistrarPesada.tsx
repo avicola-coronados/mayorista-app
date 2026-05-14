@@ -45,6 +45,14 @@ export function RegistrarPesada() {
   });
 
   const selectedCliente = clientesQuery.data?.find((cliente) => cliente.id === form.cliente_id);
+  const isPiso = form.origen === "piso";
+  const granjasDisponibles = useMemo(
+    () =>
+      granjasQuery.data
+        ?.filter((granja) => granja.activo)
+        .filter((granja) => !isPiso || granja.nombre.trim().toLowerCase() !== "piso") ?? [],
+    [granjasQuery.data, isPiso],
+  );
   const jabas = Number(form.jabas) || 0;
   const taraPorJaba = Number(form.tara_por_jaba) || 0;
   const pesoBruto = Number(form.peso_bruto) || 0;
@@ -56,7 +64,7 @@ export function RegistrarPesada() {
     mutationFn: () =>
       apiClient.createLineaVenta({
         jornada_id: jornada!.id,
-        cliente_id: form.cliente_id,
+        cliente_id: isPiso ? null : form.cliente_id,
         granja_id: form.granja_id,
         origen: form.origen,
         jabas,
@@ -70,6 +78,7 @@ export function RegistrarPesada() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
         queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornada?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["sobrante", jornada?.id] }),
       ]);
     },
     onError: (error: Error) => {
@@ -126,7 +135,7 @@ export function RegistrarPesada() {
       return;
     }
 
-    if (!form.cliente_id) {
+    if (!isPiso && !form.cliente_id) {
       toast.error("Selecciona un cliente válido");
       return;
     }
@@ -149,54 +158,39 @@ export function RegistrarPesada() {
     mutation.mutate();
   }
 
+  function handleOrigenChange(origen: "partida" | "piso") {
+    setForm((current) => {
+      const selectedGranja = granjasQuery.data?.find((granja) => granja.id === current.granja_id);
+      const shouldClearGranja =
+        origen === "piso" && selectedGranja?.nombre.trim().toLowerCase() === "piso";
+
+      return {
+        ...current,
+        origen,
+        cliente_id: origen === "piso" ? 0 : current.cliente_id,
+        granja_id: shouldClearGranja ? 0 : current.granja_id,
+      };
+    });
+
+    if (origen === "piso") {
+      setClienteSearch("");
+    }
+  }
+
   return (
     <Layout
       title="Registrar pesada"
-      subtitle={selectedCliente ? `Cliente seleccionado: ${selectedCliente.nombre}` : "Registra una venta del día"}
+      subtitle={
+        isPiso
+          ? "Registra ingreso a piso sin cliente asignado"
+          : selectedCliente
+            ? `Cliente seleccionado: ${selectedCliente.nombre}`
+            : "Registra una venta del día"
+      }
     >
       <form onSubmit={handleSubmit} className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="panel p-5 sm:p-6">
           <div>
-            <label htmlFor="cliente" className="field-label">
-              Cliente
-            </label>
-            <input
-              id="cliente"
-              list="clientes-list"
-              className="field-input"
-              placeholder="Escribe para buscar cliente"
-              value={clienteSearch}
-              onChange={(event) => handleClienteChange(event.target.value)}
-            />
-            <datalist id="clientes-list">
-              {clientesQuery.data?.map((cliente) => (
-                <option key={cliente.id} value={cliente.nombre} />
-              ))}
-            </datalist>
-          </div>
-
-          <div className="mt-5">
-            <label htmlFor="granja" className="field-label">
-              Granja
-            </label>
-            <select
-              id="granja"
-              className="field-input"
-              value={form.granja_id}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, granja_id: Number(event.target.value) }))
-              }
-            >
-              <option value={0}>Selecciona una granja</option>
-              {granjasQuery.data?.filter((granja) => granja.activo).map((granja) => (
-                <option key={granja.id} value={granja.id}>
-                  {granja.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-5">
             <span className="field-label">Origen</span>
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -216,17 +210,54 @@ export function RegistrarPesada() {
                     className="sr-only"
                     name="origen"
                     checked={form.origen === option.value}
-                    onChange={() =>
-                      setForm((current) => ({
-                        ...current,
-                        origen: option.value as "partida" | "piso",
-                      }))
-                    }
+                    onChange={() => handleOrigenChange(option.value as "partida" | "piso")}
                   />
                   {option.label}
                 </label>
               ))}
             </div>
+          </div>
+
+          {!isPiso ? (
+            <div className="mt-5">
+              <label htmlFor="cliente" className="field-label">
+                Cliente
+              </label>
+              <input
+                id="cliente"
+                list="clientes-list"
+                className="field-input"
+                placeholder="Escribe para buscar cliente"
+                value={clienteSearch}
+                onChange={(event) => handleClienteChange(event.target.value)}
+              />
+              <datalist id="clientes-list">
+                {clientesQuery.data?.map((cliente) => (
+                  <option key={cliente.id} value={cliente.nombre} />
+                ))}
+              </datalist>
+            </div>
+          ) : null}
+
+          <div className="mt-5">
+            <label htmlFor="granja" className="field-label">
+              Granja
+            </label>
+            <select
+              id="granja"
+              className="field-input"
+              value={form.granja_id}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, granja_id: Number(event.target.value) }))
+              }
+            >
+              <option value={0}>Selecciona una granja</option>
+              {granjasDisponibles.map((granja) => (
+                <option key={granja.id} value={granja.id}>
+                  {granja.nombre}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
