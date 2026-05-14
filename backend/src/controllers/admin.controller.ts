@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { calculateJornadaMetrics } from "../modules/jornadas/jornadas.service";
 
 const jornadaQuerySchema = z.object({
   jornada_id: z.coerce.number().int().positive("Jornada inválida"),
@@ -23,25 +24,13 @@ function toNumber(value: unknown) {
 }
 
 async function calculateAdminMetrics(jornadaId: number) {
-  const [entradaAggregate, ventaAggregate, devolucionAggregate] = await Promise.all([
-    prisma.entradaGranja.aggregate({
-      where: { jornada_id: jornadaId },
-      _sum: { peso_neto: true },
-    }),
-    prisma.lineaVenta.aggregate({
-      where: { jornada_id: jornadaId },
-      _sum: { peso_neto: true },
-    }),
-    prisma.devolucion.aggregate({
-      where: { jornada_id: jornadaId },
-      _sum: { peso_neto: true },
-    }),
-  ]);
-
-  const entradaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const mermaKg = Number((entradaTotal - vendidoTotal - devolucionesTotal).toFixed(2));
+  const metrics = await calculateJornadaMetrics(jornadaId);
+  const entradaTotal = metrics.entrada_total_kg;
+  const vendidoTotal = metrics.vendido_total_kg;
+  const devolucionesTotal = metrics.devoluciones_total_kg;
+  const mermaKg = Number(
+    (entradaTotal - vendidoTotal + devolucionesTotal - metrics.sobrante_total_kg).toFixed(2),
+  );
   const mermaPorcentaje =
     entradaTotal > 0 ? Number(((mermaKg / entradaTotal) * 100).toFixed(2)) : 0;
   const mermaEstado =
@@ -120,7 +109,7 @@ export async function getAdminTopClientes(request: Request, response: Response) 
 
   const rows = await prisma.lineaVenta.groupBy({
     by: ["cliente_id"],
-    where: { jornada_id: jornadaId },
+    where: { jornada_id: jornadaId, cliente_id: { not: null } },
     _sum: {
       jabas: true,
       peso_neto: true,
@@ -137,11 +126,11 @@ export async function getAdminTopClientes(request: Request, response: Response) 
     rows.map(async (row) => {
       const [cliente, granjas, devolucion] = await Promise.all([
         prisma.cliente.findUnique({
-          where: { id: row.cliente_id },
+          where: { id: row.cliente_id ?? 0 },
           select: { nombre: true },
         }),
         prisma.lineaVenta.findMany({
-          where: { jornada_id: jornadaId, cliente_id: row.cliente_id },
+          where: { jornada_id: jornadaId, cliente_id: row.cliente_id ?? 0 },
           distinct: ["granja_id"],
           select: {
             granja: {
@@ -150,7 +139,7 @@ export async function getAdminTopClientes(request: Request, response: Response) 
           },
         }),
         prisma.devolucion.findFirst({
-          where: { jornada_id: jornadaId, cliente_id: row.cliente_id },
+          where: { jornada_id: jornadaId, cliente_id: row.cliente_id ?? 0 },
           select: { id: true },
         }),
       ]);
