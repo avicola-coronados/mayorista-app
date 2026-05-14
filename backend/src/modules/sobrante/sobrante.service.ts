@@ -1,13 +1,17 @@
-import { prisma } from "../../lib/prisma";
+import { getPisoDisponible } from "../lineas-venta/piso-disponible.service";
 
-export function getSobranteByJornadaId(jornadaId: number) {
-  return prisma.sobrante.findMany({
-    where: { jornada_id: jornadaId },
-    select: {
-      id: true,
-      jabas: true,
-      peso_neto: true,
+export async function getSobranteByJornadaId(jornadaId: number) {
+  const pisoDisponible = await getPisoDisponible(jornadaId);
+
+  if (pisoDisponible.peso_neto <= 0 && pisoDisponible.jabas <= 0) {
+    return [];
+  }
+
+  return [
+    {
+      id: 0,
+      jabas: Math.max(0, pisoDisponible.jabas),
+      peso_neto: Math.max(0, pisoDisponible.peso_neto),
     },
-    orderBy: { created_at: "asc" },
-  });
+  ];
 }

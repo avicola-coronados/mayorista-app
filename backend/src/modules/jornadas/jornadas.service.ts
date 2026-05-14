@@ -5,10 +5,9 @@ import {
 import ExcelJS from "exceljs";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
+import { PISO_GRANJA_NOMBRE } from "../lineas-venta/piso-disponible.service";
 import { getCurrentJornadaCode } from "../../utils/date";
 import { CierreJornadaInput, JornadasListQuery } from "./jornadas.schemas";
-
-const PISO_GRANJA_NOMBRE = "Piso";
 
 type JornadaSummary = {
   id: number;

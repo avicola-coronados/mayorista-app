@@ -5,9 +5,8 @@ import {
 } from "../../domain/pesadas/calculos";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
+import { getPisoDisponible, PISO_GRANJA_NOMBRE } from "./piso-disponible.service";
 import { CreateLineaVentaInput } from "./lineas-venta.schemas";
-
-const PISO_GRANJA_NOMBRE = "Piso";
 
 type LineaVentaDetalle = {
   id: number;
@@ -88,6 +87,17 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
       "El peso neto debe ser mayor a cero. Revisa jabas, tara o peso bruto.",
       400,
     );
+  }
+
+  if (data.origen === "partida" && granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase()) {
+    const pisoDisponible = await getPisoDisponible(data.jornada_id);
+
+    if (pesoNeto > pisoDisponible.peso_neto) {
+      throw new AppError(
+        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg.`,
+        400,
+      );
+    }
   }
 
   return prisma.lineaVenta.create({
