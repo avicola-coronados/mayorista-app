@@ -48,6 +48,7 @@ type JornadaDetalle = {
 export async function calculateJornadaMetrics(jornadaId: number) {
   const [
     entradaAggregate,
+    entradaLineasAggregate,
     ventaAggregate,
     devolucionAggregate,
     pisoEntradaAggregate,
@@ -58,6 +59,20 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     await Promise.all([
       prisma.entradaGranja.aggregate({
         where: { jornada_id: jornadaId },
+        _sum: { peso_neto: true },
+      }),
+      prisma.lineaVenta.aggregate({
+        where: {
+          jornada_id: jornadaId,
+          OR: [
+            { origen: "piso", cliente_id: null },
+            {
+              origen: "partida",
+              cliente_id: { not: null },
+              granja: { nombre: { not: PISO_GRANJA_NOMBRE } },
+            },
+          ],
+        },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
@@ -91,7 +106,9 @@ export async function calculateJornadaMetrics(jornadaId: number) {
       }),
     ]);
 
-  const entradaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const entradaGranjaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const entradaLineasTotal = entradaLineasAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const entradaTotal = Number((entradaGranjaTotal + entradaLineasTotal).toFixed(2));
   const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
   const pisoEntradaTotal = pisoEntradaAggregate._sum.peso_neto?.toNumber() ?? 0;
@@ -444,11 +461,32 @@ async function buildJornadaDetalle(jornada: {
   desperdicio_kg: { toNumber(): number } | null;
   muertero_kg: { toNumber(): number } | null;
 }): Promise<JornadaDetalle> {
-  const [summary, entradaJabasAggregate, entradasGrouped, ventasGrouped] = await Promise.all([
+  const [
+    summary,
+    entradaJabasAggregate,
+    entradaLineasJabasAggregate,
+    entradasGrouped,
+    entradasLineasGrouped,
+    ventasGrouped,
+  ] = await Promise.all([
     buildJornadaSummary(jornada),
     prisma.entradaGranja.aggregate({
       where: { jornada_id: jornada.id },
       _sum: { jabas_total: true },
+    }),
+    prisma.lineaVenta.aggregate({
+      where: {
+        jornada_id: jornada.id,
+        OR: [
+          { origen: "piso", cliente_id: null },
+          {
+            origen: "partida",
+            cliente_id: { not: null },
+            granja: { nombre: { not: PISO_GRANJA_NOMBRE } },
+          },
+        ],
+      },
+      _sum: { jabas: true },
     }),
     prisma.entradaGranja.groupBy({
       by: ["granja_id"],
@@ -456,6 +494,25 @@ async function buildJornadaDetalle(jornada: {
       _sum: {
         peso_neto: true,
         jabas_total: true,
+      },
+      orderBy: { granja_id: "asc" },
+    }),
+    prisma.lineaVenta.groupBy({
+      by: ["granja_id"],
+      where: {
+        jornada_id: jornada.id,
+        OR: [
+          { origen: "piso", cliente_id: null },
+          {
+            origen: "partida",
+            cliente_id: { not: null },
+            granja: { nombre: { not: PISO_GRANJA_NOMBRE } },
+          },
+        ],
+      },
+      _sum: {
+        peso_neto: true,
+        jabas: true,
       },
       orderBy: { granja_id: "asc" },
     }),
@@ -476,10 +533,27 @@ async function buildJornadaDetalle(jornada: {
       },
     }),
   ]);
+  const entradasByGranja = new Map<number, { peso_neto_kg: number; jabas: number }>();
+
+  entradasGrouped.forEach((entrada) => {
+    entradasByGranja.set(entrada.granja_id, {
+      peso_neto_kg: entrada._sum.peso_neto?.toNumber() ?? 0,
+      jabas: entrada._sum.jabas_total ?? 0,
+    });
+  });
+
+  entradasLineasGrouped.forEach((entrada) => {
+    const existing = entradasByGranja.get(entrada.granja_id) ?? { peso_neto_kg: 0, jabas: 0 };
+
+    entradasByGranja.set(entrada.granja_id, {
+      peso_neto_kg: Number((existing.peso_neto_kg + (entrada._sum.peso_neto?.toNumber() ?? 0)).toFixed(2)),
+      jabas: existing.jabas + (entrada._sum.jabas ?? 0),
+    });
+  });
 
   const [granjas, clientes] = await Promise.all([
     prisma.granja.findMany({
-      where: { id: { in: entradasGrouped.map((entrada) => entrada.granja_id) } },
+      where: { id: { in: Array.from(entradasByGranja.keys()) } },
       select: { id: true, nombre: true },
     }),
     prisma.cliente.findMany({
@@ -494,13 +568,14 @@ async function buildJornadaDetalle(jornada: {
   return {
     jornada: {
       ...summary,
-      entrada_total_jabas: entradaJabasAggregate._sum.jabas_total ?? 0,
+      entrada_total_jabas:
+        (entradaJabasAggregate._sum.jabas_total ?? 0) + (entradaLineasJabasAggregate._sum.jabas ?? 0),
     },
-    entradas_granjas: entradasGrouped.map((entrada) => ({
-      granja_id: entrada.granja_id,
-      granja_nombre: granjaNames.get(entrada.granja_id) ?? "Granja sin nombre",
-      peso_neto_kg: entrada._sum.peso_neto?.toNumber() ?? 0,
-      jabas: entrada._sum.jabas_total ?? 0,
+    entradas_granjas: Array.from(entradasByGranja.entries()).map(([granjaId, entrada]) => ({
+      granja_id: granjaId,
+      granja_nombre: granjaNames.get(granjaId) ?? "Granja sin nombre",
+      peso_neto_kg: entrada.peso_neto_kg,
+      jabas: entrada.jabas,
     })),
     consolidado_clientes: ventasGrouped.map((venta) => {
       const pesoNeto = venta._sum.peso_neto?.toNumber() ?? 0;
