@@ -120,7 +120,7 @@ export type AdminTopClientes = {
 
 export type LineaVentaPayload = {
   jornada_id: number;
-  cliente_id: number;
+  cliente_id: number | null;
   granja_id: number;
   origen: "partida" | "piso";
   jabas: number;
@@ -135,7 +135,7 @@ export type LoginResponse = {
 
 export type ClienteDelDia = {
   cliente: {
-    id: number;
+    id: number | null;
     nombre: string;
   };
   total_kg: number;
