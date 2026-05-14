@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const createLineaVentaSchema = z.object({
   jornada_id: z.coerce.number().int().positive(),
-  cliente_id: z.coerce.number().int().positive(),
+  cliente_id: z.coerce.number().int().positive().nullable().optional(),
   granja_id: z.coerce.number().int().positive(),
   origen: z.enum(["partida", "piso"]),
   jabas: z.coerce.number().int().positive("Las jabas deben ser mayores a cero"),

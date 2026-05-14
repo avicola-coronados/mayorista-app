@@ -8,6 +8,8 @@ import { prisma } from "../../lib/prisma";
 import { getCurrentJornadaCode } from "../../utils/date";
 import { CierreJornadaInput, JornadasListQuery } from "./jornadas.schemas";
 
+const PISO_GRANJA_NOMBRE = "Piso";
+
 type JornadaSummary = {
   id: number;
   codigo: string;
@@ -45,37 +47,58 @@ type JornadaDetalle = {
 };
 
 export async function calculateJornadaMetrics(jornadaId: number) {
-  const [entradaAggregate, ventaAggregate, devolucionAggregate, sobranteAggregate, counts] =
+  const [
+    entradaAggregate,
+    ventaAggregate,
+    devolucionAggregate,
+    pisoEntradaAggregate,
+    pisoSalidaAggregate,
+    counts,
+    pesadasRealizadas,
+  ] =
     await Promise.all([
       prisma.entradaGranja.aggregate({
         where: { jornada_id: jornadaId },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
-        where: { jornada_id: jornadaId },
+        where: { jornada_id: jornadaId, cliente_id: { not: null } },
         _sum: { peso_neto: true },
       }),
       prisma.devolucion.aggregate({
         where: { jornada_id: jornadaId },
         _sum: { peso_neto: true },
       }),
-      prisma.sobrante.aggregate({
-        where: { jornada_id: jornadaId },
+      prisma.lineaVenta.aggregate({
+        where: { jornada_id: jornadaId, origen: "piso", cliente_id: null },
+        _sum: { peso_neto: true },
+      }),
+      prisma.lineaVenta.aggregate({
+        where: {
+          jornada_id: jornadaId,
+          origen: "partida",
+          cliente_id: { not: null },
+          granja: { nombre: PISO_GRANJA_NOMBRE },
+        },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.groupBy({
         by: ["cliente_id"],
-        where: { jornada_id: jornadaId },
+        where: { jornada_id: jornadaId, cliente_id: { not: null } },
         _count: { _all: true },
+      }),
+      prisma.lineaVenta.count({
+        where: { jornada_id: jornadaId },
       }),
     ]);
 
   const entradaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const sobranteTotal = sobranteAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const pisoEntradaTotal = pisoEntradaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const pisoSalidaTotal = pisoSalidaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const sobranteTotal = Number((pisoEntradaTotal - pisoSalidaTotal).toFixed(2));
   const clientesAtendidos = counts.length;
-  const pesadasRealizadas = counts.reduce((accumulator, item) => accumulator + item._count._all, 0);
   const promedioPorCliente =
     clientesAtendidos > 0 ? Number((vendidoTotal / clientesAtendidos).toFixed(2)) : 0;
 
@@ -238,7 +261,7 @@ export async function exportClientesJornadaXlsx(jornadaId: number) {
 
   lineas.forEach((linea) => {
     detalleSheet.addRow({
-      cliente: linea.cliente.nombre,
+      cliente: linea.cliente?.nombre ?? "Piso / Pesadas sin cliente",
       granja: linea.granja.nombre,
       origen: linea.origen,
       jabas: linea.jabas,
@@ -386,38 +409,26 @@ async function buildJornadaSummary(jornada: {
   desperdicio_kg: { toNumber(): number } | null;
   muertero_kg: { toNumber(): number } | null;
 }): Promise<JornadaSummary> {
-  const [entradaAggregate, ventaAggregate, devolucionAggregate] = await Promise.all([
-    prisma.entradaGranja.aggregate({
-      where: { jornada_id: jornada.id },
-      _sum: { peso_neto: true },
-    }),
-    prisma.lineaVenta.aggregate({
-      where: { jornada_id: jornada.id },
-      _sum: { peso_neto: true },
-    }),
-    prisma.devolucion.aggregate({
-      where: { jornada_id: jornada.id },
-      _sum: { peso_neto: true },
-    }),
-  ]);
-
-  const entradaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const metrics = await calculateJornadaMetrics(jornada.id);
   const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
   const muertero = jornada.muertero_kg?.toNumber() ?? 0;
-  const merma = Number(
-    (entradaTotal - vendidoTotal - devolucionesTotal - desperdicio - muertero).toFixed(2),
-  );
-  const mermaPorcentaje = entradaTotal > 0 ? Number(((merma / entradaTotal) * 100).toFixed(2)) : 0;
+  const merma = calcularMerma({
+    entradaKg: metrics.entrada_total_kg,
+    vendidoKg: metrics.vendido_total_kg,
+    devolucionesKg: metrics.devoluciones_total_kg,
+    sobranteKg: metrics.sobrante_total_kg,
+    desperdicioKg: desperdicio,
+    muerteroKg: muertero,
+  });
+  const mermaPorcentaje = calcularPorcentajeMerma(merma, metrics.entrada_total_kg);
 
   return {
     id: jornada.id,
     codigo: jornada.codigo,
     fecha: jornada.fecha,
-    entrada_total_kg: entradaTotal,
-    vendido_total_kg: vendidoTotal,
-    devoluciones_total_kg: devolucionesTotal,
+    entrada_total_kg: metrics.entrada_total_kg,
+    vendido_total_kg: metrics.vendido_total_kg,
+    devoluciones_total_kg: metrics.devoluciones_total_kg,
     desperdicio_kg: desperdicio,
     muertero_kg: muertero,
     merma_kg: merma,
@@ -451,7 +462,7 @@ async function buildJornadaDetalle(jornada: {
     }),
     prisma.lineaVenta.groupBy({
       by: ["cliente_id"],
-      where: { jornada_id: jornada.id },
+      where: { jornada_id: jornada.id, cliente_id: { not: null } },
       _count: { _all: true },
       _sum: {
         jabas: true,
@@ -473,7 +484,7 @@ async function buildJornadaDetalle(jornada: {
       select: { id: true, nombre: true },
     }),
     prisma.cliente.findMany({
-      where: { id: { in: ventasGrouped.map((venta) => venta.cliente_id) } },
+      where: { id: { in: ventasGrouped.flatMap((venta) => venta.cliente_id ?? []) } },
       select: { id: true, nombre: true },
     }),
   ]);
@@ -496,8 +507,10 @@ async function buildJornadaDetalle(jornada: {
       const pesoNeto = venta._sum.peso_neto?.toNumber() ?? 0;
 
       return {
-        cliente_id: venta.cliente_id,
-        cliente_nombre: clienteNames.get(venta.cliente_id) ?? "Cliente sin nombre",
+        cliente_id: venta.cliente_id ?? 0,
+        cliente_nombre: venta.cliente_id
+          ? clienteNames.get(venta.cliente_id) ?? "Cliente sin nombre"
+          : "Piso / Pesadas sin cliente",
         total_pesadas: venta._count._all,
         total_jabas: venta._sum.jabas ?? 0,
         peso_bruto_kg: venta._sum.peso_bruto?.toNumber() ?? 0,

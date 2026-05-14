@@ -19,7 +19,7 @@ function getTodayCode() {
 }
 
 async function main() {
-  const granjas = ["Redondos 1", "Redondos 2", "San Fernando"];
+  const granjas = ["Redondos 1", "Redondos 2", "San Fernando", "Piso"];
   const clientes = ["PIZARRO", "MILAGROS", "PERCY", "MARINO", "NAVARRO"];
   const operarioPasswordHash = await bcrypt.hash("coronados2024", 10);
   const adminPasswordHash = await bcrypt.hash("admin2024", 10);

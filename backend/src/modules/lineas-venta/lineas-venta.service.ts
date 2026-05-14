@@ -7,6 +7,8 @@ import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { CreateLineaVentaInput } from "./lineas-venta.schemas";
 
+const PISO_GRANJA_NOMBRE = "Piso";
+
 type LineaVentaDetalle = {
   id: number;
   origen: "partida" | "piso";
@@ -24,10 +26,10 @@ type LineaVentaDetalle = {
 };
 
 type LineasVentaGrouped = Record<
-  number,
+  string,
   {
     cliente: {
-      id: number;
+      id: number | null;
       nombre: string;
     };
     total_kg: number;
@@ -49,21 +51,33 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
     throw new AppError("La jornada ya está cerrada", 400);
   }
 
+  if (data.origen === "partida" && !data.cliente_id) {
+    throw new AppError("Selecciona un cliente para registrar una partida", 400);
+  }
+
+  const clienteId = data.origen === "piso" ? null : data.cliente_id!;
+
   const [cliente, granja] = await Promise.all([
-    prisma.cliente.findFirst({
-      where: { id: data.cliente_id, activo: true },
-    }),
+    clienteId
+      ? prisma.cliente.findFirst({
+          where: { id: clienteId, activo: true },
+        })
+      : Promise.resolve(null),
     prisma.granja.findFirst({
       where: { id: data.granja_id, activo: true },
     }),
   ]);
 
-  if (!cliente) {
+  if (clienteId && !cliente) {
     throw new AppError("Cliente no encontrado", 404);
   }
 
   if (!granja) {
     throw new AppError("Granja no encontrada", 404);
+  }
+
+  if (data.origen === "piso" && granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase()) {
+    throw new AppError("No puedes registrar ingreso a piso usando el proveedor Piso", 400);
   }
 
   const tara = calcularTara(data.jabas, data.tara_por_jaba);
@@ -79,7 +93,7 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
   return prisma.lineaVenta.create({
     data: {
       jornada_id: data.jornada_id,
-      cliente_id: data.cliente_id,
+      cliente_id: clienteId,
       granja_id: data.granja_id,
       origen: data.origen,
       jabas: data.jabas,
@@ -102,11 +116,12 @@ export async function getLineasVentaGrouped(jornadaId: number) {
       cliente: true,
       granja: true,
     },
-    orderBy: [{ cliente: { nombre: "asc" } }, { created_at: "desc" }],
+    orderBy: [{ created_at: "desc" }],
   });
 
   const grouped = lineas.reduce<LineasVentaGrouped>((accumulator, linea) => {
-    const existing = accumulator[linea.cliente_id];
+    const groupKey = linea.cliente_id ? String(linea.cliente_id) : "piso-sin-cliente";
+    const existing = accumulator[groupKey];
     const taraPorJaba = linea.tara_por_jaba.toNumber();
     const pesoNeto = linea.peso_neto.toNumber();
 
@@ -127,10 +142,10 @@ export async function getLineasVentaGrouped(jornadaId: number) {
     };
 
     if (!existing) {
-      accumulator[linea.cliente_id] = {
+      accumulator[groupKey] = {
         cliente: {
-          id: linea.cliente.id,
-          nombre: linea.cliente.nombre,
+          id: linea.cliente?.id ?? null,
+          nombre: linea.cliente?.nombre ?? "Piso / Pesadas sin cliente",
         },
         total_kg: pesoNeto,
         pesadas: 1,
