@@ -9,6 +9,7 @@ import { granjasRouter } from "./modules/granjas/granjas.routes";
 import { jornadasRouter } from "./modules/jornadas/jornadas.routes";
 import { lineasVentaRouter } from "./modules/lineas-venta/lineas-venta.routes";
 import { sobranteRouter } from "./modules/sobrante/sobrante.routes";
+import { adminRouter } from "./routes/admin.routes";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);

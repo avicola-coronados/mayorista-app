@@ -9,7 +9,11 @@ export function errorMiddleware(
   _next: NextFunction,
 ) {
   if (error instanceof AppError) {
-    return response.status(error.statusCode).json({ message: error.message });
+    return response.status(error.statusCode).json({
+      message: error.message,
+      error: error.message,
+      code: error.code,
+    });
   }
 
   if (error instanceof ZodError) {

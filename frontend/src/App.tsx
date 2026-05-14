@@ -5,6 +5,8 @@ import { Login } from "./pages/Login";
 import { RegistrarPesada } from "./pages/RegistrarPesada";
 import { Clientes } from "./pages/Clientes";
 import { CierreJornada } from "./pages/CierreJornada";
+import { AdminGranjas } from "./pages/admin/AdminGranjas";
+import { AdminJornadaDetalle, AdminJornadas } from "./pages/admin/AdminJornadas";
 import { useAuthStore } from "./store/authStore";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -57,6 +59,30 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/admin/jornadas"
+        element={
+          <ProtectedAdminRoute>
+            <AdminJornadas />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/jornadas/:id"
+        element={
+          <ProtectedAdminRoute>
+            <AdminJornadaDetalle />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/granjas"
+        element={
+          <ProtectedAdminRoute>
+            <AdminGranjas />
+          </ProtectedAdminRoute>
+        }
+      />
       <Route
         path="/admin"
         element={

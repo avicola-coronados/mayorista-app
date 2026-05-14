@@ -13,10 +13,65 @@ export type Jornada = {
   updated_at?: string;
 };
 
+export type JornadaResumen = {
+  id: number;
+  codigo: string;
+  fecha: string;
+  entrada_total_kg: number;
+  vendido_total_kg: number;
+  devoluciones_total_kg: number;
+  desperdicio_kg: number;
+  muertero_kg: number;
+  merma_kg: number;
+  merma_porcentaje: number;
+  estado: "abierta" | "cerrada";
+};
+
+export type JornadaDetalle = {
+  jornada: JornadaResumen & {
+    entrada_total_jabas: number;
+  };
+  entradas_granjas: Array<{
+    granja_id: number;
+    granja_nombre: string;
+    peso_neto_kg: number;
+    jabas: number;
+  }>;
+  consolidado_clientes: Array<{
+    cliente_id: number;
+    cliente_nombre: string;
+    total_pesadas: number;
+    total_jabas: number;
+    peso_bruto_kg: number;
+    tara_kg: number;
+    peso_neto_kg: number;
+    porcentaje_total: number;
+  }>;
+};
+
+export type JornadasListParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  estado?: "abierta" | "cerrada";
+};
+
+export type JornadasListResponse = {
+  jornadas: JornadaResumen[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+};
+
 export type Granja = {
   id: number;
   nombre: string;
   activo: boolean;
+  created_at?: string;
+  total_entregas?: number;
 };
 
 export type Cliente = {
@@ -119,6 +174,15 @@ export type Sobrante = {
   peso_neto: number;
 };
 
+export type GranjasResponse = {
+  granjas: Granja[];
+};
+
+export type GranjaPayload = {
+  nombre: string;
+  activo?: boolean;
+};
+
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api`,
 });
@@ -153,7 +217,7 @@ api.interceptors.response.use(
 
 function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
-    return error.response?.data?.message ?? "Ocurrió un error inesperado";
+    return error.response?.data?.message ?? error.response?.data?.error ?? "Ocurrió un error inesperado";
   }
 
   return "Ocurrió un error inesperado";
@@ -172,6 +236,54 @@ export const apiClient = {
     try {
       const response = await api.get<Jornada>("/jornadas/activa");
       return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getJornadas(params: JornadasListParams, signal?: AbortSignal) {
+    try {
+      const response = await api.get<JornadasListResponse>("/jornadas", { params, signal });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getJornadaDetalle(id: number) {
+    try {
+      const response = await api.get<JornadaDetalle>(`/jornadas/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async exportJornada(id: number) {
+    try {
+      const response = await api.get<Blob>(`/jornadas/${id}/export`, {
+        params: { format: "pdf" },
+        responseType: "blob",
+      });
+      return response;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async exportClientesJornada(id: number) {
+    try {
+      const response = await api.get<Blob>(`/jornadas/${id}/clientes/export`, {
+        responseType: "blob",
+      });
+      return response;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async exportJornadas(params: JornadasListParams) {
+    try {
+      const response = await api.get<Blob>("/jornadas/export", {
+        params: { ...params, format: "excel" },
+        responseType: "blob",
+      });
+      return response;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -226,7 +338,41 @@ export const apiClient = {
   },
   async getGranjas() {
     try {
-      const response = await api.get<Granja[]>("/granjas");
+      const response = await api.get<GranjasResponse | Granja[]>("/granjas");
+      return Array.isArray(response.data) ? response.data : response.data.granjas;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getGranja(id: number) {
+    try {
+      const response = await api.get<Granja>(`/granjas/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createGranja(payload: GranjaPayload) {
+    try {
+      const response = await api.post<Granja & { mensaje: string }>("/granjas", {
+        nombre: payload.nombre,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateGranja(id: number, payload: Required<GranjaPayload>) {
+    try {
+      const response = await api.put<Granja & { mensaje: string }>(`/granjas/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteGranja(id: number) {
+    try {
+      const response = await api.delete<{ mensaje: string }>(`/granjas/${id}`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
