@@ -1,5 +1,5 @@
 import { FormEvent, forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconArrowLeft,
@@ -39,8 +39,16 @@ const tipos: Array<{ value: TipoDevolucion; label: string; icon: typeof IconTool
   { value: "vivo", label: "Vivo", icon: IconHeart },
 ];
 
+const navItems = [
+  { to: "/", label: "Inicio" },
+  { to: "/pesada/nueva", label: "Pesadas", aliases: ["/operario/devolucion"] },
+  { to: "/clientes", label: "Clientes" },
+  { to: "/cierre", label: "Historial" },
+];
+
 export function RegistrarDevolucion() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const tableRef = useRef<HTMLDivElement>(null);
   const pesoBrutoRef = useRef<HTMLInputElement>(null);
@@ -90,16 +98,13 @@ export function RegistrarDevolucion() {
       }),
     onSuccess: async (devolucion) => {
       toast.success(`Devolución registrada: ${devolucion.peso_neto.toFixed(1)} kg`);
-      setForm((current) => ({
-        ...initialForm,
-        cliente_id: current.cliente_id,
-        tipo: current.tipo,
-      }));
+      setForm(initialForm);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["devoluciones", jornada?.id] }),
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
       ]);
       tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.setTimeout(() => pesoBrutoRef.current?.focus(), 100);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -185,7 +190,7 @@ export function RegistrarDevolucion() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] pb-8">
+    <div className="min-h-screen bg-[#F5F5F5] pb-24">
       <header className="flex items-center justify-between gap-4 bg-coronados-orange px-6 py-4 text-white">
         <div className="flex items-center gap-3">
           <button
@@ -436,6 +441,38 @@ export function RegistrarDevolucion() {
           onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
         />
       ) : null}
+
+      <nav className="fixed inset-x-0 bottom-2 z-20 mx-auto w-[calc(100%-1rem)] max-w-6xl overflow-hidden rounded-b-[16px] bg-white px-4 py-2 shadow-2xl shadow-slate-900/10">
+        <div className="grid grid-cols-4 gap-2">
+          {navItems.map((item) => {
+            const activeByAlias = item.aliases?.includes(location.pathname) ?? false;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center gap-1 rounded-[8px] px-3 py-1 text-center text-[12px] font-semibold transition ${
+                    isActive || activeByAlias
+                      ? "text-coronados-orange"
+                      : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600"
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={`h-[19px] w-[19px] rounded-[5px] ${
+                        isActive || activeByAlias ? "bg-orange-100" : "bg-neutral-100"
+                      }`}
+                    />
+                    <span>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
