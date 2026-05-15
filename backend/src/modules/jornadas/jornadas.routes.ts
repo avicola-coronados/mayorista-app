@@ -7,6 +7,7 @@ import {
   exportJornadas,
   getActiveJornada,
   getJornada,
+  getJornadaDevoluciones,
   getJornadaMetricas,
   getJornadas,
 } from "./jornadas.controller";
@@ -19,6 +20,7 @@ jornadasRouter.get("/", requireAdmin, asyncHandler(getJornadas));
 jornadasRouter.get("/export", requireAdmin, asyncHandler(exportJornadas));
 jornadasRouter.get("/:id/clientes/export", requireAdmin, asyncHandler(exportClientesJornada));
 jornadasRouter.get("/:id/export", requireAdmin, asyncHandler(exportJornada));
-jornadasRouter.get("/:id", requireAdmin, asyncHandler(getJornada));
+jornadasRouter.get("/:id/devoluciones", asyncHandler(getJornadaDevoluciones));
 jornadasRouter.get("/:id/metricas", asyncHandler(getJornadaMetricas));
+jornadasRouter.get("/:id", requireAdmin, asyncHandler(getJornada));
 jornadasRouter.post("/:id/cerrar", asyncHandler(closeJornada));

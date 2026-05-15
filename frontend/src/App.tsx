@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { RegistrarPesada } from "./pages/RegistrarPesada";
+import { RegistrarDevolucion } from "./pages/RegistrarDevolucion";
 import { Clientes } from "./pages/Clientes";
 import { CierreJornada } from "./pages/CierreJornada";
 import { AdminGranjas } from "./pages/admin/AdminGranjas";
@@ -30,6 +31,22 @@ function ProtectedAdminRoute({ children }: { children: ReactNode }) {
 
   if (role !== "admin") {
     return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const role = getRoleFromToken(token) ?? user?.role;
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role === "admin") {
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -110,9 +127,17 @@ export default function App() {
       <Route
         path="/pesada/nueva"
         element={
-          <ProtectedRoute>
+          <ProtectedOperarioRoute>
             <RegistrarPesada />
-          </ProtectedRoute>
+          </ProtectedOperarioRoute>
+        }
+      />
+      <Route
+        path="/operario/devolucion"
+        element={
+          <ProtectedOperarioRoute>
+            <RegistrarDevolucion />
+          </ProtectedOperarioRoute>
         }
       />
       <Route

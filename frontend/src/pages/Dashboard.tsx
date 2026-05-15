@@ -144,9 +144,10 @@ export function Dashboard() {
             disabled={isClosed}
           />
           <ActionRow
+            to="/operario/devolucion"
             title="Registrar devolución"
             description="Pelado, muerto o vivo"
-            disabled
+            disabled={isClosed}
           />
           <ActionRow
             to="/clientes"

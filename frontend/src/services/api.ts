@@ -168,6 +168,37 @@ export type CierreResponse = {
   merma_porcentaje: number;
 };
 
+export type TipoDevolucion = "pelado" | "muerto" | "vivo";
+
+export type Devolucion = {
+  id: number;
+  jornada_id: number;
+  cliente_id: number;
+  cliente_nombre: string;
+  tipo: TipoDevolucion;
+  jabas: number | null;
+  peso_bruto: number;
+  tara: number;
+  peso_neto: number;
+  created_at: string;
+};
+
+export type DevolucionesResponse = {
+  devoluciones: Devolucion[];
+  total_registros: number;
+  total_kg: number;
+};
+
+export type DevolucionPayload = {
+  jornada_id: number;
+  cliente_id: number;
+  tipo: TipoDevolucion;
+  jabas: number | null;
+  peso_bruto: number;
+  tara: number;
+  peso_neto: number;
+};
+
 export type Sobrante = {
   id: number;
   jabas: number;
@@ -380,7 +411,33 @@ export const apiClient = {
   },
   async getClientes() {
     try {
-      const response = await api.get<Cliente[]>("/clientes");
+      const response = await api.get<Cliente[] | { clientes: Cliente[] }>("/clientes", {
+        params: { activo: true },
+      });
+      return Array.isArray(response.data) ? response.data : response.data.clientes;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getDevoluciones(jornadaId: number) {
+    try {
+      const response = await api.get<DevolucionesResponse>(`/jornadas/${jornadaId}/devoluciones`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createDevolucion(payload: DevolucionPayload) {
+    try {
+      const response = await api.post<Devolucion>("/devoluciones", payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteDevolucion(id: number) {
+    try {
+      const response = await api.delete<{ mensaje: string }>(`/devoluciones/${id}`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
