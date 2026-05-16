@@ -33,8 +33,10 @@ Este proyecto usa un flujo CI/CD híbrido:
 GitHub Actions no despliega directamente. Su función es detectar errores antes o durante el push:
 
 - Instala dependencias del backend.
+- Ejecuta pruebas del backend.
 - Ejecuta `npm run build` en backend.
 - Instala dependencias del frontend.
+- Ejecuta pruebas del frontend.
 - Ejecuta `npm run build` en frontend.
 
 Vercel y Railway siguen siendo los responsables del despliegue.

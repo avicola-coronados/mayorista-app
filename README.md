@@ -174,11 +174,11 @@ Aplicación esperada: `http://localhost:5173`
 
 ## Cálculo De Merma
 
-La merma representa el piso disponible físico al final de la jornada después de descontar ventas, devoluciones, desperdicio y muertero.
+La merma representa el piso disponible físico al final de la jornada después de descontar ventas, desperdicio y muertero. Las devoluciones se suman porque retornan al piso operativo.
 
 ```text
 ENTRADA_TOTAL = entradas de granjas + sobrantes de jornadas anteriores
-PISO_DISPONIBLE = ENTRADA_TOTAL - VENDIDO - DEVOLUCIONES - DESPERDICIO - MUERTERO
+PISO_DISPONIBLE = ENTRADA_TOTAL - VENDIDO + DEVOLUCIONES - DESPERDICIO - MUERTERO
 MERMA_% = (PISO_DISPONIBLE / ENTRADA_TOTAL) x 100
 ```
 

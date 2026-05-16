@@ -25,7 +25,7 @@ export function calcularPisoDisponible({
   desperdicioKg: number;
   muerteroKg: number;
 }) {
-  return roundKg(entradaKg - vendidoKg - devolucionesKg - desperdicioKg - muerteroKg);
+  return roundKg(entradaKg - vendidoKg + devolucionesKg - desperdicioKg - muerteroKg);
 }
 
 export function calcularMerma(params: Parameters<typeof calcularPisoDisponible>[0]) {

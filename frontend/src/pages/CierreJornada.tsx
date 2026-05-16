@@ -35,7 +35,7 @@ export function CierreJornada() {
     return Number(
       (
         metricas.entrada_total_kg -
-        metricas.vendido_total_kg -
+        metricas.vendido_total_kg +
         metricas.devoluciones_total_kg -
         desperdicioKg -
         muerteroKg
@@ -192,7 +192,7 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Fórmula aplicada: entrada total - vendido - devoluciones - desperdicio - muertero.
+              Fórmula aplicada: entrada total - vendido + devoluciones - desperdicio - muertero.
             </p>
 
             <button

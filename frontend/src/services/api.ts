@@ -57,7 +57,7 @@ export type JornadaDetalle = {
   desglose_merma: {
     entrada_total: number;
     menos_vendido: number;
-    menos_devoluciones: number;
+    mas_devoluciones: number;
     menos_desperdicio: number;
     menos_muertero: number;
     resultado_piso: number;

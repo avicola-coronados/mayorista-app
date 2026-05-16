@@ -47,7 +47,7 @@ type JornadaDetalle = {
   desglose_merma: {
     entrada_total: number;
     menos_vendido: number;
-    menos_devoluciones: number;
+    mas_devoluciones: number;
     menos_desperdicio: number;
     menos_muertero: number;
     resultado_piso: number;
@@ -564,7 +564,7 @@ async function buildJornadaDetalle(jornada: {
     desglose_merma: {
       entrada_total: summary.entrada_total_kg,
       menos_vendido: -summary.vendido_total_kg,
-      menos_devoluciones: -summary.devoluciones_total_kg,
+      mas_devoluciones: summary.devoluciones_total_kg,
       menos_desperdicio: -summary.desperdicio_kg,
       menos_muertero: -summary.muertero_kg,
       resultado_piso: summary.piso_disponible_kg,

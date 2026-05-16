@@ -255,7 +255,7 @@ devoluciones_total_kg = SUM(devolucion.peso_neto)
 ```text
 piso_disponible_kg = entrada_total_kg
                    - vendido_total_kg
-                   - devoluciones_total_kg
+                   + devoluciones_total_kg
                    - desperdicio_kg
                    - muertero_kg
 ```

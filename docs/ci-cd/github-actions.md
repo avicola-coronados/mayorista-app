@@ -29,6 +29,7 @@ Pasos:
 
 ```bash
 npm ci
+npm test
 npm run build
 ```
 
@@ -41,6 +42,7 @@ prisma generate && tsc
 Esto valida:
 
 - Dependencias instalables desde `package-lock.json`.
+- Pruebas unitarias del dominio backend.
 - Prisma Client generable.
 - TypeScript sin errores.
 
@@ -56,6 +58,7 @@ Pasos:
 
 ```bash
 npm ci
+npm test
 npm run build
 ```
 
@@ -68,6 +71,7 @@ tsc -b && vite build
 Esto valida:
 
 - Dependencias instalables desde `package-lock.json`.
+- Pruebas de componentes y botones principales con Testing Library.
 - TypeScript sin errores.
 - Build de Vite generable.
 

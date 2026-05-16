@@ -607,7 +607,7 @@ function DesgloseMerma({ detalle }: { detalle: JornadaDetalle }) {
   const rows = [
     { label: "Entrada total", value: desglose.entrada_total, symbol: "✓", positive: true },
     { label: "Vendido", value: Math.abs(desglose.menos_vendido), symbol: "−" },
-    { label: "Devoluciones", value: Math.abs(desglose.menos_devoluciones), symbol: "−" },
+    { label: "Devoluciones", value: desglose.mas_devoluciones, symbol: "+", positive: true },
     { label: "Desperdicio", value: Math.abs(desglose.menos_desperdicio), symbol: "−" },
     { label: "Muertero", value: Math.abs(desglose.menos_muertero), symbol: "−" },
   ];
