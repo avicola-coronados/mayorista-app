@@ -89,6 +89,8 @@ export function Dashboard() {
   const entradaKg = metricas?.entrada_total_kg ?? 0;
   const vendidoKg = metricas?.vendido_total_kg ?? 0;
   const pisoDisponibleKg = metricas?.piso_disponible_kg ?? 0;
+  const pisoDisponiblePorcentaje = entradaKg > 0 ? (pisoDisponibleKg / entradaKg) * 100 : 0;
+  const pisoTone = pisoDisponiblePorcentaje > 2 ? "red" : pisoDisponiblePorcentaje >= 1 ? "yellow" : "green";
 
   if (isAdmin) {
     return (
@@ -127,7 +129,12 @@ export function Dashboard() {
         <div className="grid gap-3 sm:grid-cols-3">
           <CompactMetric label="Entrada" value={entradaKg} tone="orange" />
           <CompactMetric label="Vendido" value={vendidoKg} />
-          <CompactMetric label="Piso disp." value={pisoDisponibleKg} tone="green" />
+          <CompactMetric
+            label="PISO DISPONIBLE"
+            secondary={`${pisoDisponiblePorcentaje.toFixed(2)}% de entrada`}
+            value={pisoDisponibleKg}
+            tone={pisoTone}
+          />
         </div>
       )}
 
@@ -170,8 +177,7 @@ export function Dashboard() {
         <span className="h-[10px] w-[10px] shrink-0 rounded-full bg-coronados-green" />
         {primerSobrante ? (
           <span>
-            Piso disponible: {formatKg(primerSobrante.peso_neto)} kg · {primerSobrante.jabas} jabas
-            sin asignar
+            Piso disponible: {formatKg(primerSobrante.peso_neto)} kg · {primerSobrante.jabas} jabas estimadas sin asignar
           </span>
         ) : (
           <span>Sin piso disponible · Esperando entrada de granja</span>
@@ -292,7 +298,7 @@ function AdminDashboard({
 
           <div className={`flex items-center justify-between gap-4 px-[30px] py-3 ${mermaCopy.bannerClass}`}>
             <p className="text-[14px] font-medium text-white">
-              Merma estimada: {mermaPorcentaje.toFixed(2)}% · {mermaCopy.message}
+              Merma: {mermaPorcentaje.toFixed(2)}% · {mermaCopy.message}
             </p>
             <span className="inline-flex shrink-0 rounded-full bg-white/25 px-3 py-1 text-[12px] font-bold text-white">
               {mermaCopy.badge}
@@ -308,7 +314,7 @@ function AdminDashboard({
                 <AdminMetricCard label="Total vendido" value={vendidoTotal} />
                 <AdminMetricCard label="Devoluciones" value={devolucionesTotal} />
                 <AdminMetricCard
-                  label="Merma estimada"
+                  label="Merma"
                   secondary={`· ${mermaPorcentaje.toFixed(2)}%`}
                   value={mermaEstimada}
                 />
@@ -500,15 +506,25 @@ function calcularTiempoDesde(date?: string) {
 
 function CompactMetric({
   label,
+  secondary,
   value,
   tone = "dark",
 }: {
   label: string;
+  secondary?: string;
   value: number;
-  tone?: "orange" | "green" | "dark";
+  tone?: "orange" | "green" | "yellow" | "red" | "dark";
 }) {
   const valueColor =
-    tone === "orange" ? "text-coronados-orange" : tone === "green" ? "text-coronados-green" : "text-neutral-950";
+    tone === "orange"
+      ? "text-coronados-orange"
+      : tone === "green"
+        ? "text-coronados-green"
+        : tone === "yellow"
+          ? "text-[#BA7517]"
+          : tone === "red"
+            ? "text-[#C62828]"
+            : "text-neutral-950";
 
   return (
     <article className="rounded-[8px] border border-neutral-200 bg-white px-3 py-3">
@@ -517,6 +533,7 @@ function CompactMetric({
         {formatKg(value)}
         <span className="ml-1 text-[13px] font-medium text-neutral-400">kg</span>
       </p>
+      {secondary ? <p className={`mt-1 text-[12px] font-semibold ${valueColor}`}>{secondary}</p> : null}
     </article>
   );
 }

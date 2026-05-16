@@ -7,9 +7,15 @@ export type Jornada = {
   fecha: string;
   codigo: string;
   estado: "abierta" | "cerrada";
-  desperdicio_kg: number | null;
-  muertero_kg: number | null;
-  created_at: string;
+  entrada_total_kg?: number;
+  vendido_total_kg?: number;
+  devoluciones_total_kg?: number;
+  desperdicio_kg?: number | null;
+  muertero_kg?: number | null;
+  piso_disponible_kg?: number;
+  merma_kg?: number;
+  merma_porcentaje?: number;
+  created_at?: string;
   updated_at?: string;
 };
 
@@ -22,6 +28,7 @@ export type JornadaResumen = {
   devoluciones_total_kg: number;
   desperdicio_kg: number;
   muertero_kg: number;
+  piso_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
   estado: "abierta" | "cerrada";
@@ -47,6 +54,14 @@ export type JornadaDetalle = {
     peso_neto_kg: number;
     porcentaje_total: number;
   }>;
+  desglose_merma: {
+    entrada_total: number;
+    menos_vendido: number;
+    menos_devoluciones: number;
+    menos_desperdicio: number;
+    menos_muertero: number;
+    resultado_piso: number;
+  };
 };
 
 export type JornadasListParams = {
@@ -95,6 +110,7 @@ export type AdminMetricasDashboard = {
   entrada_total_kg: number;
   vendido_total_kg: number;
   devoluciones_kg: number;
+  piso_disponible_kg: number;
   merma_estimada_kg: number;
   merma_porcentaje: number;
   merma_estado: "normal" | "alta" | "critica";
@@ -105,6 +121,8 @@ export type AdminMermaHistorica = {
   datos: Array<{
     dia: number;
     merma_kg: number;
+    entrada_total_kg: number;
+    merma_porcentaje: number;
   }>;
 };
 
@@ -164,6 +182,7 @@ export type CierrePayload = {
 
 export type CierreResponse = {
   success: boolean;
+  piso_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
 };

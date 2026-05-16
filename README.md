@@ -170,7 +170,23 @@ Aplicación esperada: `http://localhost:5173`
 - `tara = jabas × tara_por_jaba`
 - `peso_neto = peso_bruto - tara`
 - La jornada del día se crea automáticamente si no existe
-- El cierre calcula merma con: `entrada - vendido + devoluciones - sobrante - desperdicio - muertero`
+- La merma se calcula dinámicamente; no se almacena como columna fija.
+
+## Cálculo De Merma
+
+La merma representa el piso disponible físico al final de la jornada después de descontar ventas, devoluciones, desperdicio y muertero.
+
+```text
+ENTRADA_TOTAL = entradas de granjas + sobrantes de jornadas anteriores
+PISO_DISPONIBLE = ENTRADA_TOTAL - VENDIDO - DEVOLUCIONES - DESPERDICIO - MUERTERO
+MERMA_% = (PISO_DISPONIBLE / ENTRADA_TOTAL) x 100
+```
+
+Interpretación:
+
+- `< 1%`: óptimo
+- `1-2%`: aceptable
+- `> 2%`: alto, revisar la jornada
 
 ## Comandos Útiles
 

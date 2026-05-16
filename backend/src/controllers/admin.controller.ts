@@ -28,11 +28,9 @@ async function calculateAdminMetrics(jornadaId: number) {
   const entradaTotal = metrics.entrada_total_kg;
   const vendidoTotal = metrics.vendido_total_kg;
   const devolucionesTotal = metrics.devoluciones_total_kg;
-  const mermaKg = Number(
-    (entradaTotal - vendidoTotal + devolucionesTotal - metrics.sobrante_total_kg).toFixed(2),
-  );
+  const mermaKg = metrics.piso_disponible_kg;
   const mermaPorcentaje =
-    entradaTotal > 0 ? Number(((mermaKg / entradaTotal) * 100).toFixed(2)) : 0;
+    entradaTotal > 0 ? Math.min(100, Math.max(0, Number(((mermaKg / entradaTotal) * 100).toFixed(2)))) : 0;
   const mermaEstado =
     mermaPorcentaje < 1 ? "normal" : mermaPorcentaje < 2 ? "alta" : "critica";
 
@@ -40,6 +38,7 @@ async function calculateAdminMetrics(jornadaId: number) {
     entrada_total_kg: entradaTotal,
     vendido_total_kg: vendidoTotal,
     devoluciones_kg: devolucionesTotal,
+    piso_disponible_kg: metrics.piso_disponible_kg,
     merma_estimada_kg: mermaKg,
     merma_porcentaje: mermaPorcentaje,
     merma_estado: mermaEstado,
@@ -91,6 +90,8 @@ export async function getAdminMermaHistorica(request: Request, response: Respons
             }).format(jornada.fecha),
           ),
           merma_kg: metrics.merma_estimada_kg,
+          entrada_total_kg: metrics.entrada_total_kg,
+          merma_porcentaje: metrics.merma_porcentaje,
         };
       }),
   );

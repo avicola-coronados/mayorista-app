@@ -11,15 +11,15 @@ import {
   exportClientesJornadaXlsx,
   exportJornadaPdf,
   exportJornadasXlsx,
+  getActiveJornadaWithMetrics,
   getJornadaDetalle,
   getJornadaMetricasById,
-  getOrCreateActiveJornada,
   listJornadas,
 } from "./jornadas.service";
 import { listDevolucionesByJornada } from "../devoluciones/devoluciones.service";
 
 export async function getActiveJornada(_request: Request, response: Response) {
-  const jornada = await getOrCreateActiveJornada();
+  const jornada = await getActiveJornadaWithMetrics();
   return response.json(serializePrisma(jornada));
 }
 

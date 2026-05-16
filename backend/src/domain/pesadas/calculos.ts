@@ -12,22 +12,24 @@ export function calcularPesoNeto(pesoBruto: number, tara: number) {
   return roundKg(pesoBruto - tara);
 }
 
-export function calcularMerma({
+export function calcularPisoDisponible({
   entradaKg,
   vendidoKg,
   devolucionesKg,
-  sobranteKg,
   desperdicioKg,
   muerteroKg,
 }: {
   entradaKg: number;
   vendidoKg: number;
   devolucionesKg: number;
-  sobranteKg: number;
   desperdicioKg: number;
   muerteroKg: number;
 }) {
-  return roundKg(entradaKg - vendidoKg + devolucionesKg - sobranteKg - desperdicioKg - muerteroKg);
+  return roundKg(entradaKg - vendidoKg - devolucionesKg - desperdicioKg - muerteroKg);
+}
+
+export function calcularMerma(params: Parameters<typeof calcularPisoDisponible>[0]) {
+  return calcularPisoDisponible(params);
 }
 
 export function calcularPorcentajeMerma(mermaKg: number, entradaKg: number) {
@@ -35,5 +37,5 @@ export function calcularPorcentajeMerma(mermaKg: number, entradaKg: number) {
     return 0;
   }
 
-  return roundKg((mermaKg / entradaKg) * 100);
+  return Math.min(100, Math.max(0, roundKg((mermaKg / entradaKg) * 100)));
 }

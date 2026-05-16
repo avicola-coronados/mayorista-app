@@ -341,6 +341,8 @@ export function AdminJornadaDetalle() {
               </div>
             </section>
 
+            <DesgloseMerma detalle={jornadaQuery.data} />
+
             {hasRoundingWarning ? (
               <div className="mb-4 rounded-[8px] border border-orange-200 bg-orange-50 px-4 py-3 text-[13px] font-medium text-orange-800">
                 Los totales pueden tener diferencias por redondeo.
@@ -397,7 +399,7 @@ function JornadasTable({
                   {formatKg(jornada.vendido_total_kg)}
                 </td>
                 <td className="px-4 py-4 text-right">
-                  <MermaBadge value={jornada.merma_porcentaje} />
+                  <MermaBadge jornada={jornada} value={jornada.merma_porcentaje} />
                 </td>
                 <td className="px-4 py-4 text-center">
                   <EstadoBadge estado={jornada.estado} />
@@ -428,7 +430,7 @@ function JornadasTable({
               <div>
                 <p className="text-neutral-500">Merma</p>
                 <div className="mt-1">
-                  <MermaBadge value={jornada.merma_porcentaje} />
+                  <MermaBadge jornada={jornada} value={jornada.merma_porcentaje} />
                 </div>
               </div>
             </div>
@@ -599,7 +601,45 @@ function TableHead({ align, children }: { align: "left" | "right" | "center"; ch
   );
 }
 
-function MermaBadge({ value }: { value: number }) {
+function DesgloseMerma({ detalle }: { detalle: JornadaDetalle }) {
+  const { desglose_merma: desglose, jornada } = detalle;
+  const resultClass = getMermaTextClass(jornada.merma_porcentaje);
+  const rows = [
+    { label: "Entrada total", value: desglose.entrada_total, symbol: "✓", positive: true },
+    { label: "Vendido", value: Math.abs(desglose.menos_vendido), symbol: "−" },
+    { label: "Devoluciones", value: Math.abs(desglose.menos_devoluciones), symbol: "−" },
+    { label: "Desperdicio", value: Math.abs(desglose.menos_desperdicio), symbol: "−" },
+    { label: "Muertero", value: Math.abs(desglose.menos_muertero), symbol: "−" },
+  ];
+
+  return (
+    <section className="mb-6 rounded-[12px] border border-neutral-200 bg-white p-5">
+      <h2 className="mb-4 text-[16px] font-medium text-neutral-950">Desglose de Merma</h2>
+      <div className="max-w-[560px]">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-4 py-2 text-[14px] font-medium text-neutral-600">
+            <span className="flex items-center gap-2">
+              <span className={row.positive ? "text-coronados-green" : "text-neutral-400"}>{row.symbol}</span>
+              {row.label}
+            </span>
+            <span className="font-semibold text-neutral-900">{formatKg(row.value)}</span>
+          </div>
+        ))}
+        <div className="mt-3 border-t-2 border-neutral-200 pt-4">
+          <div className="flex items-center justify-between gap-4 text-[16px] font-semibold">
+            <span className="text-neutral-900">= Piso disponible</span>
+            <span className={resultClass}>{formatKg(desglose.resultado_piso)}</span>
+          </div>
+          <p className={`mt-1 text-right text-[13px] font-semibold ${resultClass}`}>
+            {jornada.merma_porcentaje.toFixed(2)}% de entrada
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MermaBadge({ jornada, value }: { jornada?: JornadaResumen; value: number }) {
   const color =
     value > 2
       ? "bg-[#FCEBEB] text-[#C62828]"
@@ -608,7 +648,14 @@ function MermaBadge({ value }: { value: number }) {
         : "bg-[#E8F5E9] text-coronados-green";
 
   return (
-    <span className={`inline-flex rounded-full px-3 py-[5px] text-[12px] font-medium ${color}`}>
+    <span
+      className={`inline-flex rounded-full px-3 py-[5px] text-[12px] font-medium ${color}`}
+      title={
+        jornada
+          ? `Merma: ${formatKg(jornada.merma_kg)}\nEntrada: ${formatKg(jornada.entrada_total_kg)}\nVendido: ${formatKg(jornada.vendido_total_kg)}\nDevoluciones: ${formatKg(jornada.devoluciones_total_kg)}`
+          : undefined
+      }
+    >
       {value.toFixed(2)}%
     </span>
   );
@@ -939,7 +986,7 @@ function DetailMetric({ highlight, label, value }: { highlight?: boolean; label:
 }
 
 function formatKg(value: number) {
-  return `${new Intl.NumberFormat("es-PE", { maximumFractionDigits: 0 }).format(value)} kg`;
+  return `${new Intl.NumberFormat("es-PE", { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value)} kg`;
 }
 
 function calculatePercent(value: number, total: number) {

@@ -1,11 +1,11 @@
 import {
   calcularMerma,
+  calcularPisoDisponible,
   calcularPorcentajeMerma,
 } from "../../domain/pesadas/calculos";
 import ExcelJS from "exceljs";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
-import { PISO_GRANJA_NOMBRE } from "../lineas-venta/piso-disponible.service";
 import { getCurrentJornadaCode } from "../../utils/date";
 import { CierreJornadaInput, JornadasListQuery } from "./jornadas.schemas";
 
@@ -18,6 +18,7 @@ type JornadaSummary = {
   devoluciones_total_kg: number;
   desperdicio_kg: number;
   muertero_kg: number;
+  piso_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
   estado: "abierta" | "cerrada";
@@ -43,36 +44,34 @@ type JornadaDetalle = {
     peso_neto_kg: number;
     porcentaje_total: number;
   }>;
+  desglose_merma: {
+    entrada_total: number;
+    menos_vendido: number;
+    menos_devoluciones: number;
+    menos_desperdicio: number;
+    menos_muertero: number;
+    resultado_piso: number;
+  };
 };
 
 export async function calculateJornadaMetrics(jornadaId: number) {
   const [
+    jornada,
     entradaAggregate,
-    entradaLineasAggregate,
+    sobranteAggregate,
     ventaAggregate,
     devolucionAggregate,
-    pisoEntradaAggregate,
-    pisoSalidaAggregate,
     counts,
     pesadasRealizadas,
   ] =
     await Promise.all([
+      prisma.jornada.findUnique({ where: { id: jornadaId } }),
       prisma.entradaGranja.aggregate({
         where: { jornada_id: jornadaId },
         _sum: { peso_neto: true },
       }),
-      prisma.lineaVenta.aggregate({
-        where: {
-          jornada_id: jornadaId,
-          OR: [
-            { origen: "piso", cliente_id: null },
-            {
-              origen: "partida",
-              cliente_id: { not: null },
-              granja: { nombre: { not: PISO_GRANJA_NOMBRE } },
-            },
-          ],
-        },
+      prisma.sobrante.aggregate({
+        where: { jornada_id: jornadaId },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
@@ -81,19 +80,6 @@ export async function calculateJornadaMetrics(jornadaId: number) {
       }),
       prisma.devolucion.aggregate({
         where: { jornada_id: jornadaId },
-        _sum: { peso_neto: true },
-      }),
-      prisma.lineaVenta.aggregate({
-        where: { jornada_id: jornadaId, origen: "piso", cliente_id: null },
-        _sum: { peso_neto: true },
-      }),
-      prisma.lineaVenta.aggregate({
-        where: {
-          jornada_id: jornadaId,
-          origen: "partida",
-          cliente_id: { not: null },
-          granja: { nombre: PISO_GRANJA_NOMBRE },
-        },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.groupBy({
@@ -106,14 +92,24 @@ export async function calculateJornadaMetrics(jornadaId: number) {
       }),
     ]);
 
+  if (!jornada) {
+    throw new AppError("Jornada no encontrada", 404);
+  }
+
   const entradaGranjaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const entradaLineasTotal = entradaLineasAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const entradaTotal = Number((entradaGranjaTotal + entradaLineasTotal).toFixed(2));
+  const sobranteTotal = sobranteAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const entradaTotal = Number((entradaGranjaTotal + sobranteTotal).toFixed(2));
   const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const pisoEntradaTotal = pisoEntradaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const pisoSalidaTotal = pisoSalidaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const sobranteTotal = Number((pisoEntradaTotal - pisoSalidaTotal).toFixed(2));
+  const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
+  const muertero = jornada.muertero_kg?.toNumber() ?? 0;
+  const pisoDisponible = calcularPisoDisponible({
+    entradaKg: entradaTotal,
+    vendidoKg: vendidoTotal,
+    devolucionesKg: devolucionesTotal,
+    desperdicioKg: desperdicio,
+    muerteroKg: muertero,
+  });
   const clientesAtendidos = counts.length;
   const promedioPorCliente =
     clientesAtendidos > 0 ? Number((vendidoTotal / clientesAtendidos).toFixed(2)) : 0;
@@ -121,9 +117,11 @@ export async function calculateJornadaMetrics(jornadaId: number) {
   return {
     entrada_total_kg: entradaTotal,
     vendido_total_kg: vendidoTotal,
-    piso_disponible_kg: sobranteTotal,
+    piso_disponible_kg: pisoDisponible,
     devoluciones_total_kg: devolucionesTotal,
     sobrante_total_kg: sobranteTotal,
+    desperdicio_kg: desperdicio,
+    muertero_kg: muertero,
     clientes_atendidos: clientesAtendidos,
     pesadas_realizadas: pesadasRealizadas,
     promedio_por_cliente: promedioPorCliente,
@@ -142,6 +140,11 @@ export async function getOrCreateActiveJornada() {
       estado: "abierta",
     },
   });
+}
+
+export async function getActiveJornadaWithMetrics() {
+  const jornada = await getOrCreateActiveJornada();
+  return buildJornadaSummary(jornada);
 }
 
 export async function getJornadaMetricasById(jornadaId: number) {
@@ -205,6 +208,7 @@ export async function exportJornadaPdf(jornadaId: number) {
     `Devoluciones: ${jornada.devoluciones_total_kg} kg`,
     `Desperdicio: ${jornada.desperdicio_kg} kg`,
     `Muertero: ${jornada.muertero_kg} kg`,
+    `Piso disponible: ${jornada.piso_disponible_kg} kg`,
     `Merma: ${jornada.merma_kg} kg (${jornada.merma_porcentaje}%)`,
     "",
     "Entradas por granja",
@@ -317,6 +321,7 @@ export async function exportJornadasXlsx(query: JornadasListQuery) {
     { header: "Devoluciones kg", key: "devoluciones", width: 18 },
     { header: "Desperdicio kg", key: "desperdicio", width: 16 },
     { header: "Muertero kg", key: "muertero", width: 14 },
+    { header: "Piso disponible kg", key: "pisoDisponible", width: 20 },
     { header: "Merma kg", key: "merma", width: 12 },
     { header: "Merma %", key: "mermaPorcentaje", width: 12 },
     { header: "Estado", key: "estado", width: 12 },
@@ -331,6 +336,7 @@ export async function exportJornadasXlsx(query: JornadasListQuery) {
       devoluciones: jornada.devoluciones_total_kg,
       desperdicio: jornada.desperdicio_kg,
       muertero: jornada.muertero_kg,
+      pisoDisponible: jornada.piso_disponible_kg,
       merma: jornada.merma_kg,
       mermaPorcentaje: jornada.merma_porcentaje,
       estado: jornada.estado,
@@ -367,11 +373,14 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
     entradaKg: metrics.entrada_total_kg,
     vendidoKg: metrics.vendido_total_kg,
     devolucionesKg: metrics.devoluciones_total_kg,
-    sobranteKg: metrics.sobrante_total_kg,
     desperdicioKg: data.desperdicio_kg,
     muerteroKg: data.muertero_kg,
   });
   const mermaPorcentaje = calcularPorcentajeMerma(merma, metrics.entrada_total_kg);
+
+  if (data.desperdicio_kg + data.muertero_kg > metrics.entrada_total_kg) {
+    throw new AppError("Desperdicio y muertero no pueden exceder la entrada total", 400);
+  }
 
   await prisma.jornada.update({
     where: { id: jornadaId },
@@ -384,6 +393,7 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
 
   return {
     success: true,
+    piso_disponible_kg: merma,
     merma_kg: merma,
     merma_porcentaje: mermaPorcentaje,
   };
@@ -432,7 +442,6 @@ async function buildJornadaSummary(jornada: {
     entradaKg: metrics.entrada_total_kg,
     vendidoKg: metrics.vendido_total_kg,
     devolucionesKg: metrics.devoluciones_total_kg,
-    sobranteKg: metrics.sobrante_total_kg,
     desperdicioKg: desperdicio,
     muerteroKg: muertero,
   });
@@ -447,6 +456,7 @@ async function buildJornadaSummary(jornada: {
     devoluciones_total_kg: metrics.devoluciones_total_kg,
     desperdicio_kg: desperdicio,
     muertero_kg: muertero,
+    piso_disponible_kg: merma,
     merma_kg: merma,
     merma_porcentaje: mermaPorcentaje,
     estado: jornada.estado,
@@ -464,9 +474,7 @@ async function buildJornadaDetalle(jornada: {
   const [
     summary,
     entradaJabasAggregate,
-    entradaLineasJabasAggregate,
     entradasGrouped,
-    entradasLineasGrouped,
     ventasGrouped,
   ] = await Promise.all([
     buildJornadaSummary(jornada),
@@ -474,45 +482,12 @@ async function buildJornadaDetalle(jornada: {
       where: { jornada_id: jornada.id },
       _sum: { jabas_total: true },
     }),
-    prisma.lineaVenta.aggregate({
-      where: {
-        jornada_id: jornada.id,
-        OR: [
-          { origen: "piso", cliente_id: null },
-          {
-            origen: "partida",
-            cliente_id: { not: null },
-            granja: { nombre: { not: PISO_GRANJA_NOMBRE } },
-          },
-        ],
-      },
-      _sum: { jabas: true },
-    }),
     prisma.entradaGranja.groupBy({
       by: ["granja_id"],
       where: { jornada_id: jornada.id },
       _sum: {
         peso_neto: true,
         jabas_total: true,
-      },
-      orderBy: { granja_id: "asc" },
-    }),
-    prisma.lineaVenta.groupBy({
-      by: ["granja_id"],
-      where: {
-        jornada_id: jornada.id,
-        OR: [
-          { origen: "piso", cliente_id: null },
-          {
-            origen: "partida",
-            cliente_id: { not: null },
-            granja: { nombre: { not: PISO_GRANJA_NOMBRE } },
-          },
-        ],
-      },
-      _sum: {
-        peso_neto: true,
-        jabas: true,
       },
       orderBy: { granja_id: "asc" },
     }),
@@ -542,15 +517,6 @@ async function buildJornadaDetalle(jornada: {
     });
   });
 
-  entradasLineasGrouped.forEach((entrada) => {
-    const existing = entradasByGranja.get(entrada.granja_id) ?? { peso_neto_kg: 0, jabas: 0 };
-
-    entradasByGranja.set(entrada.granja_id, {
-      peso_neto_kg: Number((existing.peso_neto_kg + (entrada._sum.peso_neto?.toNumber() ?? 0)).toFixed(2)),
-      jabas: existing.jabas + (entrada._sum.jabas ?? 0),
-    });
-  });
-
   const [granjas, clientes] = await Promise.all([
     prisma.granja.findMany({
       where: { id: { in: Array.from(entradasByGranja.keys()) } },
@@ -568,8 +534,7 @@ async function buildJornadaDetalle(jornada: {
   return {
     jornada: {
       ...summary,
-      entrada_total_jabas:
-        (entradaJabasAggregate._sum.jabas_total ?? 0) + (entradaLineasJabasAggregate._sum.jabas ?? 0),
+      entrada_total_jabas: entradaJabasAggregate._sum.jabas_total ?? 0,
     },
     entradas_granjas: Array.from(entradasByGranja.entries()).map(([granjaId, entrada]) => ({
       granja_id: granjaId,
@@ -596,6 +561,14 @@ async function buildJornadaDetalle(jornada: {
             : 0,
       };
     }),
+    desglose_merma: {
+      entrada_total: summary.entrada_total_kg,
+      menos_vendido: -summary.vendido_total_kg,
+      menos_devoluciones: -summary.devoluciones_total_kg,
+      menos_desperdicio: -summary.desperdicio_kg,
+      menos_muertero: -summary.muertero_kg,
+      resultado_piso: summary.piso_disponible_kg,
+    },
   };
 }
 

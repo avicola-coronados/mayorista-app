@@ -35,9 +35,8 @@ export function CierreJornada() {
     return Number(
       (
         metricas.entrada_total_kg -
-        metricas.vendido_total_kg +
+        metricas.vendido_total_kg -
         metricas.devoluciones_total_kg -
-        metricas.sobrante_total_kg -
         desperdicioKg -
         muerteroKg
       ).toFixed(2),
@@ -112,6 +111,19 @@ export function CierreJornada() {
       return;
     }
 
+    if (desperdicioKg + muerteroKg > metricas.entrada_total_kg) {
+      toast.error("Desperdicio y muertero no pueden exceder la entrada total");
+      return;
+    }
+
+    if (mermaPorcentaje > 2 && desperdicioKg + muerteroKg === 0) {
+      const highMermaConfirmed = window.confirm("El piso disponible es alto. ¿Estás seguro de cerrar sin desperdicio ni muertero?");
+
+      if (!highMermaConfirmed) {
+        return;
+      }
+    }
+
     const confirmed = window.confirm("¿Confirmas el cierre de la jornada actual?");
 
     if (!confirmed) {
@@ -133,10 +145,7 @@ export function CierreJornada() {
               label="Total devoluciones"
               value={`${(metricas?.devoluciones_total_kg ?? 0).toFixed(2)} kg`}
             />
-            <SummaryRow
-              label="Sobrante registrado"
-              value={`${(metricas?.sobrante_total_kg ?? 0).toFixed(2)} kg`}
-            />
+            <SummaryRow label="Piso disponible inicial" value={`${(metricas?.piso_disponible_kg ?? 0).toFixed(2)} kg`} />
           </div>
 
           <div className="mt-6">
@@ -183,8 +192,7 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Fórmula aplicada: entrada - vendido + devoluciones - sobrante - desperdicio -
-              muertero.
+              Fórmula aplicada: entrada total - vendido - devoluciones - desperdicio - muertero.
             </p>
 
             <button
