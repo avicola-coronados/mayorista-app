@@ -53,6 +53,7 @@ export type JornadaDetalle = {
     tara_kg: number;
     peso_neto_kg: number;
     porcentaje_total: number;
+    tiene_notas: boolean;
   }>;
   desglose_merma: {
     entrada_total: number;
@@ -248,6 +249,47 @@ export type AdminPesadasConNotas = {
     nota: string | null;
     hora: string;
   }>;
+};
+
+export type AdminLineaVentaDetalle = {
+  id: number;
+  granja_id: number;
+  granja: string;
+  origen: "partida" | "piso";
+  jabas: number;
+  peso_bruto: number;
+  tara: number;
+  tara_por_jaba: number;
+  peso_neto: number;
+  nota: string | null;
+  hora: string;
+};
+
+export type AdminLineasVentaClienteResponse = {
+  cliente: {
+    id: number;
+    nombre: string;
+  };
+  pesadas: AdminLineaVentaDetalle[];
+};
+
+export type AdminUpdateLineaVentaPayload = {
+  granja_id: number;
+  origen: "partida" | "piso";
+  jabas: number;
+  peso_bruto: number;
+  tara: number;
+  tara_por_jaba: number;
+};
+
+export type AdminUpdateLineaVentaResponse = {
+  mensaje: string;
+  linea_venta: AdminLineaVentaDetalle & {
+    jornada_id: number;
+    cliente_id: number | null;
+    cliente_nombre: string | null;
+    created_at: string;
+  };
 };
 
 export type TipoDevolucion = "pelado" | "muerto" | "vivo";
@@ -686,6 +728,24 @@ export const apiClient = {
       const response = await api.get<AdminPesadasConNotas>("/admin/pesadas-con-notas", {
         params: { jornada_id: jornadaId },
       });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getAdminLineasVentaCliente(clienteId: number, jornadaId: number) {
+    try {
+      const response = await api.get<AdminLineasVentaClienteResponse>(
+        `/admin/lineas-venta/cliente/${clienteId}/jornada/${jornadaId}`,
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateAdminLineaVenta(id: number, payload: AdminUpdateLineaVentaPayload) {
+    try {
+      const response = await api.put<AdminUpdateLineaVentaResponse>(`/admin/lineas-venta/${id}`, payload);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

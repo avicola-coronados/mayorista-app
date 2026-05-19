@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconAlertTriangle,
   IconArrowLeft,
   IconCalendar,
   IconCalendarOff,
   IconDownload,
+  IconEdit,
   IconEye,
   IconFileSpreadsheet,
   IconLoader2,
+  IconNote,
   IconPrinter,
   IconRefresh,
   IconSearch,
@@ -19,6 +22,7 @@ import toast from "react-hot-toast";
 import { AdminShell } from "../../components/AdminShell";
 import {
   apiClient,
+  type AdminLineaVentaDetalle,
   type JornadaDetalle,
   type JornadaResumen,
   type JornadasListParams,
@@ -192,6 +196,8 @@ export function AdminJornadaDetalle() {
   const queryClient = useQueryClient();
   const { id } = useParams();
   const jornadaId = Number(id);
+  const [clientePesadas, setClientePesadas] = useState<JornadaDetalle["consolidado_clientes"][number] | null>(null);
+  const [pesadaEditando, setPesadaEditando] = useState<(AdminLineaVentaDetalle & { cliente_nombre: string }) | null>(null);
   const jornadaQuery = useQuery({
     queryKey: ["admin-jornada", jornadaId],
     queryFn: () => apiClient.getJornadaDetalle(jornadaId),
@@ -200,6 +206,12 @@ export function AdminJornadaDetalle() {
   });
   const detalle = jornadaQuery.data;
   const jornada = detalle?.jornada;
+  const notasQuery = useQuery({
+    queryKey: ["admin-pesadas-con-notas", jornadaId],
+    queryFn: () => apiClient.getAdminPesadasConNotas(jornadaId),
+    enabled: Number.isInteger(jornadaId) && jornadaId > 0,
+    staleTime: 30 * 1000,
+  });
 
   useEffect(() => {
     if (jornadaQuery.isError) {
@@ -393,15 +405,452 @@ export function AdminJornadaDetalle() {
               </div>
             ) : null}
 
+            {notasQuery.data && notasQuery.data.total > 0 ? (
+              <AlertaNotasOperario
+                pesadas={notasQuery.data.pesadas_con_notas}
+                total={notasQuery.data.total}
+              />
+            ) : null}
+
             <ClientesConsolidado
               detalle={jornadaQuery.data}
               onExportExcel={handleExportClientes}
-              onSelectCliente={(clienteId) => navigate(`/admin/clientes/${clienteId}?jornada_id=${jornadaId}`)}
+              onEditCliente={setClientePesadas}
             />
+
+            {clientePesadas ? (
+              <ModalListaPesadasCliente
+                cliente={clientePesadas}
+                jornadaId={jornadaId}
+                onClose={() => setClientePesadas(null)}
+                onEdit={(pesada) => {
+                  setPesadaEditando({ ...pesada, cliente_nombre: clientePesadas.cliente_nombre });
+                  setClientePesadas(null);
+                }}
+              />
+            ) : null}
+
+            {pesadaEditando ? (
+              <ModalEditarPesada
+                pesada={pesadaEditando}
+                onClose={() => setPesadaEditando(null)}
+                onSuccess={async () => {
+                  setPesadaEditando(null);
+                  await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ["admin-jornada", jornadaId] }),
+                    queryClient.invalidateQueries({ queryKey: ["admin-pesadas-con-notas", jornadaId] }),
+                  ]);
+                }}
+              />
+            ) : null}
           </>
         )}
       </div>
     </AdminShell>
+  );
+}
+
+function AlertaNotasOperario({
+  pesadas,
+  total,
+}: {
+  total: number;
+  pesadas: Array<{
+    id: number;
+    cliente: string;
+    granja: string;
+    peso_neto: number;
+    nota: string | null;
+    hora: string;
+  }>;
+}) {
+  return (
+    <section className="no-print mb-6 flex gap-3 rounded-[8px] border border-[#FFE599] bg-[#FFF9E6] p-4">
+      <IconAlertTriangle size={20} className="mt-0.5 shrink-0 text-[#F59E0B]" />
+      <div className="min-w-0 flex-1">
+        <h2 className="mb-1 text-[14px] font-medium text-[#92400E]">
+          {total} pesada{total !== 1 ? "s" : ""} con observaciones del operario
+        </h2>
+        <p className="mb-3 text-[13px] font-medium text-[#78350F]">
+          Revisa las notas antes de cerrar la jornada:
+        </p>
+        <div className="grid gap-2">
+          {pesadas.map((pesada) => (
+            <article
+              key={pesada.id}
+              className="rounded-[6px] border border-neutral-200 border-l-[3px] border-l-coronados-orange bg-white px-3 py-[10px]"
+            >
+              <p className="text-[13px] font-medium text-neutral-950">
+                {pesada.cliente} - {pesada.granja}
+              </p>
+              <p className="mt-1 text-[13px] italic text-neutral-600">"{pesada.nota}"</p>
+              <p className="mt-1 text-[11px] font-medium text-neutral-400">
+                {formatKg(pesada.peso_neto)} · {pesada.hora}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ModalListaPesadasCliente({
+  cliente,
+  jornadaId,
+  onClose,
+  onEdit,
+}: {
+  cliente: JornadaDetalle["consolidado_clientes"][number];
+  jornadaId: number;
+  onClose: () => void;
+  onEdit: (pesada: AdminLineaVentaDetalle) => void;
+}) {
+  const pesadasQuery = useQuery({
+    queryKey: ["admin-lineas-cliente", jornadaId, cliente.cliente_id],
+    queryFn: () => apiClient.getAdminLineasVentaCliente(cliente.cliente_id, jornadaId),
+    enabled: cliente.cliente_id > 0,
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
+      onMouseDown={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-[700px] flex-col rounded-[12px] bg-white shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-5">
+          <h2 className="text-[18px] font-medium text-neutral-950">Pesadas de {cliente.cliente_nombre}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar pesadas del cliente"
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-neutral-500 transition hover:bg-neutral-100"
+          >
+            <IconX size={20} />
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto p-6">
+          {pesadasQuery.isLoading ? (
+            <div className="grid gap-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="h-[112px] animate-pulse rounded-[8px] border border-neutral-200 bg-neutral-50" />
+              ))}
+            </div>
+          ) : pesadasQuery.isError ? (
+            <ErrorState
+              message={(pesadasQuery.error as Error)?.message ?? "Error al cargar pesadas"}
+              onRetry={() => pesadasQuery.refetch()}
+            />
+          ) : pesadasQuery.data?.pesadas.length === 0 ? (
+            <p className="py-8 text-center text-[14px] font-medium text-neutral-500">No hay pesadas registradas</p>
+          ) : (
+            <div className="grid gap-3">
+              {pesadasQuery.data?.pesadas.map((pesada, index) => (
+                <article
+                  key={pesada.id}
+                  className={`relative rounded-[8px] border p-4 ${
+                    pesada.nota ? "border-[#FFE599] bg-[#FFF9E6]" : "border-neutral-200 bg-white"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onEdit(pesada)}
+                    className="absolute right-4 top-4 rounded-[6px] border border-neutral-200 bg-white px-3 py-[6px] text-[12px] font-medium text-neutral-700 transition hover:bg-neutral-50"
+                  >
+                    Editar
+                  </button>
+                  <h3 className="pr-20 text-[14px] font-medium text-neutral-950">Pesada #{index + 1}</h3>
+                  <p className="mt-1 pr-20 text-[13px] font-medium text-neutral-500">
+                    {pesada.granja} · {pesada.origen === "partida" ? "Partida" : "Piso"} · {pesada.jabas} jabas
+                  </p>
+                  <p className="mt-1 text-[14px] font-semibold text-coronados-orange">
+                    {formatKg(pesada.peso_neto)} · {pesada.hora}
+                  </p>
+                  {pesada.nota ? (
+                    <div className="mt-3 border-t border-[#FFE599] pt-3">
+                      <p className="flex items-center gap-1 text-[12px] font-medium text-neutral-600">
+                        <IconNote size={15} />
+                        Nota del operario:
+                      </p>
+                      <p className="mt-1 text-[13px] italic text-neutral-800">"{pesada.nota}"</p>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-neutral-200 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-[8px] border border-neutral-200 bg-white px-4 py-[10px] text-[14px] font-medium text-neutral-700 transition hover:bg-neutral-50"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalEditarPesada({
+  onClose,
+  onSuccess,
+  pesada,
+}: {
+  pesada: AdminLineaVentaDetalle & { cliente_nombre: string };
+  onClose: () => void;
+  onSuccess: () => void | Promise<void>;
+}) {
+  const [formData, setFormData] = useState({
+    granja_id: pesada.granja_id,
+    origen: pesada.origen,
+    jabas: pesada.jabas,
+    peso_bruto: pesada.peso_bruto,
+    tara: pesada.tara,
+    tara_por_jaba: pesada.tara_por_jaba,
+  });
+  const granjasQuery = useQuery({
+    queryKey: ["granjas"],
+    queryFn: () => apiClient.getGranjas(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const updateMutation = useMutation({
+    mutationFn: () => apiClient.updateAdminLineaVenta(pesada.id, formData),
+    onSuccess: async (response) => {
+      toast.success(response.mensaje);
+      await onSuccess();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+  const pesoNeto = Math.max(0, Number((formData.peso_bruto - formData.tara).toFixed(2)));
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !updateMutation.isPending) {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, updateMutation.isPending]);
+
+  function submitForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (formData.jabas <= 0) {
+      toast.error("Jabas debe ser mayor a 0");
+      return;
+    }
+
+    if (formData.peso_bruto <= 0) {
+      toast.error("Peso bruto debe ser mayor a 0");
+      return;
+    }
+
+    if (formData.tara < 0) {
+      toast.error("Tara no puede ser negativa");
+      return;
+    }
+
+    if (formData.peso_bruto <= formData.tara) {
+      toast.error("Peso bruto debe ser mayor que tara");
+      return;
+    }
+
+    updateMutation.mutate();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 px-4"
+      onMouseDown={() => {
+        if (!updateMutation.isPending) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-[620px] overflow-y-auto rounded-[12px] bg-white shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-5">
+          <h2 className="text-[18px] font-medium text-neutral-950">Editar pesada de {pesada.cliente_nombre}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={updateMutation.isPending}
+            aria-label="Cerrar edición de pesada"
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <IconX size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={submitForm}>
+          <div className="grid gap-4 p-6">
+            {pesada.nota ? (
+              <div className="rounded-[6px] border-l-[3px] border-l-coronados-orange bg-neutral-50 p-3">
+                <p className="flex items-center gap-1 text-[12px] font-medium text-neutral-600">
+                  <IconNote size={15} />
+                  Nota del operario:
+                </p>
+                <p className="mt-1 text-[13px] italic text-neutral-800">"{pesada.nota}"</p>
+              </div>
+            ) : null}
+
+            <label className="block">
+              <span className="mb-2 block text-[13px] font-medium text-neutral-700">Granja</span>
+              <select
+                value={formData.granja_id}
+                onChange={(event) => setFormData((current) => ({ ...current, granja_id: Number(event.target.value) }))}
+                disabled={granjasQuery.isLoading || updateMutation.isPending}
+                className="w-full rounded-[8px] border border-neutral-200 px-[14px] py-[10px] text-[14px] font-medium text-neutral-950 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {granjasQuery.data?.map((granja) => (
+                  <option key={granja.id} value={granja.id}>
+                    {granja.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-[13px] font-medium text-neutral-700">Origen</span>
+              <select
+                value={formData.origen}
+                onChange={(event) =>
+                  setFormData((current) => ({ ...current, origen: event.target.value as "partida" | "piso" }))
+                }
+                disabled={updateMutation.isPending}
+                className="w-full rounded-[8px] border border-neutral-200 px-[14px] py-[10px] text-[14px] font-medium text-neutral-950 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="partida">Partida</option>
+                <option value="piso">Piso</option>
+              </select>
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <NumberField
+                label="Jabas"
+                min={1}
+                step={1}
+                value={formData.jabas}
+                disabled={updateMutation.isPending}
+                onChange={(jabas) => setFormData((current) => ({ ...current, jabas: Math.trunc(jabas) }))}
+              />
+              <NumberField
+                label="Peso bruto"
+                min={0.01}
+                step={0.01}
+                value={formData.peso_bruto}
+                disabled={updateMutation.isPending}
+                onChange={(peso_bruto) => setFormData((current) => ({ ...current, peso_bruto }))}
+              />
+              <NumberField
+                label="Tara"
+                min={0}
+                step={0.01}
+                value={formData.tara}
+                disabled={updateMutation.isPending}
+                onChange={(tara) => setFormData((current) => ({ ...current, tara }))}
+              />
+              <NumberField
+                label="Tara por jaba"
+                min={0.01}
+                step={0.01}
+                value={formData.tara_por_jaba}
+                disabled={updateMutation.isPending}
+                onChange={(tara_por_jaba) => setFormData((current) => ({ ...current, tara_por_jaba }))}
+              />
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-[13px] font-medium text-neutral-700">Peso neto (kg)</span>
+              <input
+                type="number"
+                value={pesoNeto}
+                readOnly
+                className="w-full rounded-[8px] border border-neutral-200 bg-neutral-50 px-[14px] py-[10px] text-[14px] font-semibold text-coronados-orange outline-none"
+              />
+              <span className="mt-1 block text-[11px] font-medium text-neutral-400">
+                Calculado automáticamente: Peso bruto - Tara
+              </span>
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-neutral-200 px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={updateMutation.isPending}
+              className="rounded-[8px] border border-neutral-200 bg-white px-5 py-[10px] text-[14px] font-medium text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="rounded-[8px] bg-coronados-green px-5 py-[10px] text-[14px] font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {updateMutation.isPending ? "Guardando..." : "Guardar cambios"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function NumberField({
+  disabled,
+  label,
+  min,
+  onChange,
+  step,
+  value,
+}: {
+  disabled?: boolean;
+  label: string;
+  min: number;
+  step: number;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[13px] font-medium text-neutral-700">{label}</span>
+      <input
+        type="number"
+        min={min}
+        step={step}
+        value={Number.isFinite(value) ? value : ""}
+        onChange={(event) => onChange(Number(event.target.value))}
+        disabled={disabled}
+        className="w-full rounded-[8px] border border-neutral-200 px-[14px] py-[10px] text-[14px] font-medium text-neutral-950 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+      />
+    </label>
   );
 }
 
@@ -512,12 +961,12 @@ function MetricCard({
 
 function ClientesConsolidado({
   detalle,
+  onEditCliente,
   onExportExcel,
-  onSelectCliente,
 }: {
   detalle: JornadaDetalle;
+  onEditCliente: (cliente: JornadaDetalle["consolidado_clientes"][number]) => void;
   onExportExcel: () => void;
-  onSelectCliente: (clienteId: number) => void;
 }) {
   const totals = detalle.consolidado_clientes.reduce(
     (accumulator, cliente) => ({
@@ -564,14 +1013,14 @@ function ClientesConsolidado({
                 <ClienteHead align="right">Tara</ClienteHead>
                 <ClienteHead align="right">Peso Neto</ClienteHead>
                 <ClienteHead align="right">% del Total</ClienteHead>
+                <ClienteHead align="center">Acciones</ClienteHead>
               </tr>
             </thead>
             <tbody>
               {detalle.consolidado_clientes.map((cliente) => (
                 <tr
                   key={cliente.cliente_id}
-                  onClick={() => onSelectCliente(cliente.cliente_id)}
-                  className="cursor-pointer border-b border-neutral-200 transition hover:bg-neutral-50"
+                  className="border-b border-neutral-200 transition hover:bg-neutral-50"
                 >
                   <td className="px-5 py-[14px]">
                     <div className="flex items-center gap-[10px]">
@@ -579,7 +1028,14 @@ function ClientesConsolidado({
                         {getIniciales(cliente.cliente_nombre)}
                       </div>
                       <div>
-                        <p className="text-[14px] font-medium text-neutral-950">{cliente.cliente_nombre}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[14px] font-medium text-neutral-950">{cliente.cliente_nombre}</p>
+                          {cliente.tiene_notas ? (
+                            <span className="inline-flex rounded-full bg-[#FFF9E6] px-2 py-[3px] text-[10px] font-medium text-[#92400E]">
+                              Con notas
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="mt-0.5 text-[12px] font-medium text-neutral-500">{cliente.total_pesadas} pesadas</p>
                       </div>
                     </div>
@@ -592,6 +1048,16 @@ function ClientesConsolidado({
                     <span className="inline-flex rounded-full bg-[#FEF0EB] px-[10px] py-1 text-[12px] font-medium text-coronados-orange">
                       {cliente.porcentaje_total.toFixed(2)}%
                     </span>
+                  </td>
+                  <td className="px-5 py-[14px] text-center">
+                    <button
+                      type="button"
+                      onClick={() => onEditCliente(cliente)}
+                      className="no-print inline-flex items-center gap-1 rounded-[6px] border border-neutral-200 bg-transparent px-[10px] py-[6px] text-[12px] font-medium text-neutral-600 transition hover:border-neutral-400 hover:bg-neutral-50"
+                    >
+                      <IconEdit size={14} />
+                      Ver/Editar
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -606,6 +1072,7 @@ function ClientesConsolidado({
                     100%
                   </span>
                 </td>
+                <td className="px-5 py-[14px]" />
               </tr>
             </tbody>
           </table>
@@ -615,8 +1082,12 @@ function ClientesConsolidado({
   );
 }
 
-function ClienteHead({ align, children }: { align: "left" | "right"; children: string }) {
-  const alignClass = align === "left" ? "text-left" : "text-right";
+function ClienteHead({ align, children }: { align: "center" | "left" | "right"; children: string }) {
+  const alignClass = {
+    center: "text-center",
+    left: "text-left",
+    right: "text-right",
+  }[align];
 
   return (
     <th

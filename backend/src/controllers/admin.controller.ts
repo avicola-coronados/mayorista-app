@@ -15,6 +15,26 @@ const topClientesQuerySchema = jornadaQuerySchema.extend({
   limit: z.coerce.number().int().min(1).max(20).default(4),
 });
 
+const clienteJornadaParamsSchema = z.object({
+  cliente_id: z.coerce.number().int().positive("Cliente inválido"),
+  jornada_id: z.coerce.number().int().positive("Jornada inválida"),
+});
+
+const lineaVentaParamsSchema = z.object({
+  id: z.coerce.number().int().positive("Pesada inválida"),
+});
+
+const updateLineaVentaSchema = z.object({
+  granja_id: z.coerce.number().int().positive("Granja inválida"),
+  origen: z.enum(["partida", "piso"], {
+    message: "Origen debe ser partida o piso",
+  }),
+  jabas: z.coerce.number().int().positive("Jabas debe ser mayor a 0"),
+  peso_bruto: z.coerce.number().positive("Peso bruto debe ser mayor a 0"),
+  tara: z.coerce.number().min(0, "Tara no puede ser negativa"),
+  tara_por_jaba: z.coerce.number().positive("Tara por jaba debe ser mayor a 0"),
+});
+
 function toNumber(value: unknown) {
   if (value && typeof value === "object" && "toNumber" in value && typeof value.toNumber === "function") {
     return value.toNumber();
@@ -196,6 +216,144 @@ export async function getAdminPesadasConNotas(request: Request, response: Respon
         timeZone: process.env.APP_TIMEZONE ?? "America/Lima",
       }),
     })),
+  });
+}
+
+export async function getAdminLineasVentaPorCliente(request: Request, response: Response) {
+  const parsed = clienteJornadaParamsSchema.safeParse(request.params);
+
+  if (!parsed.success) {
+    return response.status(400).json({ message: parsed.error.issues[0]?.message ?? "Datos inválidos" });
+  }
+
+  const { cliente_id: clienteId, jornada_id: jornadaId } = parsed.data;
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: clienteId },
+    select: { id: true, nombre: true },
+  });
+
+  if (!cliente) {
+    return response.status(404).json({ message: "Cliente no encontrado" });
+  }
+
+  const pesadas = await prisma.lineaVenta.findMany({
+    where: {
+      cliente_id: clienteId,
+      jornada_id: jornadaId,
+    },
+    include: {
+      granja: {
+        select: { nombre: true },
+      },
+    },
+    orderBy: { created_at: "asc" },
+  });
+
+  return response.json({
+    cliente,
+    pesadas: pesadas.map((pesada) => ({
+      id: pesada.id,
+      granja_id: pesada.granja_id,
+      granja: pesada.granja.nombre,
+      origen: pesada.origen,
+      jabas: pesada.jabas,
+      peso_bruto: toNumber(pesada.peso_bruto),
+      tara: toNumber(pesada.tara),
+      tara_por_jaba: toNumber(pesada.tara_por_jaba),
+      peso_neto: toNumber(pesada.peso_neto),
+      nota: pesada.nota,
+      hora: pesada.created_at.toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: process.env.APP_TIMEZONE ?? "America/Lima",
+      }),
+    })),
+  });
+}
+
+export async function updateAdminLineaVenta(request: Request, response: Response) {
+  const params = lineaVentaParamsSchema.safeParse(request.params);
+  const body = updateLineaVentaSchema.safeParse(request.body);
+
+  if (!params.success) {
+    return response.status(400).json({ message: params.error.issues[0]?.message ?? "Datos inválidos" });
+  }
+
+  if (!body.success) {
+    return response.status(400).json({ message: body.error.issues[0]?.message ?? "Datos inválidos" });
+  }
+
+  const { id } = params.data;
+  const { granja_id: granjaId, jabas, origen, peso_bruto: pesoBruto, tara, tara_por_jaba: taraPorJaba } = body.data;
+  const lineaVenta = await prisma.lineaVenta.findUnique({
+    where: { id },
+    include: {
+      jornada: {
+        select: { estado: true },
+      },
+    },
+  });
+
+  if (!lineaVenta) {
+    return response.status(404).json({ message: "Pesada no encontrada" });
+  }
+
+  if (lineaVenta.jornada.estado === "cerrada") {
+    return response.status(400).json({
+      message: "No se puede editar una pesada de una jornada cerrada",
+      code: "JORNADA_CLOSED",
+    });
+  }
+
+  if (pesoBruto <= tara) {
+    return response.status(400).json({ message: "Peso bruto debe ser mayor que tara" });
+  }
+
+  const granja = await prisma.granja.findUnique({
+    where: { id: granjaId },
+    select: { id: true },
+  });
+
+  if (!granja) {
+    return response.status(404).json({ message: "Granja no encontrada" });
+  }
+
+  const pesoNeto = Number((pesoBruto - tara).toFixed(2));
+  const updated = await prisma.lineaVenta.update({
+    where: { id },
+    data: {
+      granja_id: granjaId,
+      origen,
+      jabas,
+      peso_bruto: pesoBruto,
+      tara,
+      tara_por_jaba: taraPorJaba,
+      peso_neto: pesoNeto,
+    },
+    include: {
+      cliente: { select: { nombre: true } },
+      granja: { select: { nombre: true } },
+    },
+  });
+
+  return response.json({
+    mensaje: "Pesada actualizada correctamente",
+    linea_venta: {
+      id: updated.id,
+      jornada_id: updated.jornada_id,
+      cliente_id: updated.cliente_id,
+      cliente_nombre: updated.cliente?.nombre ?? null,
+      granja_id: updated.granja_id,
+      granja: updated.granja.nombre,
+      origen: updated.origen,
+      jabas: updated.jabas,
+      peso_bruto: toNumber(updated.peso_bruto),
+      tara: toNumber(updated.tara),
+      tara_por_jaba: toNumber(updated.tara_por_jaba),
+      peso_neto: toNumber(updated.peso_neto),
+      nota: updated.nota,
+      created_at: updated.created_at,
+    },
   });
 }
 

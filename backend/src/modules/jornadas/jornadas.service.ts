@@ -43,6 +43,7 @@ type JornadaDetalle = {
     tara_kg: number;
     peso_neto_kg: number;
     porcentaje_total: number;
+    tiene_notas: boolean;
   }>;
   desglose_merma: {
     entrada_total: number;
@@ -528,6 +529,7 @@ async function buildJornadaDetalle(jornada: {
     entradaJabasAggregate,
     entradasGrouped,
     ventasGrouped,
+    notasGrouped,
   ] = await Promise.all([
     buildJornadaSummary(jornada),
     prisma.entradaGranja.aggregate({
@@ -559,6 +561,11 @@ async function buildJornadaDetalle(jornada: {
         },
       },
     }),
+    prisma.lineaVenta.groupBy({
+      by: ["cliente_id"],
+      where: { jornada_id: jornada.id, cliente_id: { not: null }, nota: { not: null } },
+      _count: { _all: true },
+    }),
   ]);
   const entradasByGranja = new Map<number, { peso_neto_kg: number; jabas: number }>();
 
@@ -582,6 +589,7 @@ async function buildJornadaDetalle(jornada: {
 
   const granjaNames = new Map(granjas.map((granja) => [granja.id, granja.nombre]));
   const clienteNames = new Map(clientes.map((cliente) => [cliente.id, cliente.nombre]));
+  const clientesConNotas = new Set(notasGrouped.map((nota) => nota.cliente_id).filter((clienteId): clienteId is number => Boolean(clienteId)));
 
   return {
     jornada: {
@@ -611,6 +619,7 @@ async function buildJornadaDetalle(jornada: {
           summary.vendido_total_kg > 0
             ? Number(((pesoNeto / summary.vendido_total_kg) * 100).toFixed(2))
             : 0,
+        tiene_notas: venta.cliente_id ? clientesConNotas.has(venta.cliente_id) : false,
       };
     }),
     desglose_merma: {
