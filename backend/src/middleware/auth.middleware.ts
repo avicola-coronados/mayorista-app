@@ -25,3 +25,13 @@ export function requireAdmin(request: Request, response: Response, next: NextFun
 
   return next();
 }
+
+export function requireRole(...roles: string[]) {
+  return (request: Request, response: Response, next: NextFunction) => {
+    if (!request.user?.role || !roles.includes(request.user.role)) {
+      return response.status(403).json({ message: "Acceso no permitido para este rol" });
+    }
+
+    return next();
+  };
+}

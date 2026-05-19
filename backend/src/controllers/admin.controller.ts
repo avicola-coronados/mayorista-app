@@ -158,6 +158,47 @@ export async function getAdminTopClientes(request: Request, response: Response) 
   return response.json({ clientes });
 }
 
+export async function getAdminPesadasConNotas(request: Request, response: Response) {
+  const parsed = jornadaQuerySchema.safeParse(request.query);
+
+  if (!parsed.success) {
+    return response.status(400).json({ message: parsed.error.issues[0]?.message ?? "Datos inválidos" });
+  }
+
+  const pesadas = await prisma.lineaVenta.findMany({
+    where: {
+      jornada_id: parsed.data.jornada_id,
+      nota: { not: null },
+    },
+    include: {
+      cliente: {
+        select: { nombre: true },
+      },
+      granja: {
+        select: { nombre: true },
+      },
+    },
+    orderBy: { created_at: "asc" },
+  });
+
+  return response.json({
+    total: pesadas.length,
+    pesadas_con_notas: pesadas.map((pesada) => ({
+      id: pesada.id,
+      cliente: pesada.cliente?.nombre ?? "Piso / Pesadas sin cliente",
+      granja: pesada.granja.nombre,
+      origen: pesada.origen,
+      peso_neto: toNumber(pesada.peso_neto),
+      nota: pesada.nota,
+      hora: pesada.created_at.toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: process.env.APP_TIMEZONE ?? "America/Lima",
+      }),
+    })),
+  });
+}
+
 function shortGranjaName(name: string) {
   const match = name.match(/(\d+)/);
 

@@ -26,8 +26,9 @@ const initialState: FormState = {
 
 export function RegistrarPesada() {
   const queryClient = useQueryClient();
-  const [clienteSearch, setClienteSearch] = useState("");
   const [form, setForm] = useState<FormState>(initialState);
+  const [newClienteName, setNewClienteName] = useState("");
+  const [showNewCliente, setShowNewCliente] = useState(false);
 
   const jornadaQuery = useQuery({
     queryKey: ["jornada-activa"],
@@ -74,7 +75,6 @@ export function RegistrarPesada() {
     onSuccess: async () => {
       toast.success("Pesada guardada correctamente");
       setForm(initialState);
-      setClienteSearch("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
         queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornada?.id] }),
@@ -84,6 +84,24 @@ export function RegistrarPesada() {
     onError: (error: Error) => {
       toast.error(error.message);
     },
+  });
+
+  const createClienteMutation = useMutation({
+    mutationFn: () =>
+      apiClient.createCliente({
+        nombre: newClienteName.trim(),
+        codigo: null,
+        telefono: null,
+        direccion: null,
+      }),
+    onSuccess: async (cliente) => {
+      toast.success(`Cliente '${cliente.nombre}' creado`);
+      setShowNewCliente(false);
+      setNewClienteName("");
+      setForm((current) => ({ ...current, cliente_id: cliente.id }));
+      await queryClient.invalidateQueries({ queryKey: ["clientes"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   if (jornadaQuery.isLoading || clientesQuery.isLoading || granjasQuery.isLoading) {
@@ -108,18 +126,6 @@ export function RegistrarPesada() {
         </div>
       </Layout>
     );
-  }
-
-  function handleClienteChange(value: string) {
-    setClienteSearch(value);
-    const matched = clientesQuery.data?.find(
-      (cliente) => cliente.nombre.toLowerCase() === value.trim().toLowerCase(),
-    );
-
-    setForm((current) => ({
-      ...current,
-      cliente_id: matched?.id ?? 0,
-    }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -173,8 +179,20 @@ export function RegistrarPesada() {
     });
 
     if (origen === "piso") {
-      setClienteSearch("");
+      setShowNewCliente(false);
+      setNewClienteName("");
     }
+  }
+
+  function handleCreateCliente(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (newClienteName.trim().length < 2) {
+      toast.error("El nombre del cliente debe tener al menos 2 caracteres");
+      return;
+    }
+
+    createClienteMutation.mutate();
   }
 
   return (
@@ -220,22 +238,33 @@ export function RegistrarPesada() {
 
           {!isPiso ? (
             <div className="mt-5">
-              <label htmlFor="cliente" className="field-label">
-                Cliente
-              </label>
-              <input
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="cliente" className="field-label mb-0">
+                  Cliente
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCliente(true)}
+                  className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
+                >
+                  Nuevo cliente
+                </button>
+              </div>
+              <select
                 id="cliente"
-                list="clientes-list"
                 className="field-input"
-                placeholder="Escribe para buscar cliente"
-                value={clienteSearch}
-                onChange={(event) => handleClienteChange(event.target.value)}
-              />
-              <datalist id="clientes-list">
+                value={form.cliente_id}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
+                }
+              >
+                <option value={0}>Selecciona un cliente existente</option>
                 {clientesQuery.data?.map((cliente) => (
-                  <option key={cliente.id} value={cliente.nombre} />
+                  <option key={cliente.id} value={cliente.id}>
+                    {cliente.nombre}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </div>
           ) : null}
 
@@ -361,6 +390,64 @@ export function RegistrarPesada() {
           </div>
         </section>
       </form>
+
+      {showNewCliente ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-[420px] rounded-[12px] bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-[18px] font-bold text-slate-950">Nuevo cliente</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!createClienteMutation.isPending) {
+                    setShowNewCliente(false);
+                    setNewClienteName("");
+                  }
+                }}
+                className="rounded-[8px] px-2 py-1 text-[20px] font-bold text-slate-500 transition hover:bg-slate-100"
+                disabled={createClienteMutation.isPending}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCreateCliente}>
+              <label htmlFor="nuevo-cliente" className="field-label">
+                Nombre del cliente
+              </label>
+              <input
+                id="nuevo-cliente"
+                className="field-input"
+                autoFocus
+                disabled={createClienteMutation.isPending}
+                maxLength={100}
+                placeholder="Ej: Mercado Central"
+                value={newClienteName}
+                onChange={(event) => setNewClienteName(event.target.value)}
+              />
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewCliente(false);
+                    setNewClienteName("");
+                  }}
+                  className="rounded-[8px] border border-slate-200 bg-white px-4 py-2 text-[14px] font-bold text-slate-600 transition hover:bg-slate-50"
+                  disabled={createClienteMutation.isPending}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-[8px] bg-coronados-orange px-4 py-2 text-[14px] font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={createClienteMutation.isPending}
+                >
+                  {createClienteMutation.isPending ? "Creando..." : "Crear cliente"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </Layout>
   );
 }

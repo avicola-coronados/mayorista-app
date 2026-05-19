@@ -200,6 +200,8 @@ export type ClienteDelDia = {
     tara: number;
     tara_por_jaba: number;
     peso_neto: number;
+    nota: string | null;
+    tiene_nota: boolean;
     created_at: string;
     usa_tara_personalizada: boolean;
     granja: {
@@ -207,6 +209,7 @@ export type ClienteDelDia = {
       nombre: string;
     };
   }>;
+  tiene_notas: boolean;
 };
 
 export type CierrePayload = {
@@ -224,6 +227,27 @@ export type CierreResponse = {
 export type ReabrirJornadaResponse = {
   success: boolean;
   jornada: Jornada;
+};
+
+export type UpdateLineaVentaNotaResponse = {
+  mensaje: string;
+  linea_venta: {
+    id: number;
+    nota: string | null;
+  };
+};
+
+export type AdminPesadasConNotas = {
+  total: number;
+  pesadas_con_notas: Array<{
+    id: number;
+    cliente: string;
+    granja: string;
+    origen: "partida" | "piso";
+    peso_neto: number;
+    nota: string | null;
+    hora: string;
+  }>;
 };
 
 export type TipoDevolucion = "pelado" | "muerto" | "vivo";
@@ -642,6 +666,24 @@ export const apiClient = {
   async getLineasDelDia(jornadaId: number) {
     try {
       const response = await api.get<ClienteDelDia[]>("/lineas-venta", {
+        params: { jornada_id: jornadaId },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateLineaVentaNota(id: number, nota: string | null) {
+    try {
+      const response = await api.patch<UpdateLineaVentaNotaResponse>(`/lineas-venta/${id}/nota`, { nota });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getAdminPesadasConNotas(jornadaId: number) {
+    try {
+      const response = await api.get<AdminPesadasConNotas>("/admin/pesadas-con-notas", {
         params: { jornada_id: jornadaId },
       });
       return response.data;

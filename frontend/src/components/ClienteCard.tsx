@@ -1,19 +1,41 @@
 import { useState } from "react";
+import { IconNote } from "@tabler/icons-react";
 import type { ClienteDelDia } from "../services/api";
 
 type ClienteCardProps = {
   cliente: ClienteDelDia;
+  editingNota: number | null;
+  isSavingNota: boolean;
+  notaTexto: string;
+  onCancelNota: () => void;
+  onNotaTextoChange: (value: string) => void;
+  onOpenNota: (linea: ClienteDelDia["lineas"][number]) => void;
+  onSaveNota: (linea: ClienteDelDia["lineas"][number]) => void;
 };
 
-export function ClienteCard({ cliente }: ClienteCardProps) {
+export function ClienteCard({
+  cliente,
+  editingNota,
+  isSavingNota,
+  notaTexto,
+  onCancelNota,
+  onNotaTextoChange,
+  onOpenNota,
+  onSaveNota,
+}: ClienteCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <article className="panel overflow-hidden">
+    <article className="panel relative overflow-hidden">
+      {cliente.tiene_notas ? (
+        <span className="absolute right-3 top-3 z-10 rounded-full bg-[#EAF3DE] px-[10px] py-1 text-[11px] font-bold text-[#3B6D11]">
+          Con notas
+        </span>
+      ) : null}
       <button
         type="button"
         onClick={() => setExpanded((current) => !current)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 pr-24 text-left"
       >
         <div>
           <h3 className="text-lg font-bold text-slate-900">{cliente.cliente.nombre}</h3>
@@ -35,7 +57,10 @@ export function ClienteCard({ cliente }: ClienteCardProps) {
       {expanded ? (
         <div className="border-t border-slate-100 px-5 py-4">
           <div className="space-y-3">
-            {cliente.lineas.map((linea) => (
+            {cliente.lineas.map((linea) => {
+              const isEditing = editingNota === linea.id;
+
+              return (
               <div
                 key={linea.id}
                 className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
@@ -53,7 +78,21 @@ export function ClienteCard({ cliente }: ClienteCardProps) {
                     </p>
                   </div>
 
-                  <p className="text-lg font-bold text-slate-900">{linea.peso_neto.toFixed(2)} kg</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-lg font-bold text-slate-900">{linea.peso_neto.toFixed(2)} kg</p>
+                    <button
+                      type="button"
+                      onClick={() => onOpenNota(linea)}
+                      className={`flex h-9 w-9 items-center justify-center rounded-[6px] border transition ${
+                        linea.tiene_nota
+                          ? "border-coronados-orange bg-coronados-orange text-white"
+                          : "border-slate-200 bg-transparent text-slate-400 hover:bg-slate-100"
+                      }`}
+                      title={linea.tiene_nota ? "Editar nota" : "Agregar nota"}
+                    >
+                      <IconNote size={18} stroke={2.2} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-600">
@@ -65,8 +104,46 @@ export function ClienteCard({ cliente }: ClienteCardProps) {
                     {linea.usa_tara_personalizada ? " ajustada" : ""}
                   </p>
                 </div>
+
+                {linea.nota && !isEditing ? (
+                  <div className="mt-3 rounded-[8px] border-l-[3px] border-coronados-orange bg-[#F9F9F9] px-3 py-[10px] text-[13px] font-medium text-slate-600">
+                    {linea.nota}
+                  </div>
+                ) : null}
+
+                {isEditing ? (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <textarea
+                      className="min-h-[80px] w-full resize-y rounded-[8px] border border-slate-200 px-3 py-[10px] text-[14px] font-medium text-slate-900 outline-none transition focus:border-slate-400"
+                      autoFocus
+                      disabled={isSavingNota}
+                      onChange={(event) => onNotaTextoChange(event.target.value)}
+                      placeholder="Escribe observaciones sobre esta pesada..."
+                      value={notaTexto}
+                    />
+                    <div className="mt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={onCancelNota}
+                        className="rounded-[6px] border border-slate-200 bg-transparent px-4 py-2 text-[13px] font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-60"
+                        disabled={isSavingNota}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSaveNota(linea)}
+                        className="rounded-[6px] bg-coronados-green px-4 py-2 text-[13px] font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isSavingNota}
+                      >
+                        {isSavingNota ? "Guardando..." : linea.nota && !notaTexto.trim() ? "Eliminar nota" : "Guardar nota"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       ) : null}

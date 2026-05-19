@@ -122,6 +122,7 @@ model LineaVenta {
   tara           Decimal          @db.Decimal(10, 2)
   tara_por_jaba  Decimal          @default(5.8) @db.Decimal(10, 2)
   peso_neto      Decimal          @db.Decimal(10, 2)
+  nota           String?
   created_at     DateTime         @default(now())
   jornada        Jornada          @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
   cliente        Cliente?         @relation(fields: [cliente_id], references: [id])

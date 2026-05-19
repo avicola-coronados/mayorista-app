@@ -14,4 +14,9 @@ export const lineasVentaQuerySchema = z.object({
   jornada_id: z.coerce.number().int().positive("Debes enviar jornada_id"),
 });
 
+export const updateNotaLineaVentaSchema = z.object({
+  nota: z.string().trim().nullable(),
+});
+
 export type CreateLineaVentaInput = z.infer<typeof createLineaVentaSchema>;
+export type UpdateNotaLineaVentaInput = z.infer<typeof updateNotaLineaVentaSchema>;

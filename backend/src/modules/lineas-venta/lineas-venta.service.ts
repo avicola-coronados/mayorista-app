@@ -6,7 +6,7 @@ import {
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { getPisoDisponible, PISO_GRANJA_NOMBRE } from "./piso-disponible.service";
-import { CreateLineaVentaInput } from "./lineas-venta.schemas";
+import { CreateLineaVentaInput, UpdateNotaLineaVentaInput } from "./lineas-venta.schemas";
 
 type LineaVentaDetalle = {
   id: number;
@@ -16,6 +16,8 @@ type LineaVentaDetalle = {
   tara: number;
   tara_por_jaba: number;
   peso_neto: number;
+  nota: string | null;
+  tiene_nota: boolean;
   created_at: string;
   granja: {
     id: number;
@@ -34,6 +36,7 @@ type LineasVentaGrouped = Record<
     total_kg: number;
     pesadas: number;
     lineas: LineaVentaDetalle[];
+    tiene_notas: boolean;
   }
 >;
 
@@ -143,6 +146,8 @@ export async function getLineasVentaGrouped(jornadaId: number) {
       tara: linea.tara.toNumber(),
       tara_por_jaba: taraPorJaba,
       peso_neto: pesoNeto,
+      nota: linea.nota,
+      tiene_nota: Boolean(linea.nota),
       created_at: linea.created_at.toISOString(),
       granja: {
         id: linea.granja.id,
@@ -159,6 +164,7 @@ export async function getLineasVentaGrouped(jornadaId: number) {
         },
         total_kg: pesoNeto,
         pesadas: 1,
+        tiene_notas: Boolean(linea.nota),
         lineas: [detail],
       };
       return accumulator;
@@ -166,9 +172,44 @@ export async function getLineasVentaGrouped(jornadaId: number) {
 
     existing.total_kg = Number((existing.total_kg + pesoNeto).toFixed(2));
     existing.pesadas += 1;
+    existing.tiene_notas = existing.tiene_notas || Boolean(linea.nota);
     existing.lineas.push(detail);
     return accumulator;
   }, {});
 
   return Object.values(grouped);
+}
+
+export async function updateLineaVentaNota(id: number, data: UpdateNotaLineaVentaInput) {
+  const lineaVenta = await prisma.lineaVenta.findUnique({
+    where: { id },
+    include: {
+      jornada: {
+        select: { estado: true },
+      },
+    },
+  });
+
+  if (!lineaVenta) {
+    throw new AppError("Pesada no encontrada", 404);
+  }
+
+  if (lineaVenta.jornada.estado === "cerrada") {
+    throw new AppError("No se pueden editar notas de una jornada cerrada", 400, "JORNADA_CLOSED");
+  }
+
+  const nota = data.nota?.trim() || null;
+  const updated = await prisma.lineaVenta.update({
+    where: { id },
+    data: { nota },
+    include: {
+      cliente: true,
+      granja: true,
+    },
+  });
+
+  return {
+    mensaje: nota ? "Nota guardada correctamente" : "Nota eliminada",
+    linea_venta: updated,
+  };
 }

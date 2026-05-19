@@ -1,0 +1,1 @@
+ALTER TABLE "linea_venta" ADD COLUMN IF NOT EXISTS "nota" TEXT;

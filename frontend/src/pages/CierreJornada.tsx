@@ -4,12 +4,15 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Layout } from "../components/Layout";
 import { apiClient } from "../services/api";
+import { useAuthStore } from "../store/authStore";
 
 export function CierreJornada() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [desperdicio, setDesperdicio] = useState("0");
   const [muertero, setMuertero] = useState("0");
+  const isAdmin = user?.role === "admin";
 
   const jornadaQuery = useQuery({
     queryKey: ["jornada-activa"],
@@ -20,6 +23,11 @@ export function CierreJornada() {
     queryKey: ["metricas", jornadaQuery.data?.id],
     queryFn: () => apiClient.getMetricas(jornadaQuery.data!.id),
     enabled: Boolean(jornadaQuery.data?.id),
+  });
+  const pesadasConNotasQuery = useQuery({
+    queryKey: ["admin-pesadas-con-notas", jornadaQuery.data?.id],
+    queryFn: () => apiClient.getAdminPesadasConNotas(jornadaQuery.data!.id),
+    enabled: isAdmin && Boolean(jornadaQuery.data?.id),
   });
 
   const jornada = jornadaQuery.data;
@@ -180,6 +188,31 @@ export function CierreJornada() {
         </section>
 
         <section className="space-y-5">
+          {isAdmin && (pesadasConNotasQuery.data?.total ?? 0) > 0 ? (
+            <div className="panel border border-yellow-200 bg-yellow-50 p-5">
+              <h2 className="text-[16px] font-bold text-yellow-900">
+                Hay {pesadasConNotasQuery.data?.total} pesada
+                {(pesadasConNotasQuery.data?.total ?? 0) === 1 ? "" : "s"} con observaciones
+              </h2>
+              <p className="mt-2 text-[13px] font-medium text-yellow-800">
+                Revisa estas notas antes de cerrar la jornada.
+              </p>
+              <div className="mt-4 space-y-3">
+                {pesadasConNotasQuery.data?.pesadas_con_notas.map((pesada) => (
+                  <article key={pesada.id} className="rounded-[10px] bg-white px-4 py-3 text-[13px]">
+                    <p className="font-bold text-slate-900">
+                      {pesada.cliente} · {pesada.granja}
+                    </p>
+                    <p className="mt-1 italic text-slate-600">"{pesada.nota}"</p>
+                    <p className="mt-2 text-[12px] font-medium text-slate-500">
+                      {pesada.peso_neto.toFixed(2)} kg · {pesada.hora}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="panel p-5 sm:p-6">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
               Merma calculada

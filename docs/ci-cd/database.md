@@ -118,6 +118,9 @@ Catálogo de clientes compradores.
 | --- | --- | --- |
 | `id` | `Int` | PK autoincremental |
 | `nombre` | `String` | único |
+| `codigo` | `String?` | único, opcional |
+| `telefono` | `String?` | opcional |
+| `direccion` | `String?` | opcional |
 | `activo` | `Boolean` | default `true` |
 | `created_at` | `DateTime` | default `now()` |
 
@@ -127,6 +130,8 @@ Relaciones:
 - Un cliente puede tener muchas `devolucion`.
 
 El borrado funcional de clientes se maneja con `activo = false`.
+
+El rol `operario` puede crear clientes activos desde el registro de pesada cuando el cliente todavía no existe. La edición, desactivación y gestión completa del catálogo queda reservada al rol `admin`.
 
 ## `entrada_granja`
 
@@ -169,6 +174,7 @@ Registra una pesada o venta dentro de una jornada.
 | `tara` | `Decimal(10,2)` | tara total |
 | `tara_por_jaba` | `Decimal(10,2)` | default `5.8` |
 | `peso_neto` | `Decimal(10,2)` | peso neto |
+| `nota` | `String?` | observación opcional del operario |
 | `created_at` | `DateTime` | default `now()` |
 
 Relaciones:
@@ -177,7 +183,9 @@ Relaciones:
 - Puede pertenecer a un `cliente`.
 - Pertenece a una `granja`.
 
-`cliente_id` es nullable para soportar registros operativos sin cliente asignado, como piso disponible.
+`cliente_id` es nullable solo para soportar registros de origen `piso` sin cliente asignado. Las pesadas de origen `partida` deben apuntar a un cliente activo existente.
+
+El campo `nota` permite que el operario deje observaciones por pesada. Es nullable para no afectar pesadas existentes. El admin puede revisar estas observaciones antes del cierre de jornada y decidir si corresponde una corrección.
 
 Si se elimina una jornada, sus líneas de venta se eliminan por cascada.
 
@@ -253,10 +261,10 @@ entrada_total_kg = SUM(entrada_granja.peso_neto) + SUM(sobrante.peso_neto)
 ### Vendido Total
 
 ```text
-vendido_total_kg = SUM(linea_venta.peso_neto)
+vendido_total_kg = SUM(linea_venta.peso_neto WHERE cliente_id IS NOT NULL)
 ```
 
-Solo se consideran ventas con cliente cuando se calcula el total vendido operativo.
+Solo se consideran ventas con cliente cuando se calcula el total vendido operativo. Las líneas de origen `piso` sin cliente no se tratan como venta final.
 
 ### Devoluciones Total
 

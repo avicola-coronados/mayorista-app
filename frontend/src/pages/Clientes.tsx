@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import toast from "react-hot-toast";
 import { ClienteCard } from "../components/ClienteCard";
 import { Layout } from "../components/Layout";
+import type { ClienteDelDia } from "../services/api";
 import { apiClient } from "../services/api";
 
 export function Clientes() {
+  const queryClient = useQueryClient();
+  const [editingNota, setEditingNota] = useState<number | null>(null);
+  const [notaTexto, setNotaTexto] = useState("");
   const jornadaQuery = useQuery({
     queryKey: ["jornada-activa"],
     queryFn: apiClient.getJornadaActiva,
@@ -15,6 +21,43 @@ export function Clientes() {
     queryFn: () => apiClient.getLineasDelDia(jornadaQuery.data!.id),
     enabled: Boolean(jornadaQuery.data?.id),
   });
+  const notaMutation = useMutation({
+    mutationFn: ({ id, nota }: { id: number; nota: string | null }) => apiClient.updateLineaVentaNota(id, nota),
+    onSuccess: async (response) => {
+      toast.success(response.mensaje);
+      setEditingNota(null);
+      setNotaTexto("");
+      await queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  function openNota(linea: ClienteDelDia["lineas"][number]) {
+    if (editingNota === linea.id) {
+      setEditingNota(null);
+      setNotaTexto("");
+      return;
+    }
+
+    setEditingNota(linea.id);
+    setNotaTexto(linea.nota ?? "");
+  }
+
+  function saveNota(linea: ClienteDelDia["lineas"][number]) {
+    const cleanNota = notaTexto.trim();
+
+    if (!cleanNota && !linea.nota) {
+      toast.error("Escribe una observación");
+      return;
+    }
+
+    notaMutation.mutate({ id: linea.id, nota: cleanNota || null });
+  }
+
+  function cancelNota() {
+    setEditingNota(null);
+    setNotaTexto("");
+  }
 
   if (jornadaQuery.isLoading) {
     return (
@@ -74,7 +117,17 @@ export function Clientes() {
       ) : (
         <div className="space-y-4">
           {clientesDelDiaQuery.data?.map((cliente) => (
-            <ClienteCard key={cliente.cliente.id} cliente={cliente} />
+            <ClienteCard
+              key={cliente.cliente.id ?? "piso"}
+              cliente={cliente}
+              editingNota={editingNota}
+              isSavingNota={notaMutation.isPending}
+              notaTexto={notaTexto}
+              onCancelNota={cancelNota}
+              onNotaTextoChange={setNotaTexto}
+              onOpenNota={openNota}
+              onSaveNota={saveNota}
+            />
           ))}
         </div>
       )}
