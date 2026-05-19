@@ -79,18 +79,21 @@ Scripts importantes:
 ```json
 {
   "build": "prisma generate && tsc",
-  "start": "node dist/index.js",
+  "start": "prisma migrate deploy && node dist/index.js",
   "db:deploy": "prisma migrate deploy"
 }
 ```
 
 El build genera Prisma Client y compila TypeScript.
 
-El start ejecuta el archivo compilado:
+El start aplica migraciones pendientes y luego ejecuta el archivo compilado:
 
 ```text
+prisma migrate deploy
 backend/dist/index.js
 ```
+
+Motivo: `DATABASE_URL` normalmente apunta al host privado `postgres.railway.internal`. Ese host no siempre está disponible durante la fase de build de Nixpacks, pero sí durante el arranque del servicio desplegado.
 
 ## Networking
 
@@ -180,7 +183,11 @@ Flujo básico:
 
 ## Migraciones
 
-El deploy de Railway no garantiza por sí solo que la base de datos quede migrada.
+El deploy de Railway aplica migraciones automáticamente al arrancar el backend, porque `npm start` ejecuta:
+
+```bash
+prisma migrate deploy && node dist/index.js
+```
 
 Si hay cambios en:
 
@@ -189,7 +196,9 @@ backend/prisma/schema.prisma
 backend/prisma/migrations/
 ```
 
-se debe ejecutar:
+quedan aplicados en el siguiente deploy del backend.
+
+También se puede ejecutar manualmente:
 
 ```bash
 npm run db:deploy

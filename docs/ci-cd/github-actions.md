@@ -30,7 +30,7 @@ Pasos:
 ```bash
 npm ci
 npm test
-npm run build
+npm run build:ci
 ```
 
 El build del backend ejecuta:
@@ -38,6 +38,8 @@ El build del backend ejecuta:
 ```bash
 prisma generate && tsc
 ```
+
+No ejecuta migraciones ni requiere conexión a la base de datos. Las migraciones se aplican en Railway durante el arranque del backend.
 
 Esto valida:
 

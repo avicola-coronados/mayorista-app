@@ -13,7 +13,7 @@ Este proyecto usa un flujo CI/CD híbrido:
 3. GitHub Actions ejecuta el workflow de CI.
 4. Vercel detecta cambios en la rama configurada y despliega el frontend.
 5. Railway detecta cambios en la rama configurada y despliega el backend.
-6. Si hay cambios de base de datos, se deben aplicar migraciones Prisma con `prisma migrate deploy`.
+6. Si hay cambios de base de datos, Railway aplica las migraciones Prisma pendientes al arrancar el backend.
 
 ## Ramas
 
@@ -34,9 +34,11 @@ GitHub Actions no despliega directamente. Su función es detectar errores antes 
 
 - Instala dependencias del backend.
 - Ejecuta pruebas del backend.
-- Ejecuta `npm run build` en backend.
+- Ejecuta `npm run build:ci` en backend.
 - Instala dependencias del frontend.
 - Ejecuta pruebas del frontend.
 - Ejecuta `npm run build` en frontend.
 
 Vercel y Railway siguen siendo los responsables del despliegue.
+
+Nota: el build de CI no ejecuta migraciones ni necesita conexión a PostgreSQL. En Railway, `npm start` ejecuta `prisma migrate deploy` antes de levantar `node dist/index.js`.
