@@ -30,6 +30,8 @@ export async function loginUser({ username, password }: LoginInput) {
     user: {
       id: user.id,
       username: user.username,
+      nombre: user.nombre,
+      email: user.email,
       role: user.role,
     },
   };

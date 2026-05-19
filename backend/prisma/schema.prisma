@@ -26,15 +26,26 @@ enum TipoDevolucion {
 enum UserRole {
   operario
   admin
+  cajero
+  oficina
 }
 
 model Usuario {
-  id            Int      @id @default(autoincrement())
-  username      String   @unique
-  password_hash String
-  role          UserRole
-  activo        Boolean  @default(true)
-  created_at    DateTime @default(now())
+  id              Int       @id @default(autoincrement())
+  username        String    @unique
+  password_hash   String
+  nombre          String?
+  email           String?
+  role            UserRole
+  activo          Boolean   @default(true)
+  created_by      Int?
+  updated_by      Int?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  creator         Usuario?  @relation("UsuarioCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  updater         Usuario?  @relation("UsuarioUpdatedBy", fields: [updated_by], references: [id], onDelete: SetNull)
+  created_users   Usuario[] @relation("UsuarioCreatedBy")
+  updated_users   Usuario[] @relation("UsuarioUpdatedBy")
 
   @@map("usuario")
 }

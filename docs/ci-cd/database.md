@@ -36,6 +36,8 @@ Roles de usuario:
 
 - `operario`
 - `admin`
+- `cajero`
+- `oficina`
 
 ## Tablas
 
@@ -48,11 +50,23 @@ Usuarios que pueden iniciar sesión en la aplicación.
 | `id` | `Int` | PK autoincremental |
 | `username` | `String` | único |
 | `password_hash` | `String` | hash de contraseña |
-| `role` | `UserRole` | `operario` o `admin` |
+| `nombre` | `String?` | nombre real del usuario |
+| `email` | `String?` | correo opcional |
+| `role` | `UserRole` | `operario`, `admin`, `cajero` u `oficina` |
 | `activo` | `Boolean` | default `true` |
+| `created_by` | `Int?` | FK nullable a `usuario.id` |
+| `updated_by` | `Int?` | FK nullable a `usuario.id` |
 | `created_at` | `DateTime` | default `now()` |
+| `updated_at` | `DateTime` | `@updatedAt` |
 
-No tiene relaciones directas con las tablas operativas. Solo controla autenticación y autorización.
+Relaciones:
+
+- `creator`: usuario que creó el registro.
+- `updater`: último usuario que modificó el registro.
+- `created_users`: usuarios creados por este usuario.
+- `updated_users`: usuarios modificados por este usuario.
+
+No tiene relaciones directas con las tablas operativas. Controla autenticación, autorización y auditoría básica de gestión de usuarios.
 
 ## `jornada`
 

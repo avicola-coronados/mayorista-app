@@ -48,29 +48,48 @@ async function main() {
     where: { username: "operario" },
     update: {
       password_hash: operarioPasswordHash,
+      nombre: "Carlos Operario",
+      email: null,
       role: UserRole.operario,
       activo: true,
     },
     create: {
       username: "operario",
       password_hash: operarioPasswordHash,
+      nombre: "Carlos Operario",
+      email: null,
       role: UserRole.operario,
       activo: true,
     },
   });
 
-  await prisma.usuario.upsert({
+  const admin = await prisma.usuario.upsert({
     where: { username: "admin" },
     update: {
       password_hash: adminPasswordHash,
+      nombre: "María Administradora",
+      email: "admin@coronados.com",
       role: UserRole.admin,
       activo: true,
     },
     create: {
       username: "admin",
       password_hash: adminPasswordHash,
+      nombre: "María Administradora",
+      email: "admin@coronados.com",
       role: UserRole.admin,
       activo: true,
+    },
+  });
+
+  await prisma.usuario.updateMany({
+    where: {
+      username: "operario",
+      created_by: null,
+    },
+    data: {
+      created_by: admin.id,
+      updated_by: admin.id,
     },
   });
 
