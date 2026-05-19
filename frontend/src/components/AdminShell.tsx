@@ -15,7 +15,6 @@ const navItems = [
   { to: "/admin/jornadas", label: "Jornadas" },
   { to: "/admin/clientes", label: "Clientes" },
   { to: "/admin/granjas", label: "Granjas" },
-  { to: "/admin/reportes", label: "Reportes" },
   { to: "/admin/usuarios", label: "Usuarios" },
   { to: "/admin/config", label: "Config." },
 ];
@@ -71,7 +70,7 @@ export function AdminShell({ actions, beforeTitle, children, subtitle, title }: 
             <button
               type="button"
               onClick={clearAuth}
-              className="mt-3 text-[12px] font-medium text-white/80 underline-offset-2 hover:underline"
+              className="mt-4 w-full rounded-[8px] bg-coronados-green px-3 py-2 text-center text-[12px] font-bold text-white transition hover:bg-green-700"
             >
               Cerrar sesión
             </button>

@@ -138,7 +138,7 @@ export function Login() {
                     Admin
                   </p>
                   <p className="text-[12px] font-medium text-green-500 sm:text-[14px]">
-                    Reportes y config.
+                    Gestión y config.
                   </p>
                 </div>
               </div>

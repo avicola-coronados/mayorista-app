@@ -264,7 +264,6 @@ function AdminDashboard({
             <AdminNavLink to="/admin/jornadas" label="Jornadas" />
             <AdminNavLink to="/admin/clientes" label="Clientes" />
             <AdminNavLink to="/admin/granjas" label="Granjas" />
-            <AdminNavLink to="/admin/reportes" label="Reportes" />
             <AdminNavLink to="/admin/usuarios" label="Usuarios" />
             <AdminNavLink to="/admin/config" label="Config." />
           </nav>
@@ -275,7 +274,7 @@ function AdminDashboard({
             <button
               type="button"
               onClick={clearAuth}
-              className="mt-3 text-[12px] font-medium text-white/80 underline-offset-2 hover:underline"
+              className="mt-4 w-full rounded-[8px] bg-coronados-green px-3 py-2 text-center text-[12px] font-bold text-white transition hover:bg-green-700"
             >
               Cerrar sesión
             </button>

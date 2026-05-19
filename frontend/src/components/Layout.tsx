@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 
@@ -29,7 +28,6 @@ function formatRole(role?: string) {
 export function Layout({ title, subtitle, statusBadge, statusTone = "open", children }: LayoutProps) {
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
-  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#d8d8d8] pb-24">
@@ -57,30 +55,20 @@ export function Layout({ title, subtitle, statusBadge, statusTone = "open", chil
               </div>
             </div>
 
-            <div className="relative text-right">
-              <button
-                type="button"
-                onClick={() => setShowUserMenu((current) => !current)}
-                className="text-[14px] font-bold leading-tight text-white transition hover:text-orange-100 sm:text-[16px]"
-                title="Opciones de usuario"
-              >
+            <div className="text-right">
+              <p className="text-[14px] font-bold leading-tight text-white sm:text-[16px]">
                 {user?.username}
-              </button>
+              </p>
               <p className="mt-1 text-[13px] font-medium leading-tight text-white sm:text-[14px]">
                 {formatRole(user?.role)}
               </p>
-
-              {showUserMenu ? (
-                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-40 rounded-[8px] border border-neutral-200 bg-white p-1 text-left shadow-xl">
-                  <button
-                    type="button"
-                    onClick={() => clearAuth()}
-                    className="w-full rounded-[6px] px-3 py-2 text-[13px] font-semibold text-neutral-700 transition hover:bg-orange-50 hover:text-coronados-orange"
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => clearAuth()}
+                className="mt-2 rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700 sm:text-[13px]"
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
 
