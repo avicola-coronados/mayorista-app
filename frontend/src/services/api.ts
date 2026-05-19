@@ -92,7 +92,41 @@ export type Granja = {
 export type Cliente = {
   id: number;
   nombre: string;
+  codigo?: string | null;
+  telefono?: string | null;
+  direccion?: string | null;
   activo: boolean;
+  created_at?: string;
+  total_ventas?: number;
+  total_kg_vendido?: number;
+  compro_hoy?: boolean;
+  ultima_compra?: string | null;
+};
+
+export type AdminClientesResponse = {
+  clientes: Cliente[];
+  jornada_activa: {
+    id: number;
+    codigo: string;
+    fecha: string;
+    estado: "abierta" | "cerrada";
+  } | null;
+  resumen_inactivos: {
+    total_sin_compras_hoy: number;
+    clientes_sin_compras: Array<{
+      id: number;
+      nombre: string;
+      ultima_compra: string | null;
+    }>;
+  };
+};
+
+export type ClientePayload = {
+  nombre: string;
+  codigo?: string | null;
+  telefono?: string | null;
+  direccion?: string | null;
+  activo?: boolean;
 };
 
 export type MetricasJornada = {
@@ -185,6 +219,11 @@ export type CierreResponse = {
   piso_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
+};
+
+export type ReabrirJornadaResponse = {
+  success: boolean;
+  jornada: Jornada;
 };
 
 export type TipoDevolucion = "pelado" | "muerto" | "vivo";
@@ -438,6 +477,48 @@ export const apiClient = {
       throw new Error(getErrorMessage(error));
     }
   },
+  async getAdminClientes(search?: string) {
+    try {
+      const response = await api.get<AdminClientesResponse>("/clientes", {
+        params: { include_stats: true, search: search || undefined },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getCliente(id: number) {
+    try {
+      const response = await api.get<Cliente>(`/clientes/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createCliente(payload: ClientePayload) {
+    try {
+      const response = await api.post<Cliente>("/clientes", payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateCliente(id: number, payload: Required<ClientePayload>) {
+    try {
+      const response = await api.put<Cliente>(`/clientes/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteCliente(id: number) {
+    try {
+      const response = await api.delete<{ mensaje: string }>(`/clientes/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
   async getDevoluciones(jornadaId: number) {
     try {
       const response = await api.get<DevolucionesResponse>(`/jornadas/${jornadaId}/devoluciones`);
@@ -483,6 +564,14 @@ export const apiClient = {
   async cerrarJornada(jornadaId: number, payload: CierrePayload) {
     try {
       const response = await api.post<CierreResponse>(`/jornadas/${jornadaId}/cerrar`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async reabrirJornada(jornadaId: number) {
+    try {
+      const response = await api.post<ReabrirJornadaResponse>(`/jornadas/${jornadaId}/reabrir`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

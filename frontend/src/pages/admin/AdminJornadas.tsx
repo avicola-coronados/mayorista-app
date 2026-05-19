@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconArrowLeft,
   IconCalendar,
@@ -10,6 +10,7 @@ import {
   IconFileSpreadsheet,
   IconLoader2,
   IconPrinter,
+  IconRefresh,
   IconSearch,
   IconShoppingCartOff,
   IconX,
@@ -188,6 +189,7 @@ export function AdminJornadas() {
 
 export function AdminJornadaDetalle() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id } = useParams();
   const jornadaId = Number(id);
   const jornadaQuery = useQuery({
@@ -237,6 +239,37 @@ export function AdminJornadaDetalle() {
     }
   }
 
+  const reopenMutation = useMutation({
+    mutationFn: () => apiClient.reabrirJornada(jornadaId),
+    onSuccess: async () => {
+      toast.success("Jornada reabierta");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-jornada", jornadaId] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-jornadas"] }),
+        queryClient.invalidateQueries({ queryKey: ["jornada-activa"] }),
+      ]);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  function handleReopen() {
+    if (!jornada) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `¿Reabrir la jornada ${jornada.codigo}? Esto permitirá registrar o modificar operaciones de la jornada nuevamente.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    reopenMutation.mutate();
+  }
+
   const soldPercent = jornada ? calculatePercent(jornada.vendido_total_kg, jornada.entrada_total_kg) : 0;
   const devolucionesPercent = jornada ? calculatePercent(jornada.devoluciones_total_kg, jornada.entrada_total_kg) : 0;
   const clientesTotal = detalle?.consolidado_clientes.reduce((sum, cliente) => sum + cliente.peso_neto_kg, 0) ?? 0;
@@ -248,6 +281,17 @@ export function AdminJornadaDetalle() {
       subtitle={jornada ? formatFullDate(jornada.fecha) : "Cargando detalle"}
       actions={
         <div className="no-print flex gap-2">
+          {jornada?.estado === "cerrada" ? (
+            <button
+              type="button"
+              onClick={handleReopen}
+              disabled={reopenMutation.isPending}
+              className="flex items-center gap-[6px] rounded-[6px] border border-white/30 bg-white/15 px-[14px] py-2 text-[14px] font-medium text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <IconRefresh size={16} className={reopenMutation.isPending ? "animate-spin" : ""} />
+              <span className="hidden lg:inline">{reopenMutation.isPending ? "Reabriendo..." : "Reabrir"}</span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => window.print()}

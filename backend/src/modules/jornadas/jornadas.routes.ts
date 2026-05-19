@@ -10,6 +10,7 @@ import {
   getJornadaDevoluciones,
   getJornadaMetricas,
   getJornadas,
+  reopenJornada,
 } from "./jornadas.controller";
 import { requireAdmin } from "../../middleware/auth.middleware";
 
@@ -24,3 +25,4 @@ jornadasRouter.get("/:id/devoluciones", asyncHandler(getJornadaDevoluciones));
 jornadasRouter.get("/:id/metricas", asyncHandler(getJornadaMetricas));
 jornadasRouter.get("/:id", requireAdmin, asyncHandler(getJornada));
 jornadasRouter.post("/:id/cerrar", asyncHandler(closeJornada));
+jornadasRouter.post("/:id/reabrir", requireAdmin, asyncHandler(reopenJornada));

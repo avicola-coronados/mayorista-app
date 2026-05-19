@@ -15,6 +15,7 @@ import {
   getJornadaDetalle,
   getJornadaMetricasById,
   listJornadas,
+  reopenJornadaById,
 } from "./jornadas.service";
 import { listDevolucionesByJornada } from "../devoluciones/devoluciones.service";
 
@@ -57,6 +58,13 @@ export async function closeJornada(request: Request, response: Response) {
   const result = await closeJornadaById(id, data);
 
   return response.json(result);
+}
+
+export async function reopenJornada(request: Request, response: Response) {
+  const { id } = jornadaIdParamSchema.parse(request.params);
+  const result = await reopenJornadaById(id);
+
+  return response.json(serializePrisma(result));
 }
 
 export async function exportJornada(request: Request, response: Response) {

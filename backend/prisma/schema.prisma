@@ -70,11 +70,15 @@ model Granja {
 model Cliente {
   id           Int          @id @default(autoincrement())
   nombre       String       @unique
+  codigo       String?      @unique
+  telefono     String?
+  direccion    String?
   activo       Boolean      @default(true)
   created_at   DateTime     @default(now())
   lineas_venta LineaVenta[]
   devoluciones Devolucion[]
 
+  @@index([activo])
   @@map("cliente")
 }
 

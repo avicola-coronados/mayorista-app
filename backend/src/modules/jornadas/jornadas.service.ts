@@ -399,6 +399,57 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
   };
 }
 
+export async function reopenJornadaById(jornadaId: number) {
+  const jornada = await prisma.jornada.findUnique({ where: { id: jornadaId } });
+
+  if (!jornada) {
+    throw new AppError("Jornada no encontrada", 404);
+  }
+
+  if (jornada.estado === "abierta") {
+    throw new AppError("La jornada ya está abierta", 400, "JORNADA_ALREADY_OPEN");
+  }
+
+  const currentJornadaCode = getCurrentJornadaCode();
+
+  if (jornada.codigo !== currentJornadaCode) {
+    throw new AppError(
+      "Solo se puede reabrir la jornada actual del día",
+      400,
+      "ONLY_CURRENT_JORNADA_CAN_REOPEN",
+    );
+  }
+
+  const activeJornada = await prisma.jornada.findFirst({
+    where: {
+      estado: "abierta",
+      id: { not: jornadaId },
+    },
+    select: {
+      id: true,
+      codigo: true,
+    },
+  });
+
+  if (activeJornada) {
+    throw new AppError(
+      `No se puede reabrir la jornada porque ya existe una jornada abierta (${activeJornada.codigo})`,
+      409,
+      "ACTIVE_JORNADA_EXISTS",
+    );
+  }
+
+  const reopened = await prisma.jornada.update({
+    where: { id: jornadaId },
+    data: { estado: "abierta" },
+  });
+
+  return {
+    success: true,
+    jornada: reopened,
+  };
+}
+
 function buildJornadasWhere(query: JornadasListQuery) {
   const where: {
     codigo?: { contains: string; mode: "insensitive" };
