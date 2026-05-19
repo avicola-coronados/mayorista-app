@@ -423,6 +423,7 @@ export async function reopenJornadaById(jornadaId: number) {
   const activeJornada = await prisma.jornada.findFirst({
     where: {
       estado: "abierta",
+      codigo: currentJornadaCode,
       id: { not: jornadaId },
     },
     select: {
@@ -433,7 +434,7 @@ export async function reopenJornadaById(jornadaId: number) {
 
   if (activeJornada) {
     throw new AppError(
-      `No se puede reabrir la jornada porque ya existe una jornada abierta (${activeJornada.codigo})`,
+      `No se puede reabrir la jornada porque ya existe otra jornada actual abierta (${activeJornada.codigo})`,
       409,
       "ACTIVE_JORNADA_EXISTS",
     );
