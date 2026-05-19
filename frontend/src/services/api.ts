@@ -272,6 +272,52 @@ export type GranjaPayload = {
   activo?: boolean;
 };
 
+export type UserRole = "admin" | "operario" | "cajero" | "oficina";
+
+export type UsuarioAdmin = {
+  id: number;
+  username: string;
+  nombre: string | null;
+  email: string | null;
+  role: UserRole;
+  activo: boolean;
+  created_by: number | null;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+  creator?: {
+    id: number;
+    username: string;
+    nombre: string | null;
+  } | null;
+  updater?: {
+    id: number;
+    username: string;
+    nombre: string | null;
+  } | null;
+};
+
+export type UsuariosResponse = {
+  usuarios: UsuarioAdmin[];
+};
+
+export type UsuarioCreatePayload = {
+  username: string;
+  password: string;
+  nombre: string | null;
+  email: string | null;
+  role: UserRole;
+};
+
+export type UsuarioUpdatePayload = {
+  username: string;
+  password?: string | null;
+  nombre: string | null;
+  email: string | null;
+  role: UserRole;
+  activo: boolean;
+};
+
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api`,
 });
@@ -514,6 +560,48 @@ export const apiClient = {
   async deleteCliente(id: number) {
     try {
       const response = await api.delete<{ mensaje: string }>(`/clientes/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getUsuarios(search?: string) {
+    try {
+      const response = await api.get<UsuariosResponse>("/usuarios", {
+        params: { search: search || undefined },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getUsuario(id: number) {
+    try {
+      const response = await api.get<UsuarioAdmin>(`/usuarios/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createUsuario(payload: UsuarioCreatePayload) {
+    try {
+      const response = await api.post<UsuarioAdmin>("/usuarios", payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateUsuario(id: number, payload: UsuarioUpdatePayload) {
+    try {
+      const response = await api.put<UsuarioAdmin>(`/usuarios/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteUsuario(id: number) {
+    try {
+      const response = await api.delete<{ mensaje: string }>(`/usuarios/${id}`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

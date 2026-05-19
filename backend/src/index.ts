@@ -10,6 +10,7 @@ import { granjasRouter } from "./modules/granjas/granjas.routes";
 import { jornadasRouter } from "./modules/jornadas/jornadas.routes";
 import { lineasVentaRouter } from "./modules/lineas-venta/lineas-venta.routes";
 import { sobranteRouter } from "./modules/sobrante/sobrante.routes";
+import { usuariosRouter } from "./modules/usuarios/usuarios.routes";
 import { adminRouter } from "./routes/admin.routes";
 
 const app = express();
@@ -70,6 +71,7 @@ app.use("/api/clientes", requireAuth, clientesRouter);
 app.use("/api/devoluciones", requireAuth, devolucionesRouter);
 app.use("/api/lineas-venta", requireAuth, lineasVentaRouter);
 app.use("/api/sobrante", requireAuth, sobranteRouter);
+app.use("/api/usuarios", requireAuth, usuariosRouter);
 app.use("/api/admin", requireAuth, adminRouter);
 
 app.use(errorMiddleware);

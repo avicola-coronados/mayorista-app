@@ -9,6 +9,7 @@ import { CierreJornada } from "./pages/CierreJornada";
 import { AdminGranjas } from "./pages/admin/AdminGranjas";
 import { AdminJornadaDetalle, AdminJornadas } from "./pages/admin/AdminJornadas";
 import { AdminClientes } from "./pages/admin/AdminClientes";
+import { AdminUsuarios } from "./pages/admin/AdminUsuarios";
 import { useAuthStore } from "./store/authStore";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -106,6 +107,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute>
             <AdminGranjas />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/usuarios"
+        element={
+          <ProtectedAdminRoute>
+            <AdminUsuarios />
           </ProtectedAdminRoute>
         }
       />
