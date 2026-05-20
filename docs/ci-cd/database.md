@@ -255,8 +255,12 @@ cliente 1 ── n devolucion
 ### Entrada Total
 
 ```text
-entrada_total_kg = SUM(entrada_granja.peso_neto) + SUM(sobrante.peso_neto)
+entrada_total_kg = SUM(entrada_granja.peso_neto)
+                 + SUM(sobrante.peso_neto)
+                 + SUM(linea_venta.peso_neto WHERE origen = 'piso' AND cliente_id IS NULL)
 ```
+
+Las líneas de `linea_venta` con `origen = 'piso'` y sin cliente representan ingreso operativo a piso. Por negocio, ese piso también cuenta como entrada antes de descontar ventas.
 
 ### Vendido Total
 
