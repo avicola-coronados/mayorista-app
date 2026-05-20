@@ -77,7 +77,7 @@ export async function calculateJornadaMetrics(jornadaId: number) {
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
-        where: { jornada_id: jornadaId, origen: "piso", cliente_id: null },
+        where: { jornada_id: jornadaId, origen: "piso" },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
@@ -545,7 +545,7 @@ async function buildJornadaDetalle(jornada: {
       _sum: { jabas_total: true },
     }),
     prisma.lineaVenta.aggregate({
-      where: { jornada_id: jornada.id, origen: "piso", cliente_id: null },
+      where: { jornada_id: jornada.id, origen: "piso" },
       _sum: { jabas: true },
     }),
     prisma.entradaGranja.groupBy({
@@ -559,7 +559,7 @@ async function buildJornadaDetalle(jornada: {
     }),
     prisma.lineaVenta.groupBy({
       by: ["granja_id"],
-      where: { jornada_id: jornada.id, origen: "piso", cliente_id: null },
+      where: { jornada_id: jornada.id, origen: "piso" },
       _sum: {
         peso_neto: true,
         jabas: true,

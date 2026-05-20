@@ -57,7 +57,7 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
     throw new AppError("Selecciona un cliente para registrar una partida", 400);
   }
 
-  const clienteId = data.origen === "piso" ? null : data.cliente_id!;
+  const clienteId = data.cliente_id ?? null;
 
   const [cliente, granja] = await Promise.all([
     clienteId

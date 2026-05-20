@@ -79,6 +79,21 @@ describe("calculos de pesadas", () => {
     expect(calcularPorcentajeMerma(piso, entradaTotal)).toBe(0);
   });
 
+  it("permite que una entrada de piso asignada a cliente cuente como entrada y venta", () => {
+    const entradaTotal = 1620.8;
+    const vendidoTotal = 1620.8;
+    const piso = calcularPisoDisponible({
+      entradaKg: entradaTotal,
+      vendidoKg: vendidoTotal,
+      devolucionesKg: 0,
+      desperdicioKg: 0,
+      muerteroKg: 0,
+    });
+
+    expect(piso).toBe(0);
+    expect(calcularPorcentajeMerma(piso, entradaTotal)).toBe(0);
+  });
+
   it("evita division por cero y limita porcentaje entre 0 y 100", () => {
     expect(calcularPorcentajeMerma(0, 0)).toBe(0);
     expect(calcularPorcentajeMerma(-10, 1000)).toBe(0);

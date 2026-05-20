@@ -740,15 +740,15 @@ function ModalEditarPesada({
               <span className="mb-2 block text-[13px] font-medium text-neutral-700">Origen</span>
               <select
                 value={formData.origen}
-                onChange={(event) =>
-                  setFormData((current) => ({ ...current, origen: event.target.value as "partida" | "piso" }))
-                }
                 disabled={updateMutation.isPending}
                 className="w-full rounded-[8px] border border-neutral-200 px-[14px] py-[10px] text-[14px] font-medium text-neutral-950 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="partida">Partida</option>
                 <option value="piso">Piso</option>
               </select>
+              <span className="mt-1 block text-[11px] font-medium text-neutral-400">
+                El origen Piso puede quedar sin cliente o asignarse a un cliente; en ambos casos cuenta como entrada.
+              </span>
             </label>
 
             <div className="grid gap-4 md:grid-cols-2">

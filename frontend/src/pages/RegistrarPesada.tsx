@@ -65,7 +65,7 @@ export function RegistrarPesada() {
     mutationFn: () =>
       apiClient.createLineaVenta({
         jornada_id: jornada!.id,
-        cliente_id: isPiso ? null : form.cliente_id,
+        cliente_id: form.cliente_id || null,
         granja_id: form.granja_id,
         origen: form.origen,
         jabas,
@@ -173,15 +173,10 @@ export function RegistrarPesada() {
       return {
         ...current,
         origen,
-        cliente_id: origen === "piso" ? 0 : current.cliente_id,
+        cliente_id: current.cliente_id,
         granja_id: shouldClearGranja ? 0 : current.granja_id,
       };
     });
-
-    if (origen === "piso") {
-      setShowNewCliente(false);
-      setNewClienteName("");
-    }
   }
 
   function handleCreateCliente(event: FormEvent<HTMLFormElement>) {
@@ -200,7 +195,9 @@ export function RegistrarPesada() {
       title="Registrar pesada"
       subtitle={
         isPiso
-          ? "Registra ingreso a piso sin cliente asignado"
+          ? selectedCliente
+            ? `Ingreso a piso asignado a: ${selectedCliente.nombre}`
+            : "Registra ingreso a piso sin cliente asignado"
           : selectedCliente
             ? `Cliente seleccionado: ${selectedCliente.nombre}`
             : "Registra una venta del día"
@@ -236,37 +233,35 @@ export function RegistrarPesada() {
             </div>
           </div>
 
-          {!isPiso ? (
-            <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label htmlFor="cliente" className="field-label mb-0">
-                  Cliente
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowNewCliente(true)}
-                  className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
-                >
-                  Nuevo cliente
-                </button>
-              </div>
-              <select
-                id="cliente"
-                className="field-input"
-                value={form.cliente_id}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
-                }
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label htmlFor="cliente" className="field-label mb-0">
+                Cliente {isPiso ? "(opcional)" : ""}
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowNewCliente(true)}
+                className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
               >
-                <option value={0}>Selecciona un cliente existente</option>
-                {clientesQuery.data?.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.nombre}
-                  </option>
-                ))}
-              </select>
+                Nuevo cliente
+              </button>
             </div>
-          ) : null}
+            <select
+              id="cliente"
+              className="field-input"
+              value={form.cliente_id}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
+              }
+            >
+              <option value={0}>{isPiso ? "Sin cliente asignado" : "Selecciona un cliente existente"}</option>
+              {clientesQuery.data?.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="mt-5">
             <label htmlFor="granja" className="field-label">

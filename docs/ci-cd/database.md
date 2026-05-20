@@ -257,10 +257,12 @@ cliente 1 ── n devolucion
 ```text
 entrada_total_kg = SUM(entrada_granja.peso_neto)
                  + SUM(sobrante.peso_neto)
-                 + SUM(linea_venta.peso_neto WHERE origen = 'piso' AND cliente_id IS NULL)
+                 + SUM(linea_venta.peso_neto WHERE origen = 'piso')
 ```
 
-Las líneas de `linea_venta` con `origen = 'piso'` y sin cliente representan ingreso operativo a piso. Por negocio, ese piso también cuenta como entrada antes de descontar ventas.
+Las líneas de `linea_venta` con `origen = 'piso'` representan ingreso operativo a piso. Por negocio, ese piso cuenta como entrada incluso cuando ya viene asignado a un cliente.
+
+Cuando una entrada de piso se asigna a un cliente en la misma operación, esa misma línea también se considera venta porque tiene `cliente_id IS NOT NULL`. En ese caso suma a entrada y vendido a la vez, dejando el piso disponible en cero si no hay diferencia.
 
 ### Vendido Total
 

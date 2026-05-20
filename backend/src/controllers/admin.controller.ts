@@ -311,7 +311,7 @@ export async function updateAdminLineaVenta(request: Request, response: Response
 
   const granja = await prisma.granja.findUnique({
     where: { id: granjaId },
-    select: { id: true },
+    select: { id: true, nombre: true },
   });
 
   if (!granja) {
