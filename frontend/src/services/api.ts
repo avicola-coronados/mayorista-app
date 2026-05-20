@@ -292,6 +292,18 @@ export type AdminUpdateLineaVentaResponse = {
   };
 };
 
+export type AdminDeleteLineaVentaResponse = {
+  mensaje: string;
+  linea_venta: {
+    id: number;
+    jornada_id: number;
+    cliente_id: number | null;
+    cliente_nombre: string | null;
+    deleted_at: string;
+    deleted_by: number | null;
+  };
+};
+
 export type TipoDevolucion = "pelado" | "muerto" | "vivo";
 
 export type Devolucion = {
@@ -746,6 +758,16 @@ export const apiClient = {
   async updateAdminLineaVenta(id: number, payload: AdminUpdateLineaVentaPayload) {
     try {
       const response = await api.put<AdminUpdateLineaVentaResponse>(`/admin/lineas-venta/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteAdminLineaVenta(id: number, reason?: string) {
+    try {
+      const response = await api.delete<AdminDeleteLineaVentaResponse>(`/admin/lineas-venta/${id}`, {
+        data: { reason },
+      });
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

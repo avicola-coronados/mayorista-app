@@ -77,11 +77,11 @@ export async function calculateJornadaMetrics(jornadaId: number) {
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
-        where: { jornada_id: jornadaId, origen: "piso" },
+        where: { jornada_id: jornadaId, origen: "piso", deleted_at: null },
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
-        where: { jornada_id: jornadaId, cliente_id: { not: null } },
+        where: { jornada_id: jornadaId, cliente_id: { not: null }, deleted_at: null },
         _sum: { peso_neto: true },
       }),
       prisma.devolucion.aggregate({
@@ -90,11 +90,11 @@ export async function calculateJornadaMetrics(jornadaId: number) {
       }),
       prisma.lineaVenta.groupBy({
         by: ["cliente_id"],
-        where: { jornada_id: jornadaId, cliente_id: { not: null } },
+        where: { jornada_id: jornadaId, cliente_id: { not: null }, deleted_at: null },
         _count: { _all: true },
       }),
       prisma.lineaVenta.count({
-        where: { jornada_id: jornadaId },
+        where: { jornada_id: jornadaId, deleted_at: null },
       }),
     ]);
 
@@ -278,7 +278,7 @@ export async function exportClientesJornadaXlsx(jornadaId: number) {
   ];
 
   const lineas = await prisma.lineaVenta.findMany({
-    where: { jornada_id: jornadaId },
+    where: { jornada_id: jornadaId, deleted_at: null },
     orderBy: { created_at: "asc" },
     include: {
       cliente: { select: { nombre: true } },
@@ -545,7 +545,7 @@ async function buildJornadaDetalle(jornada: {
       _sum: { jabas_total: true },
     }),
     prisma.lineaVenta.aggregate({
-      where: { jornada_id: jornada.id, origen: "piso" },
+      where: { jornada_id: jornada.id, origen: "piso", deleted_at: null },
       _sum: { jabas: true },
     }),
     prisma.entradaGranja.groupBy({
@@ -559,7 +559,7 @@ async function buildJornadaDetalle(jornada: {
     }),
     prisma.lineaVenta.groupBy({
       by: ["granja_id"],
-      where: { jornada_id: jornada.id, origen: "piso" },
+      where: { jornada_id: jornada.id, origen: "piso", deleted_at: null },
       _sum: {
         peso_neto: true,
         jabas: true,
@@ -568,7 +568,7 @@ async function buildJornadaDetalle(jornada: {
     }),
     prisma.lineaVenta.groupBy({
       by: ["cliente_id"],
-      where: { jornada_id: jornada.id, cliente_id: { not: null } },
+      where: { jornada_id: jornada.id, cliente_id: { not: null }, deleted_at: null },
       _count: { _all: true },
       _sum: {
         jabas: true,
@@ -584,7 +584,7 @@ async function buildJornadaDetalle(jornada: {
     }),
     prisma.lineaVenta.groupBy({
       by: ["cliente_id"],
-      where: { jornada_id: jornada.id, cliente_id: { not: null }, nota: { not: null } },
+      where: { jornada_id: jornada.id, cliente_id: { not: null }, nota: { not: null }, deleted_at: null },
       _count: { _all: true },
     }),
   ]);

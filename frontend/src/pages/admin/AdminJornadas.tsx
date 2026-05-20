@@ -16,6 +16,7 @@ import {
   IconRefresh,
   IconSearch,
   IconShoppingCartOff,
+  IconTrash,
   IconX,
 } from "@tabler/icons-react";
 import toast from "react-hot-toast";
@@ -427,6 +428,13 @@ export function AdminJornadaDetalle() {
                   setPesadaEditando({ ...pesada, cliente_nombre: clientePesadas.cliente_nombre });
                   setClientePesadas(null);
                 }}
+                onDeleted={async () => {
+                  await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: ["admin-jornada", jornadaId] }),
+                    queryClient.invalidateQueries({ queryKey: ["admin-pesadas-con-notas", jornadaId] }),
+                    queryClient.invalidateQueries({ queryKey: ["admin-jornadas"] }),
+                  ]);
+                }}
               />
             ) : null}
 
@@ -499,18 +507,37 @@ function ModalListaPesadasCliente({
   cliente,
   jornadaId,
   onClose,
+  onDeleted,
   onEdit,
 }: {
   cliente: JornadaDetalle["consolidado_clientes"][number];
   jornadaId: number;
   onClose: () => void;
+  onDeleted: () => void | Promise<void>;
   onEdit: (pesada: AdminLineaVentaDetalle) => void;
 }) {
+  const queryClient = useQueryClient();
+  const [pesadaParaEliminar, setPesadaParaEliminar] = useState<AdminLineaVentaDetalle | null>(null);
   const pesadasQuery = useQuery({
     queryKey: ["admin-lineas-cliente", jornadaId, cliente.cliente_id],
     queryFn: () => apiClient.getAdminLineasVentaCliente(cliente.cliente_id, jornadaId),
     enabled: cliente.cliente_id > 0,
     staleTime: 30 * 1000,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (pesada: AdminLineaVentaDetalle) =>
+      apiClient.deleteAdminLineaVenta(pesada.id, "Corrección administrativa de pesada errónea"),
+    onSuccess: async (response) => {
+      toast.success(response.mensaje);
+      setPesadaParaEliminar(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-lineas-cliente", jornadaId, cliente.cliente_id] }),
+        onDeleted(),
+      ]);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
   });
 
   useEffect(() => {
@@ -571,9 +598,17 @@ function ModalListaPesadasCliente({
                   <button
                     type="button"
                     onClick={() => onEdit(pesada)}
-                    className="absolute right-4 top-4 rounded-[6px] border border-neutral-200 bg-white px-3 py-[6px] text-[12px] font-medium text-neutral-700 transition hover:bg-neutral-50"
+                    className="absolute right-[86px] top-4 rounded-[6px] border border-neutral-200 bg-white px-3 py-[6px] text-[12px] font-medium text-neutral-700 transition hover:bg-neutral-50"
                   >
                     Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPesadaParaEliminar(pesada)}
+                    className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-[6px] border border-red-200 bg-white px-3 py-[6px] text-[12px] font-medium text-[#C62828] transition hover:bg-red-50"
+                  >
+                    <IconTrash size={14} />
+                    Eliminar
                   </button>
                   <h3 className="pr-20 text-[14px] font-medium text-neutral-950">Pesada #{index + 1}</h3>
                   <p className="mt-1 pr-20 text-[13px] font-medium text-neutral-500">
@@ -604,6 +639,69 @@ function ModalListaPesadasCliente({
             className="w-full rounded-[8px] border border-neutral-200 bg-white px-4 py-[10px] text-[14px] font-medium text-neutral-700 transition hover:bg-neutral-50"
           >
             Cerrar
+          </button>
+        </div>
+      </div>
+
+      {pesadaParaEliminar ? (
+        <ConfirmarEliminarPesada
+          pesada={pesadaParaEliminar}
+          isLoading={deleteMutation.isPending}
+          onCancel={() => {
+            if (!deleteMutation.isPending) {
+              setPesadaParaEliminar(null);
+            }
+          }}
+          onConfirm={() => deleteMutation.mutate(pesadaParaEliminar)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ConfirmarEliminarPesada({
+  isLoading,
+  onCancel,
+  onConfirm,
+  pesada,
+}: {
+  pesada: AdminLineaVentaDetalle;
+  isLoading: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 px-4"
+      onMouseDown={(event) => event.stopPropagation()}
+    >
+      <div className="w-full max-w-[440px] rounded-[12px] bg-white p-6 shadow-2xl">
+        <div className="text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-[#C62828]">
+            <IconTrash size={24} />
+          </div>
+          <h2 className="mt-4 text-[18px] font-medium text-neutral-950">¿Eliminar pesada?</h2>
+          <p className="mt-2 text-[14px] font-medium leading-6 text-neutral-600">
+            Se eliminará la pesada de {formatKg(pesada.peso_neto)}. Esta acción actualizará los totales,
+            la merma y el consolidado de la jornada.
+          </p>
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="flex-1 rounded-[8px] border border-neutral-200 bg-white px-4 py-[10px] text-[14px] font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="flex-1 rounded-[8px] bg-[#C62828] px-4 py-[10px] text-[14px] font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading ? "Eliminando..." : "Eliminar"}
           </button>
         </div>
       </div>

@@ -35,6 +35,10 @@ const updateLineaVentaSchema = z.object({
   tara_por_jaba: z.coerce.number().positive("Tara por jaba debe ser mayor a 0"),
 });
 
+const deleteLineaVentaSchema = z.object({
+  reason: z.string().trim().max(250, "El motivo no puede superar 250 caracteres").optional(),
+});
+
 function toNumber(value: unknown) {
   if (value && typeof value === "object" && "toNumber" in value && typeof value.toNumber === "function") {
     return value.toNumber();
@@ -130,7 +134,7 @@ export async function getAdminTopClientes(request: Request, response: Response) 
 
   const rows = await prisma.lineaVenta.groupBy({
     by: ["cliente_id"],
-    where: { jornada_id: jornadaId, cliente_id: { not: null } },
+    where: { jornada_id: jornadaId, cliente_id: { not: null }, deleted_at: null },
     _sum: {
       jabas: true,
       peso_neto: true,
@@ -151,7 +155,7 @@ export async function getAdminTopClientes(request: Request, response: Response) 
           select: { nombre: true },
         }),
         prisma.lineaVenta.findMany({
-          where: { jornada_id: jornadaId, cliente_id: row.cliente_id ?? 0 },
+          where: { jornada_id: jornadaId, cliente_id: row.cliente_id ?? 0, deleted_at: null },
           distinct: ["granja_id"],
           select: {
             granja: {
@@ -189,6 +193,7 @@ export async function getAdminPesadasConNotas(request: Request, response: Respon
     where: {
       jornada_id: parsed.data.jornada_id,
       nota: { not: null },
+      deleted_at: null,
     },
     include: {
       cliente: {
@@ -240,6 +245,7 @@ export async function getAdminLineasVentaPorCliente(request: Request, response: 
     where: {
       cliente_id: clienteId,
       jornada_id: jornadaId,
+      deleted_at: null,
     },
     include: {
       granja: {
@@ -298,6 +304,10 @@ export async function updateAdminLineaVenta(request: Request, response: Response
     return response.status(404).json({ message: "Pesada no encontrada" });
   }
 
+  if (lineaVenta.deleted_at) {
+    return response.status(404).json({ message: "Pesada no encontrada" });
+  }
+
   if (lineaVenta.jornada.estado === "cerrada") {
     return response.status(400).json({
       message: "No se puede editar una pesada de una jornada cerrada",
@@ -353,6 +363,64 @@ export async function updateAdminLineaVenta(request: Request, response: Response
       peso_neto: toNumber(updated.peso_neto),
       nota: updated.nota,
       created_at: updated.created_at,
+    },
+  });
+}
+
+export async function deleteAdminLineaVenta(request: Request, response: Response) {
+  const params = lineaVentaParamsSchema.safeParse(request.params);
+  const body = deleteLineaVentaSchema.safeParse(request.body ?? {});
+
+  if (!params.success) {
+    return response.status(400).json({ message: params.error.issues[0]?.message ?? "Datos inválidos" });
+  }
+
+  if (!body.success) {
+    return response.status(400).json({ message: body.error.issues[0]?.message ?? "Datos inválidos" });
+  }
+
+  const { id } = params.data;
+  const lineaVenta = await prisma.lineaVenta.findUnique({
+    where: { id },
+    include: {
+      jornada: {
+        select: { estado: true, codigo: true },
+      },
+      cliente: {
+        select: { nombre: true },
+      },
+    },
+  });
+
+  if (!lineaVenta || lineaVenta.deleted_at) {
+    return response.status(404).json({ message: "Pesada no encontrada" });
+  }
+
+  if (lineaVenta.jornada.estado === "cerrada") {
+    return response.status(400).json({
+      message: "No se puede eliminar una pesada de una jornada cerrada",
+      code: "JORNADA_CLOSED",
+    });
+  }
+
+  const deleted = await prisma.lineaVenta.update({
+    where: { id },
+    data: {
+      deleted_at: new Date(),
+      deleted_by: request.user?.id ?? null,
+      delete_reason: body.data.reason?.trim() || "Corrección administrativa",
+    },
+  });
+
+  return response.json({
+    mensaje: "Pesada eliminada correctamente",
+    linea_venta: {
+      id: deleted.id,
+      jornada_id: deleted.jornada_id,
+      cliente_id: deleted.cliente_id,
+      cliente_nombre: lineaVenta.cliente?.nombre ?? null,
+      deleted_at: deleted.deleted_at,
+      deleted_by: deleted.deleted_by,
     },
   });
 }

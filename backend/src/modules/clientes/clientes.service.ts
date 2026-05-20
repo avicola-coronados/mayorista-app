@@ -60,17 +60,17 @@ export async function getClientesAdmin(query: ClientesQuery) {
   const [kgPorCliente, ventasPorCliente, ultimaCompraPorCliente, comprasHoy] = await Promise.all([
     prisma.lineaVenta.groupBy({
       by: ["cliente_id"],
-      where: { cliente_id: { in: clienteIds } },
+      where: { cliente_id: { in: clienteIds }, deleted_at: null },
       _sum: { peso_neto: true },
     }),
     prisma.lineaVenta.findMany({
-      where: { cliente_id: { in: clienteIds } },
+      where: { cliente_id: { in: clienteIds }, deleted_at: null },
       select: { cliente_id: true, jornada_id: true },
       distinct: ["cliente_id", "jornada_id"],
     }),
     prisma.lineaVenta.groupBy({
       by: ["cliente_id"],
-      where: { cliente_id: { in: clienteIds } },
+      where: { cliente_id: { in: clienteIds }, deleted_at: null },
       _max: { created_at: true },
     }),
     jornadaActiva
@@ -78,6 +78,7 @@ export async function getClientesAdmin(query: ClientesQuery) {
           where: {
             jornada_id: jornadaActiva.id,
             cliente_id: { in: clienteIds },
+            deleted_at: null,
           },
           select: { cliente_id: true },
           distinct: ["cliente_id"],
@@ -257,6 +258,7 @@ async function ensureCanDisableCliente(id: number) {
     where: {
       jornada_id: jornada.id,
       cliente_id: id,
+      deleted_at: null,
     },
   });
 

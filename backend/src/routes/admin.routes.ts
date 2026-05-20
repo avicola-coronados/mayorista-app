@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  deleteAdminLineaVenta,
   getAdminLineasVentaPorCliente,
   getAdminMermaHistorica,
   getAdminMetricasDashboard,
@@ -22,3 +23,4 @@ adminRouter.get(
   asyncHandler(getAdminLineasVentaPorCliente),
 );
 adminRouter.put("/lineas-venta/:id", asyncHandler(updateAdminLineaVenta));
+adminRouter.delete("/lineas-venta/:id", asyncHandler(deleteAdminLineaVenta));

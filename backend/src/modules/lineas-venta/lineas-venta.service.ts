@@ -124,7 +124,7 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
 
 export async function getLineasVentaGrouped(jornadaId: number) {
   const lineas = await prisma.lineaVenta.findMany({
-    where: { jornada_id: jornadaId },
+    where: { jornada_id: jornadaId, deleted_at: null },
     include: {
       cliente: true,
       granja: true,
@@ -191,6 +191,10 @@ export async function updateLineaVentaNota(id: number, data: UpdateNotaLineaVent
   });
 
   if (!lineaVenta) {
+    throw new AppError("Pesada no encontrada", 404);
+  }
+
+  if (lineaVenta.deleted_at) {
     throw new AppError("Pesada no encontrada", 404);
   }
 

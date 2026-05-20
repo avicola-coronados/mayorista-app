@@ -5,7 +5,7 @@ export const PISO_GRANJA_NOMBRE = "Piso";
 export async function getPisoDisponible(jornadaId: number) {
   const [entradaAggregate, salidaAggregate] = await Promise.all([
     prisma.lineaVenta.aggregate({
-      where: { jornada_id: jornadaId, origen: "piso" },
+      where: { jornada_id: jornadaId, origen: "piso", deleted_at: null },
       _sum: {
         jabas: true,
         peso_neto: true,
@@ -15,6 +15,7 @@ export async function getPisoDisponible(jornadaId: number) {
       where: {
         jornada_id: jornadaId,
         cliente_id: { not: null },
+        deleted_at: null,
         OR: [
           { origen: "piso" },
           {

@@ -46,6 +46,7 @@ model Usuario {
   updater         Usuario?  @relation("UsuarioUpdatedBy", fields: [updated_by], references: [id], onDelete: SetNull)
   created_users   Usuario[] @relation("UsuarioCreatedBy")
   updated_users   Usuario[] @relation("UsuarioUpdatedBy")
+  deleted_lineas_venta LineaVenta[] @relation("LineaVentaDeletedBy")
 
   @@map("usuario")
 }
@@ -123,11 +124,16 @@ model LineaVenta {
   tara_por_jaba  Decimal          @default(5.8) @db.Decimal(10, 2)
   peso_neto      Decimal          @db.Decimal(10, 2)
   nota           String?
+  deleted_at     DateTime?
+  deleted_by     Int?
+  delete_reason  String?
   created_at     DateTime         @default(now())
   jornada        Jornada          @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
   cliente        Cliente?         @relation(fields: [cliente_id], references: [id])
   granja         Granja           @relation(fields: [granja_id], references: [id])
+  deleter        Usuario?         @relation("LineaVentaDeletedBy", fields: [deleted_by], references: [id], onDelete: SetNull)
 
+  @@index([deleted_at])
   @@map("linea_venta")
 }
 

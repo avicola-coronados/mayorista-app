@@ -175,6 +175,9 @@ Registra una pesada o venta dentro de una jornada.
 | `tara_por_jaba` | `Decimal(10,2)` | default `5.8` |
 | `peso_neto` | `Decimal(10,2)` | peso neto |
 | `nota` | `String?` | observación opcional del operario |
+| `deleted_at` | `DateTime?` | soft delete de la pesada |
+| `deleted_by` | `Int?` | FK nullable a `usuario.id` del admin que eliminó |
+| `delete_reason` | `String?` | motivo de eliminación administrativa |
 | `created_at` | `DateTime` | default `now()` |
 
 Relaciones:
@@ -182,10 +185,13 @@ Relaciones:
 - Pertenece a una `jornada`.
 - Puede pertenecer a un `cliente`.
 - Pertenece a una `granja`.
+- Puede tener un usuario eliminador (`deleted_by`) cuando se corrige por admin.
 
 `cliente_id` es nullable solo para soportar registros de origen `piso` sin cliente asignado. Las pesadas de origen `partida` deben apuntar a un cliente activo existente.
 
 El campo `nota` permite que el operario deje observaciones por pesada. Es nullable para no afectar pesadas existentes. El admin puede revisar estas observaciones antes del cierre de jornada y decidir si corresponde una corrección.
+
+Las pesadas no se eliminan físicamente cuando el admin corrige un error: se marcan con `deleted_at`, `deleted_by` y `delete_reason`. Todos los listados, consolidados, exportaciones y cálculos operativos deben considerar solo líneas con `deleted_at IS NULL`.
 
 Si se elimina una jornada, sus líneas de venta se eliminan por cascada.
 
@@ -257,7 +263,7 @@ cliente 1 ── n devolucion
 ```text
 entrada_total_kg = SUM(entrada_granja.peso_neto)
                  + SUM(sobrante.peso_neto)
-                 + SUM(linea_venta.peso_neto WHERE origen = 'piso')
+                 + SUM(linea_venta.peso_neto WHERE origen = 'piso' AND deleted_at IS NULL)
 ```
 
 Las líneas de `linea_venta` con `origen = 'piso'` representan ingreso operativo a piso. Por negocio, ese piso cuenta como entrada incluso cuando ya viene asignado a un cliente.
@@ -267,7 +273,7 @@ Cuando una entrada de piso se asigna a un cliente en la misma operación, esa mi
 ### Vendido Total
 
 ```text
-vendido_total_kg = SUM(linea_venta.peso_neto WHERE cliente_id IS NOT NULL)
+vendido_total_kg = SUM(linea_venta.peso_neto WHERE cliente_id IS NOT NULL AND deleted_at IS NULL)
 ```
 
 Solo se consideran ventas con cliente cuando se calcula el total vendido operativo. Las líneas de origen `piso` sin cliente no se tratan como venta final.
