@@ -14,8 +14,8 @@ describe("authRouting", () => {
   });
 
   it("prefers user role over token role", () => {
-    const tokenRole = "operario";
-    const payload = Buffer.from(JSON.stringify({ role: tokenRole })).toString("base64");
+    // base64 payload for {"role":"operario"}
+    const payload = "eyJyb2xlIjoib3BlcmFyaW8ifQ==";
     const token = `header.${payload}.signature`;
 
     expect(resolveAuthRole(token, "cajero")).toBe("cajero");
