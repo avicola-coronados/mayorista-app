@@ -4,6 +4,7 @@ import express from "express";
 import { errorMiddleware } from "./errors/error.middleware";
 import { requireAuth } from "./middleware/auth.middleware";
 import { authRouter } from "./modules/auth/auth.routes";
+import { cajeroRouter } from "./modules/cajero/cajero.routes";
 import { clientesRouter } from "./modules/clientes/clientes.routes";
 import { devolucionesRouter } from "./modules/devoluciones/devoluciones.routes";
 import { granjasRouter } from "./modules/granjas/granjas.routes";
@@ -73,6 +74,7 @@ app.use("/api/lineas-venta", requireAuth, lineasVentaRouter);
 app.use("/api/sobrante", requireAuth, sobranteRouter);
 app.use("/api/usuarios", requireAuth, usuariosRouter);
 app.use("/api/admin", requireAuth, adminRouter);
+app.use("/api/cajero", requireAuth, cajeroRouter);
 
 app.use(errorMiddleware);
 

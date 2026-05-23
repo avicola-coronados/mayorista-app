@@ -26,6 +26,22 @@ export function requireAdmin(request: Request, response: Response, next: NextFun
   return next();
 }
 
+export function requireCajero(request: Request, response: Response, next: NextFunction) {
+  if (request.user?.role !== "cajero") {
+    return response.status(403).json({ message: "Acceso restringido a cajeros" });
+  }
+
+  return next();
+}
+
+export function requireCajeroOrAdmin(request: Request, response: Response, next: NextFunction) {
+  if (!request.user?.role || !["cajero", "admin"].includes(request.user.role)) {
+    return response.status(403).json({ message: "Acceso restringido a cajeros y administradores" });
+  }
+
+  return next();
+}
+
 export function requireRole(...roles: string[]) {
   return (request: Request, response: Response, next: NextFunction) => {
     if (!request.user?.role || !roles.includes(request.user.role)) {

@@ -10,6 +10,9 @@ import { AdminGranjas } from "./pages/admin/AdminGranjas";
 import { AdminJornadaDetalle, AdminJornadas } from "./pages/admin/AdminJornadas";
 import { AdminClientes } from "./pages/admin/AdminClientes";
 import { AdminUsuarios } from "./pages/admin/AdminUsuarios";
+import { ClientesCajero } from "./pages/cajero/ClientesCajero";
+import { DetalleClienteCajero } from "./pages/cajero/DetalleClienteCajero";
+import { EgresosCajero } from "./pages/cajero/EgresosCajero";
 import { useAuthStore } from "./store/authStore";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -38,6 +41,22 @@ function ProtectedAdminRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function ProtectedCajeroRoute({ children }: { children: ReactNode }) {
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const role = getRoleFromToken(token) ?? user?.role;
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (role !== "cajero" && role !== "admin") {
+    return <Navigate to={getHomeForRole(role)} replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
@@ -47,11 +66,23 @@ function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role === "admin") {
-    return <Navigate to="/admin" replace />;
+  if (role !== "operario") {
+    return <Navigate to={getHomeForRole(role)} replace />;
   }
 
   return <>{children}</>;
+}
+
+function getHomeForRole(role?: string | null) {
+  if (role === "admin") {
+    return "/admin";
+  }
+
+  if (role === "cajero") {
+    return "/cajero/clientes";
+  }
+
+  return "/";
 }
 
 function getRoleFromToken(token: string | null) {
@@ -132,6 +163,38 @@ export default function App() {
           <ProtectedAdminRoute>
             <Dashboard />
           </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/cajero"
+        element={
+          <ProtectedCajeroRoute>
+            <Navigate to="/cajero/clientes" replace />
+          </ProtectedCajeroRoute>
+        }
+      />
+      <Route
+        path="/cajero/clientes"
+        element={
+          <ProtectedCajeroRoute>
+            <ClientesCajero />
+          </ProtectedCajeroRoute>
+        }
+      />
+      <Route
+        path="/cajero/clientes/:id"
+        element={
+          <ProtectedCajeroRoute>
+            <DetalleClienteCajero />
+          </ProtectedCajeroRoute>
+        }
+      />
+      <Route
+        path="/cajero/egresos"
+        element={
+          <ProtectedCajeroRoute>
+            <EgresosCajero />
+          </ProtectedCajeroRoute>
         }
       />
       <Route

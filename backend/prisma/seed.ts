@@ -22,6 +22,7 @@ async function main() {
   const granjas = ["Redondos 1", "Redondos 2", "San Fernando", "Piso"];
   const clientes = ["PIZARRO", "MILAGROS", "PERCY", "MARINO", "NAVARRO"];
   const operarioPasswordHash = await bcrypt.hash("coronados2024", 10);
+  const cajeroPasswordHash = await bcrypt.hash("coronados2024", 10);
   const adminPasswordHash = await bcrypt.hash("admin2024", 10);
 
   const createdGranjas = await Promise.all(
@@ -79,6 +80,29 @@ async function main() {
       email: "admin@coronados.com",
       role: UserRole.admin,
       activo: true,
+    },
+  });
+
+  await prisma.usuario.upsert({
+    where: { username: "cajero" },
+    update: {
+      password_hash: cajeroPasswordHash,
+      nombre: "Ana Cajera",
+      email: null,
+      role: UserRole.cajero,
+      activo: true,
+      created_by: admin.id,
+      updated_by: admin.id,
+    },
+    create: {
+      username: "cajero",
+      password_hash: cajeroPasswordHash,
+      nombre: "Ana Cajera",
+      email: null,
+      role: UserRole.cajero,
+      activo: true,
+      created_by: admin.id,
+      updated_by: admin.id,
     },
   });
 

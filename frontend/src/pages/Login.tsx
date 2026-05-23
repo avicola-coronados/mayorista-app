@@ -20,7 +20,7 @@ export function Login() {
     onSuccess: (data) => {
       setAuth(data.token, data.user);
       toast.success("Sesión iniciada");
-      navigate(data.user.role === "admin" ? "/admin" : "/");
+      navigate(getHomeForRole(data.user.role));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -37,7 +37,7 @@ export function Login() {
   }, []);
 
   if (token) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getHomeForRole(useAuthStore.getState().user?.role)} replace />;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -226,4 +226,16 @@ export function Login() {
       </main>
     </div>
   );
+}
+
+function getHomeForRole(role?: string | null) {
+  if (role === "admin") {
+    return "/admin";
+  }
+
+  if (role === "cajero") {
+    return "/cajero/clientes";
+  }
+
+  return "/";
 }

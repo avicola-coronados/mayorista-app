@@ -23,6 +23,29 @@ enum TipoDevolucion {
   vivo
 }
 
+enum TipoCliente {
+  mayorista
+  minorista
+}
+
+enum EstadoFactura {
+  pendiente
+  pago_parcial
+  pagado
+  anulado
+}
+
+enum TipoPago {
+  efectivo
+  deposito
+}
+
+enum EstadoPago {
+  pendiente
+  confirmado
+  rechazado
+}
+
 enum UserRole {
   operario
   admin
@@ -47,6 +70,10 @@ model Usuario {
   created_users   Usuario[] @relation("UsuarioCreatedBy")
   updated_users   Usuario[] @relation("UsuarioUpdatedBy")
   deleted_lineas_venta LineaVenta[] @relation("LineaVentaDeletedBy")
+  facturas_creadas Factura[] @relation("FacturaCreatedBy")
+  pagos_registrados Pago[] @relation("PagoRegistradoPor")
+  pagos_validados Pago[] @relation("PagoValidadoPor")
+  egresos_registrados Egreso[] @relation("EgresoRegistradoPor")
 
   @@map("usuario")
 }
@@ -64,6 +91,7 @@ model Jornada {
   devoluciones   Devolucion[]
   sobrantes      Sobrante[]     @relation("SobrantesActuales")
   sobrantes_de   Sobrante[]     @relation("SobrantesOrigen")
+  facturas       Factura[]
 
   @@map("jornada")
 }
@@ -83,14 +111,22 @@ model Cliente {
   id           Int          @id @default(autoincrement())
   nombre       String       @unique
   codigo       String?      @unique
+  tipo         TipoCliente  @default(minorista)
+  documento_tipo String?
+  documento_num  String?
+  contacto     String?
   telefono     String?
+  email        String?
   direccion    String?
   activo       Boolean      @default(true)
   created_at   DateTime     @default(now())
   lineas_venta LineaVenta[]
   devoluciones Devolucion[]
+  facturas     Factura[]
+  pagos        Pago[]
 
   @@index([activo])
+  @@index([tipo, activo])
   @@map("cliente")
 }
 
@@ -166,4 +202,77 @@ model Sobrante {
   jornada_origen    Jornada  @relation("SobrantesOrigen", fields: [jornada_origen_id], references: [id])
 
   @@map("sobrante")
+}
+
+model Factura {
+  id              Int           @id @default(autoincrement())
+  codigo          String        @unique
+  jornada_id      Int
+  cliente_id      Int
+  fecha_emision   DateTime      @default(now())
+  monto_total     Decimal       @db.Decimal(10, 2)
+  monto_pagado    Decimal       @default(0) @db.Decimal(10, 2)
+  saldo_pendiente Decimal       @db.Decimal(10, 2)
+  estado          EstadoFactura @default(pendiente)
+  created_by      Int?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  jornada         Jornada       @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
+  cliente         Cliente       @relation(fields: [cliente_id], references: [id])
+  creator         Usuario?      @relation("FacturaCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  pagos           Pago[]
+
+  @@index([jornada_id])
+  @@index([cliente_id])
+  @@index([estado])
+  @@map("factura")
+}
+
+model Pago {
+  id               Int        @id @default(autoincrement())
+  factura_id       Int
+  cliente_id       Int
+  monto            Decimal    @db.Decimal(10, 2)
+  tipo             TipoPago
+  metodo           String
+  banco            String?
+  nro_operacion    String?
+  fecha_deposito   DateTime?  @db.Date
+  hora_deposito    DateTime?  @db.Time(0)
+  estado           EstadoPago @default(confirmado)
+  validado_por     Int?
+  fecha_validacion DateTime?
+  observaciones    String?
+  registrado_por   Int
+  created_at       DateTime   @default(now())
+  updated_at       DateTime   @updatedAt
+  factura          Factura   @relation(fields: [factura_id], references: [id])
+  cliente          Cliente    @relation(fields: [cliente_id], references: [id])
+  cajero           Usuario    @relation("PagoRegistradoPor", fields: [registrado_por], references: [id])
+  validador        Usuario?   @relation("PagoValidadoPor", fields: [validado_por], references: [id], onDelete: SetNull)
+
+  @@index([factura_id])
+  @@index([cliente_id])
+  @@index([estado])
+  @@index([registrado_por])
+  @@map("pago")
+}
+
+model Egreso {
+  id              Int      @id @default(autoincrement())
+  concepto        String
+  descripcion     String
+  monto           Decimal  @db.Decimal(10, 2)
+  metodo_pago     String
+  beneficiario    String
+  comprobante     String?
+  fecha           DateTime @default(now())
+  registrado_por  Int
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  cajero          Usuario  @relation("EgresoRegistradoPor", fields: [registrado_por], references: [id])
+
+  @@index([fecha])
+  @@index([registrado_por])
+  @@map("egreso")
 }

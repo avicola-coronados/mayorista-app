@@ -351,6 +351,161 @@ export type GranjaPayload = {
 };
 
 export type UserRole = "admin" | "operario" | "cajero" | "oficina";
+export type TipoCliente = "mayorista" | "minorista";
+
+export type CajeroCliente = {
+  id: number;
+  nombre: string;
+  tipo: TipoCliente;
+  documento_tipo: string | null;
+  documento_num: string | null;
+  contacto: string | null;
+  telefono: string | null;
+  saldo_pendiente: number;
+  monto_total_facturado: number;
+  monto_total_pagado: number;
+  ultimo_pago: string | null;
+  num_facturas_pendientes: number;
+};
+
+export type CajeroClientesStats = {
+  total_clientes: number;
+  total_mayoristas: number;
+  total_minoristas: number;
+  total_por_cobrar: number;
+  clientes_con_deuda: number;
+  cobrado_hoy: number;
+  pagos_hoy: number;
+};
+
+export type CajeroClientesParams = {
+  tipo?: TipoCliente;
+  con_deuda?: boolean;
+  buscar?: string;
+};
+
+export type CajeroClientesResponse = {
+  stats: CajeroClientesStats;
+  clientes: CajeroCliente[];
+};
+
+export type EstadoFactura = "pendiente" | "pago_parcial" | "pagado" | "anulado";
+export type TipoPago = "efectivo" | "deposito";
+export type EstadoPago = "pendiente" | "confirmado" | "rechazado";
+
+export type CajeroPagoFactura = {
+  id: number;
+  monto: number;
+  tipo: TipoPago;
+  metodo: string;
+  fecha: string;
+  estado: EstadoPago;
+};
+
+export type CajeroFactura = {
+  id: number;
+  codigo: string;
+  jornada_id: number;
+  jornada_codigo: string;
+  jornada_fecha: string;
+  fecha_emision: string;
+  monto_total: number;
+  monto_pagado: number;
+  saldo_pendiente: number;
+  estado: EstadoFactura;
+  pagos: CajeroPagoFactura[];
+};
+
+export type CajeroDetalleClienteResponse = {
+  cliente: Pick<
+    CajeroCliente,
+    "id" | "nombre" | "tipo" | "documento_tipo" | "documento_num" | "contacto" | "telefono"
+  > & {
+    email: string | null;
+  };
+  resumen: {
+    total_facturado: number;
+    total_pagado: number;
+    saldo_pendiente: number;
+  };
+  facturas: CajeroFactura[];
+};
+
+export type CajeroRegistrarPagoPayload = {
+  factura_id: number;
+  cliente_id: number;
+  monto: number;
+  tipo: TipoPago;
+  metodo: string;
+  banco?: string | null;
+  nro_operacion?: string | null;
+  fecha_deposito?: string | null;
+  hora_deposito?: string | null;
+  observaciones?: string | null;
+};
+
+export type CajeroRegistrarPagoResponse = {
+  mensaje: string;
+  pago: {
+    id: number;
+    monto: number;
+    tipo: TipoPago;
+    estado: EstadoPago;
+    created_at: string;
+  };
+};
+
+export type CajeroEgreso = {
+  id: number;
+  concepto: string;
+  descripcion: string;
+  monto: number;
+  metodo_pago: string;
+  beneficiario: string;
+  comprobante: string | null;
+  fecha: string;
+  hora: string;
+  registrado_por: string;
+};
+
+export type CajeroEgresosStats = {
+  total_dia: number;
+  num_movimientos_dia: number;
+  total_mes: number;
+  num_movimientos_mes: number;
+  mes_nombre: string;
+};
+
+export type CajeroEgresosResponse = {
+  stats: CajeroEgresosStats;
+  egresos: CajeroEgreso[];
+};
+
+export type CajeroEgresosParams = {
+  fecha?: string;
+  mes?: string;
+};
+
+export type CajeroRegistrarEgresoPayload = {
+  concepto: string;
+  descripcion: string;
+  monto: number;
+  metodo_pago: string;
+  beneficiario: string;
+  comprobante?: string | null;
+};
+
+export type CajeroRegistrarEgresoResponse = {
+  mensaje: string;
+  egreso: {
+    id: number;
+    concepto: string;
+    monto: number;
+    beneficiario: string;
+    fecha: string;
+    registrado_por: string;
+  };
+};
 
 export type UsuarioAdmin = {
   id: number;
@@ -638,6 +793,52 @@ export const apiClient = {
   async deleteCliente(id: number) {
     try {
       const response = await api.delete<{ mensaje: string }>(`/clientes/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getClientesCajero(params: CajeroClientesParams) {
+    try {
+      const response = await api.get<CajeroClientesResponse>("/cajero/clientes", {
+        params: {
+          tipo: params.tipo,
+          con_deuda: params.con_deuda ? "true" : undefined,
+          buscar: params.buscar || undefined,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getDetalleClienteCajero(id: number) {
+    try {
+      const response = await api.get<CajeroDetalleClienteResponse>(`/cajero/clientes/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async registrarPagoCajero(payload: CajeroRegistrarPagoPayload) {
+    try {
+      const response = await api.post<CajeroRegistrarPagoResponse>("/cajero/pagos", payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getEgresosCajero(params?: CajeroEgresosParams) {
+    try {
+      const response = await api.get<CajeroEgresosResponse>("/cajero/egresos", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async registrarEgresoCajero(payload: CajeroRegistrarEgresoPayload) {
+    try {
+      const response = await api.post<CajeroRegistrarEgresoResponse>("/cajero/egresos", payload);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

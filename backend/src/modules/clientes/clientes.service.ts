@@ -29,6 +29,7 @@ export async function getClientesAdmin(query: ClientesQuery) {
     where.OR = [
       { nombre: { contains: query.search, mode: "insensitive" } },
       { codigo: { contains: query.search, mode: "insensitive" } },
+      { documento_num: { contains: query.search, mode: "insensitive" } },
     ];
   }
 
@@ -106,7 +107,12 @@ export async function getClientesAdmin(query: ClientesQuery) {
       id: cliente.id,
       nombre: cliente.nombre,
       codigo: cliente.codigo,
+      tipo: cliente.tipo,
+      documento_tipo: cliente.documento_tipo,
+      documento_num: cliente.documento_num,
+      contacto: cliente.contacto,
       telefono: cliente.telefono,
+      email: cliente.email,
       direccion: cliente.direccion,
       activo: cliente.activo,
       created_at: cliente.created_at,
@@ -171,7 +177,12 @@ export async function createCliente(data: ClienteCreateInput) {
     data: {
       nombre: data.nombre,
       codigo: data.codigo,
+      tipo: data.tipo,
+      documento_tipo: data.documento_tipo,
+      documento_num: data.documento_num,
+      contacto: data.contacto,
       telefono: data.telefono,
+      email: data.email,
       direccion: data.direccion,
       activo: true,
     },

@@ -39,6 +39,29 @@ Roles de usuario:
 - `cajero`
 - `oficina`
 
+### `TipoCliente`
+
+- `mayorista`
+- `minorista`
+
+### `EstadoFactura`
+
+- `pendiente`
+- `pago_parcial`
+- `pagado`
+- `anulado`
+
+### `TipoPago`
+
+- `efectivo`
+- `deposito`
+
+### `EstadoPago`
+
+- `pendiente`
+- `confirmado`
+- `rechazado`
+
 ## Tablas
 
 ## `usuario`
@@ -65,8 +88,12 @@ Relaciones:
 - `updater`: último usuario que modificó el registro.
 - `created_users`: usuarios creados por este usuario.
 - `updated_users`: usuarios modificados por este usuario.
+- `facturas_creadas`: facturas creadas por este usuario.
+- `pagos_registrados`: pagos registrados por este usuario con rol cajero.
+- `pagos_validados`: pagos validados por este usuario con rol admin.
+- `egresos_registrados`: egresos registrados por este usuario con rol cajero.
 
-No tiene relaciones directas con las tablas operativas. Controla autenticación, autorización y auditoría básica de gestión de usuarios.
+Controla autenticación, autorización y auditoría básica de gestión de usuarios, caja y cobranza.
 
 ## `jornada`
 
@@ -119,7 +146,12 @@ Catálogo de clientes compradores.
 | `id` | `Int` | PK autoincremental |
 | `nombre` | `String` | único |
 | `codigo` | `String?` | único, opcional |
+| `tipo` | `TipoCliente` | default `minorista` |
+| `documento_tipo` | `String?` | ejemplo `RUC` o `DNI` |
+| `documento_num` | `String?` | número de documento |
+| `contacto` | `String?` | contacto comercial |
 | `telefono` | `String?` | opcional |
+| `email` | `String?` | opcional |
 | `direccion` | `String?` | opcional |
 | `activo` | `Boolean` | default `true` |
 | `created_at` | `DateTime` | default `now()` |
@@ -128,6 +160,8 @@ Relaciones:
 
 - Un cliente puede tener muchas `linea_venta`.
 - Un cliente puede tener muchas `devolucion`.
+- Un cliente puede tener muchas `factura`.
+- Un cliente puede tener muchos `pago`.
 
 El borrado funcional de clientes se maneja con `activo = false`.
 
@@ -240,6 +274,85 @@ Relaciones:
 
 Si se elimina la jornada actual, sus sobrantes asociados se eliminan por cascada.
 
+## `factura`
+
+Registra el documento de cobranza por cliente y jornada.
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `Int` | PK autoincremental |
+| `codigo` | `String` | único, ejemplo `F001-00245` |
+| `jornada_id` | `Int` | FK a `jornada.id` |
+| `cliente_id` | `Int` | FK a `cliente.id` |
+| `fecha_emision` | `DateTime` | default `now()` |
+| `monto_total` | `Decimal(10,2)` | total facturado |
+| `monto_pagado` | `Decimal(10,2)` | default `0` |
+| `saldo_pendiente` | `Decimal(10,2)` | saldo operativo |
+| `estado` | `EstadoFactura` | default `pendiente` |
+| `created_by` | `Int?` | FK nullable a `usuario.id` |
+| `created_at` | `DateTime` | default `now()` |
+| `updated_at` | `DateTime` | `@updatedAt` |
+
+Relaciones:
+
+- Pertenece a una `jornada`.
+- Pertenece a un `cliente`.
+- Puede tener muchos `pago`.
+- Puede tener un usuario creador (`created_by`).
+
+## `pago`
+
+Registra pagos de clientes, tanto efectivo como depósitos.
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `Int` | PK autoincremental |
+| `factura_id` | `Int` | FK a `factura.id` |
+| `cliente_id` | `Int` | FK a `cliente.id` |
+| `monto` | `Decimal(10,2)` | monto pagado |
+| `tipo` | `TipoPago` | `efectivo` o `deposito` |
+| `metodo` | `String` | ejemplo `efectivo`, `yape`, `plin`, `transferencia` |
+| `banco` | `String?` | para depósitos |
+| `nro_operacion` | `String?` | para depósitos |
+| `fecha_deposito` | `DateTime? @db.Date` | fecha bancaria |
+| `hora_deposito` | `DateTime? @db.Time(0)` | hora bancaria |
+| `estado` | `EstadoPago` | default `confirmado` |
+| `validado_por` | `Int?` | FK nullable a `usuario.id` |
+| `fecha_validacion` | `DateTime?` | fecha de validación |
+| `observaciones` | `String?` | observaciones de caja |
+| `registrado_por` | `Int` | FK a `usuario.id` del cajero |
+| `created_at` | `DateTime` | default `now()` |
+| `updated_at` | `DateTime` | `@updatedAt` |
+
+Relaciones:
+
+- Pertenece a una `factura`.
+- Pertenece a un `cliente`.
+- `registrado_por` apunta al cajero que registró el pago.
+- `validado_por` apunta al admin que validó un depósito.
+
+## `egreso`
+
+Registra salidas de dinero de caja.
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `Int` | PK autoincremental |
+| `concepto` | `String` | concepto corto |
+| `descripcion` | `String` | detalle completo |
+| `monto` | `Decimal(10,2)` | monto egresado |
+| `metodo_pago` | `String` | ejemplo `efectivo`, `transferencia`, `cheque`, `tarjeta` |
+| `beneficiario` | `String` | receptor del pago |
+| `comprobante` | `String?` | número de boleta/factura |
+| `fecha` | `DateTime` | default `now()` |
+| `registrado_por` | `Int` | FK a `usuario.id` del cajero |
+| `created_at` | `DateTime` | default `now()` |
+| `updated_at` | `DateTime` | `@updatedAt` |
+
+Relaciones:
+
+- `registrado_por` apunta al cajero que registró el egreso.
+
 ## Relaciones Principales
 
 ```text
@@ -254,6 +367,13 @@ granja 1 ── n linea_venta
 
 cliente 1 ── n linea_venta
 cliente 1 ── n devolucion
+cliente 1 ── n factura
+cliente 1 ── n pago
+
+factura 1 ── n pago
+usuario 1 ── n pago como cajero registrador
+usuario 1 ── n pago como admin validador
+usuario 1 ── n egreso como cajero registrador
 ```
 
 ## Cálculos Dinámicos
