@@ -25,6 +25,18 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RoleHomeRedirect() {
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const role = getRoleFromToken(token) ?? user?.role;
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Navigate to={getHomeForRole(role)} replace />;
+}
+
 function ProtectedAdminRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
@@ -199,11 +211,7 @@ export default function App() {
       />
       <Route
         path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
+        element={<RoleHomeRedirect />}
       />
       <Route
         path="/pesada/nueva"
@@ -224,20 +232,20 @@ export default function App() {
       <Route
         path="/clientes"
         element={
-          <ProtectedRoute>
+          <ProtectedOperarioRoute>
             <Clientes />
-          </ProtectedRoute>
+          </ProtectedOperarioRoute>
         }
       />
       <Route
         path="/cierre"
         element={
-          <ProtectedRoute>
+          <ProtectedOperarioRoute>
             <CierreJornada />
-          </ProtectedRoute>
+          </ProtectedOperarioRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<RoleHomeRedirect />} />
     </Routes>
   );
 }
