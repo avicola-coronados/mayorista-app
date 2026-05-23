@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getHomeForRole, normalizeRole } from "../lib/authRouting";
+import { getPostLoginPath, normalizeRole } from "../lib/authRouting";
 import { apiClient } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -26,7 +26,9 @@ export function Login() {
 
       setAuth(data.token, user);
       toast.success("Sesión iniciada");
-      navigate(getHomeForRole(user.role), { replace: true });
+
+      const destination = getPostLoginPath(user.role);
+      navigate(destination, { replace: true });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -42,9 +44,11 @@ export function Login() {
     }
   }, []);
 
-  if (token) {
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+
+  if (hasHydrated && token && !loginMutation.isPending) {
     const { user } = useAuthStore.getState();
-    return <Navigate to={getHomeForRole(normalizeRole(user?.role) ?? user?.role)} replace />;
+    return <Navigate to={getPostLoginPath(user?.role)} replace />;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

@@ -30,20 +30,19 @@ export function resolveAuthRole(token: string | null, userRole?: string | null) 
   return normalizeRole(userRole) ?? getRoleFromToken(token);
 }
 
+export function getPostLoginPath(role?: string | null) {
+  switch (normalizeRole(role)) {
+    case "admin":
+      return "/admin";
+    case "operario":
+      return "/pesada/nueva";
+    case "cajero":
+      return "/cajero/clientes";
+    default:
+      return "/login";
+  }
+}
+
 export function getHomeForRole(role?: string | null) {
-  const normalizedRole = normalizeRole(role);
-
-  if (normalizedRole === "admin") {
-    return "/admin";
-  }
-
-  if (normalizedRole === "cajero") {
-    return "/cajero/clientes";
-  }
-
-  if (normalizedRole === "operario") {
-    return "/pesada/nueva";
-  }
-
-  return "/login";
+  return getPostLoginPath(role);
 }

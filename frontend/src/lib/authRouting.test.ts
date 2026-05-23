@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getHomeForRole, normalizeRole, resolveAuthRole } from "./authRouting";
+import { getHomeForRole, getPostLoginPath, normalizeRole, resolveAuthRole } from "./authRouting";
 
 describe("authRouting", () => {
   it("normalizes role casing", () => {
@@ -7,9 +7,10 @@ describe("authRouting", () => {
   });
 
   it("redirects each role to its home", () => {
-    expect(getHomeForRole("admin")).toBe("/admin");
+    expect(getPostLoginPath("admin")).toBe("/admin");
+    expect(getPostLoginPath("cajero")).toBe("/cajero/clientes");
+    expect(getPostLoginPath("operario")).toBe("/pesada/nueva");
     expect(getHomeForRole("cajero")).toBe("/cajero/clientes");
-    expect(getHomeForRole("operario")).toBe("/pesada/nueva");
   });
 
   it("prefers user role over token role", () => {

@@ -4,7 +4,12 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import App from "./App";
+import { useAuthStore } from "./store/authStore";
 import "./index.css";
+
+useAuthStore.persist.onFinishHydration(() => {
+  useAuthStore.setState({ hasHydrated: true });
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {

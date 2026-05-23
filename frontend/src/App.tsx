@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { RegistrarPesada } from "./pages/RegistrarPesada";
@@ -27,9 +27,14 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 function RoleHomeRedirect() {
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const role = resolveAuthRole(token, user?.role);
+
+  if (!hasHydrated) {
+    return null;
+  }
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -55,9 +60,14 @@ function ProtectedAdminRoute({ children }: { children: ReactNode }) {
 }
 
 function ProtectedCajeroRoute({ children }: { children: ReactNode }) {
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const role = resolveAuthRole(token, user?.role);
+
+  if (!hasHydrated) {
+    return null;
+  }
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -68,6 +78,14 @@ function ProtectedCajeroRoute({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function CajeroRoutes() {
+  return (
+    <ProtectedCajeroRoute>
+      <Outlet />
+    </ProtectedCajeroRoute>
+  );
 }
 
 function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
@@ -146,38 +164,12 @@ export default function App() {
           </ProtectedAdminRoute>
         }
       />
-      <Route
-        path="/cajero"
-        element={
-          <ProtectedCajeroRoute>
-            <Navigate to="/cajero/clientes" replace />
-          </ProtectedCajeroRoute>
-        }
-      />
-      <Route
-        path="/cajero/clientes"
-        element={
-          <ProtectedCajeroRoute>
-            <ClientesCajero />
-          </ProtectedCajeroRoute>
-        }
-      />
-      <Route
-        path="/cajero/clientes/:id"
-        element={
-          <ProtectedCajeroRoute>
-            <DetalleClienteCajero />
-          </ProtectedCajeroRoute>
-        }
-      />
-      <Route
-        path="/cajero/egresos"
-        element={
-          <ProtectedCajeroRoute>
-            <EgresosCajero />
-          </ProtectedCajeroRoute>
-        }
-      />
+      <Route path="/cajero" element={<CajeroRoutes />}>
+        <Route index element={<Navigate to="clientes" replace />} />
+        <Route path="clientes" element={<ClientesCajero />} />
+        <Route path="clientes/:id" element={<DetalleClienteCajero />} />
+        <Route path="egresos" element={<EgresosCajero />} />
+      </Route>
       <Route
         path="/"
         element={<RoleHomeRedirect />}

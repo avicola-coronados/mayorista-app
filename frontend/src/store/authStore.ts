@@ -13,8 +13,10 @@ export type AuthUser = {
 type AuthState = {
   token: string | null;
   user: AuthUser | null;
+  hasHydrated: boolean;
   setAuth: (token: string, user: AuthUser) => void;
   clearAuth: () => void;
+  setHasHydrated: (value: boolean) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -22,18 +24,33 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
-      setAuth: (token, user) =>
+      hasHydrated: false,
+      setAuth: (token, user) => {
+        const normalizedUser = {
+          ...user,
+          role: normalizeRole(user.role) ?? user.role,
+        };
+
+        window.localStorage.setItem("token", token);
+        window.localStorage.setItem("user", JSON.stringify(normalizedUser));
+
         set({
           token,
-          user: {
-            ...user,
-            role: normalizeRole(user.role) ?? user.role,
-          },
-        }),
-      clearAuth: () => set({ token: null, user: null }),
+          user: normalizedUser,
+        });
+      },
+      clearAuth: () => {
+        window.localStorage.removeItem("token");
+        window.localStorage.removeItem("user");
+        set({ token: null, user: null });
+      },
+      setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: "coronados-auth",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );
