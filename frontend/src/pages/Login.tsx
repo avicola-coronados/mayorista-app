@@ -1,13 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getPostLoginPath, normalizeRole } from "../lib/authRouting";
 import { apiClient } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 
 export function Login() {
-  const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const setAuth = useAuthStore((state) => state.setAuth);
   const [showForm, setShowForm] = useState(false);
@@ -28,7 +27,8 @@ export function Login() {
       toast.success("Sesión iniciada");
 
       const destination = getPostLoginPath(user.role);
-      navigate(destination, { replace: true });
+      // Hard navigation avoids race with Login's authenticated redirect.
+      window.location.replace(destination);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -46,7 +46,7 @@ export function Login() {
 
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
 
-  if (hasHydrated && token && !loginMutation.isPending) {
+  if (hasHydrated && token && !loginMutation.isPending && !loginMutation.isSuccess) {
     const { user } = useAuthStore.getState();
     return <Navigate to={getPostLoginPath(user?.role)} replace />;
   }

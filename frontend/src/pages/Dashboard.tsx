@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, Cell, ResponsiveContainer, XAxis } from "recharts";
 import toast from "react-hot-toast";
 import { Layout } from "../components/Layout";
 import { useDashboard } from "../hooks/useDashboard";
+import { getPostLoginPath, resolveAuthRole } from "../lib/authRouting";
 import { useAuthStore } from "../store/authStore";
 import {
   apiClient,
@@ -18,8 +19,13 @@ export function Dashboard() {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
   const clearAuth = useAuthStore((state) => state.clearAuth);
-  const currentRole = getRoleFromToken(token) ?? user?.role;
-  const isAdmin = currentRole === "admin";
+  const currentRole = resolveAuthRole(token, user?.role);
+
+  if (currentRole !== "admin") {
+    return <Navigate to={getPostLoginPath(currentRole)} replace />;
+  }
+
+  const isAdmin = true;
   const { jornada: jornadaQuery, metricas: metricasQuery, sobrante: sobranteQuery } = useDashboard(!isAdmin);
   const adminMetricasQuery = useQuery({
     queryKey: ["admin-metricas", jornadaQuery.data?.id],

@@ -13,6 +13,7 @@ import { AdminUsuarios } from "./pages/admin/AdminUsuarios";
 import { ClientesCajero } from "./pages/cajero/ClientesCajero";
 import { DetalleClienteCajero } from "./pages/cajero/DetalleClienteCajero";
 import { EgresosCajero } from "./pages/cajero/EgresosCajero";
+import { AuthRoleGuard } from "./components/AuthRoleGuard";
 import { getHomeForRole, resolveAuthRole } from "./lib/authRouting";
 import { useAuthStore } from "./store/authStore";
 
@@ -60,14 +61,9 @@ function ProtectedAdminRoute({ children }: { children: ReactNode }) {
 }
 
 function ProtectedCajeroRoute({ children }: { children: ReactNode }) {
-  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const role = resolveAuthRole(token, user?.role);
-
-  if (!hasHydrated) {
-    return null;
-  }
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -106,7 +102,9 @@ function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <AuthRoleGuard />
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route
         path="/admin/jornadas"
@@ -208,5 +206,6 @@ export default function App() {
       />
       <Route path="*" element={<RoleHomeRedirect />} />
     </Routes>
+    </>
   );
 }
