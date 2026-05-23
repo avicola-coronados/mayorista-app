@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { ensureDefaultUsers } from "./bootstrap/default-users";
 import { errorMiddleware } from "./errors/error.middleware";
 import { requireAuth } from "./middleware/auth.middleware";
 import { authRouter } from "./modules/auth/auth.routes";
@@ -78,6 +79,15 @@ app.use("/api/cajero", requireAuth, cajeroRouter);
 
 app.use(errorMiddleware);
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+async function startServer() {
+  await ensureDefaultUsers();
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Failed to start server", error);
+  process.exit(1);
 });

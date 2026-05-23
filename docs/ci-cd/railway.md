@@ -212,6 +212,52 @@ prisma migrate deploy
 
 Punto importante: no usar `prisma migrate dev` en producción.
 
+## Usuarios Base
+
+El backend ejecuta un bootstrap al arrancar para asegurar usuarios base del sistema. Esto evita tener que crear usuarios manualmente en la base de datos de Railway después de un deploy.
+
+Archivo:
+
+```text
+backend/src/bootstrap/default-users.ts
+```
+
+Usuarios asegurados:
+
+```text
+admin
+operario
+cajero
+```
+
+Comportamiento:
+
+- Si el usuario no existe, lo crea con contraseña por defecto.
+- Si el usuario ya existe, lo mantiene activo y asegura su rol.
+- No sobrescribe la contraseña de usuarios existentes.
+- Solo gestiona usuarios base; no crea datos demo de clientes, granjas o jornadas.
+
+Contraseñas por defecto:
+
+```text
+admin: admin2024
+operario: coronados2024
+cajero: coronados2024
+```
+
+Se pueden cambiar desde variables de entorno antes de crear los usuarios:
+
+```text
+DEFAULT_ADMIN_USERNAME
+DEFAULT_ADMIN_PASSWORD
+DEFAULT_OPERARIO_USERNAME
+DEFAULT_OPERARIO_PASSWORD
+DEFAULT_CAJERO_USERNAME
+DEFAULT_CAJERO_PASSWORD
+```
+
+Después de cambiar una contraseña desde la pantalla de administración, el bootstrap no la pisa en siguientes deploys.
+
 ## CORS
 
 El backend lee:
