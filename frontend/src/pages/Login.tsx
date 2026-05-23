@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { getHomeForRole, normalizeRole } from "../lib/authRouting";
 import { apiClient } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -18,9 +19,14 @@ export function Login() {
   const loginMutation = useMutation({
     mutationFn: () => apiClient.login(form.username.trim(), form.password),
     onSuccess: (data) => {
-      setAuth(data.token, data.user);
+      const user = {
+        ...data.user,
+        role: normalizeRole(data.user.role) ?? data.user.role,
+      };
+
+      setAuth(data.token, user);
       toast.success("Sesión iniciada");
-      navigate(getHomeForRole(data.user.role));
+      navigate(getHomeForRole(user.role), { replace: true });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -37,7 +43,8 @@ export function Login() {
   }, []);
 
   if (token) {
-    return <Navigate to={getHomeForRole(useAuthStore.getState().user?.role)} replace />;
+    const { user } = useAuthStore.getState();
+    return <Navigate to={getHomeForRole(normalizeRole(user?.role) ?? user?.role)} replace />;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -228,14 +235,3 @@ export function Login() {
   );
 }
 
-function getHomeForRole(role?: string | null) {
-  if (role === "admin") {
-    return "/admin";
-  }
-
-  if (role === "cajero") {
-    return "/cajero/clientes";
-  }
-
-  return "/";
-}

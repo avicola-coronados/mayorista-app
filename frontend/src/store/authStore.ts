@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { normalizeRole } from "../lib/authRouting";
 
 export type AuthUser = {
   id: number;
@@ -21,7 +22,14 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
-      setAuth: (token, user) => set({ token, user }),
+      setAuth: (token, user) =>
+        set({
+          token,
+          user: {
+            ...user,
+            role: normalizeRole(user.role) ?? user.role,
+          },
+        }),
       clearAuth: () => set({ token: null, user: null }),
     }),
     {

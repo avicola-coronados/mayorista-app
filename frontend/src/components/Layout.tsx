@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
+import { getHomeForRole, resolveAuthRole } from "../lib/authRouting";
 import { useAuthStore } from "../store/authStore";
 
 type LayoutProps = {
@@ -26,8 +27,14 @@ function formatRole(role?: string) {
 }
 
 export function Layout({ title, subtitle, statusBadge, statusTone = "open", children }: LayoutProps) {
+  const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const role = resolveAuthRole(token, user?.role);
+
+  if (role === "cajero") {
+    return <Navigate to={getHomeForRole(role)} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#d8d8d8] pb-24">

@@ -13,6 +13,7 @@ import { AdminUsuarios } from "./pages/admin/AdminUsuarios";
 import { ClientesCajero } from "./pages/cajero/ClientesCajero";
 import { DetalleClienteCajero } from "./pages/cajero/DetalleClienteCajero";
 import { EgresosCajero } from "./pages/cajero/EgresosCajero";
+import { getHomeForRole, resolveAuthRole } from "./lib/authRouting";
 import { useAuthStore } from "./store/authStore";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -28,7 +29,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 function RoleHomeRedirect() {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
-  const role = getRoleFromToken(token) ?? user?.role;
+  const role = resolveAuthRole(token, user?.role);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -40,14 +41,14 @@ function RoleHomeRedirect() {
 function ProtectedAdminRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
-  const role = getRoleFromToken(token) ?? user?.role;
+  const role = resolveAuthRole(token, user?.role);
 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
 
   if (role !== "admin") {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getHomeForRole(role)} replace />;
   }
 
   return <>{children}</>;
@@ -56,7 +57,7 @@ function ProtectedAdminRoute({ children }: { children: ReactNode }) {
 function ProtectedCajeroRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
-  const role = getRoleFromToken(token) ?? user?.role;
+  const role = resolveAuthRole(token, user?.role);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -72,7 +73,7 @@ function ProtectedCajeroRoute({ children }: { children: ReactNode }) {
 function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
-  const role = getRoleFromToken(token) ?? user?.role;
+  const role = resolveAuthRole(token, user?.role);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -83,38 +84,6 @@ function ProtectedOperarioRoute({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>;
-}
-
-function getHomeForRole(role?: string | null) {
-  if (role === "admin") {
-    return "/admin";
-  }
-
-  if (role === "cajero") {
-    return "/cajero/clientes";
-  }
-
-  return "/";
-}
-
-function getRoleFromToken(token: string | null) {
-  if (!token) {
-    return null;
-  }
-
-  try {
-    const payload = token.split(".")[1];
-
-    if (!payload) {
-      return null;
-    }
-
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const decodedPayload = JSON.parse(window.atob(normalizedPayload)) as { role?: string };
-    return decodedPayload.role ?? null;
-  } catch {
-    return null;
-  }
 }
 
 export default function App() {
