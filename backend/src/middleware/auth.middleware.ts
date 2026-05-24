@@ -51,3 +51,27 @@ export function requireRole(...roles: string[]) {
     return next();
   };
 }
+
+export function requireOperario(request: Request, response: Response, next: NextFunction) {
+  if (!request.user?.role || !["operario", "admin"].includes(request.user.role)) {
+    return response.status(403).json({ message: "Acceso restringido a operarios" });
+  }
+
+  return next();
+}
+
+export function requireOficina(request: Request, response: Response, next: NextFunction) {
+  if (!request.user?.role || !["oficina", "admin"].includes(request.user.role)) {
+    return response.status(403).json({ message: "Acceso restringido a oficina" });
+  }
+
+  return next();
+}
+
+export function requireGuiaRead(request: Request, response: Response, next: NextFunction) {
+  if (!request.user?.role || !["cajero", "operario", "oficina", "admin"].includes(request.user.role)) {
+    return response.status(403).json({ message: "Acceso de lectura no permitido para este rol" });
+  }
+
+  return next();
+}

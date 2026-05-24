@@ -44,7 +44,7 @@ No ejecuta migraciones ni requiere conexión a la base de datos. Las migraciones
 Esto valida:
 
 - Dependencias instalables desde `package-lock.json`.
-- Pruebas unitarias del dominio backend.
+- Pruebas unitarias del dominio backend (cálculos de pesadas, guías y precios).
 - Prisma Client generable.
 - TypeScript sin errores.
 

@@ -14,6 +14,7 @@ type LayoutProps = {
 const navItems = [
   { to: "/", label: "Inicio" },
   { to: "/pesada/nueva", label: "Pesadas" },
+  { to: "/operario/guias", label: "Guías" },
   { to: "/clientes", label: "Clientes" },
   { to: "/cierre", label: "Historial" },
 ];

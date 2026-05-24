@@ -156,6 +156,31 @@ async function main() {
       },
     });
   }
+
+  const producto = await prisma.producto.upsert({
+    where: { codigo: "POLLO_VIVO" },
+    update: { activo: true, nombre: "Pollo vivo" },
+    create: { codigo: "POLLO_VIVO", nombre: "Pollo vivo", activo: true },
+  });
+
+  const precioVigente = await prisma.precio.findFirst({
+    where: { producto_id: producto.id, vigente: true },
+  });
+
+  if (!precioVigente) {
+    const [day, month, year] = getTodayCode().match(/(\d{2})(\d{2})(\d{4})/)?.slice(1) ?? [];
+    const fechaDesde = day && month && year ? `${year}-${month}-${day}T12:00:00.000Z` : new Date().toISOString();
+
+    await prisma.precio.create({
+      data: {
+        producto_id: producto.id,
+        precio: 5,
+        fecha_desde: new Date(fechaDesde),
+        vigente: true,
+        creado_por: admin.id,
+      },
+    });
+  }
 }
 
 main()

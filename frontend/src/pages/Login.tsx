@@ -233,6 +233,9 @@ export function Login() {
           <p className="mt-3 text-center text-[14px] font-medium text-white/85 sm:text-[16px]">
             Sistema de control de ventas mayoristas
           </p>
+          <p className="mt-2 text-center text-[11px] font-medium text-white/50">
+            Build {__APP_BUILD_ID__}
+          </p>
         </section>
       </main>
     </div>

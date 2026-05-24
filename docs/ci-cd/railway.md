@@ -198,6 +198,11 @@ backend/prisma/migrations/
 
 quedan aplicados en el siguiente deploy del backend.
 
+Migraciones recientes a tener en cuenta:
+
+- `20260523120000_add_guias_precios` — guías y producto
+- `20260523140000_refactor_precios` — tabla `precios` con histórico y UUID
+
 También se puede ejecutar manualmente:
 
 ```bash
@@ -212,51 +217,48 @@ prisma migrate deploy
 
 Punto importante: no usar `prisma migrate dev` en producción.
 
-## Usuarios Base
+## Bootstrap al arrancar
 
-El backend ejecuta un bootstrap al arrancar para asegurar usuarios base del sistema. Esto evita tener que crear usuarios manualmente en la base de datos de Railway después de un deploy.
+El backend ejecuta bootstraps en `startServer()` antes de escuchar peticiones:
 
-Archivo:
+| Archivo | Responsabilidad |
+| --- | --- |
+| `backend/src/bootstrap/default-users.ts` | Usuarios base del sistema |
+| `backend/src/bootstrap/default-producto.ts` | Producto `POLLO_VIVO` |
+| `backend/src/bootstrap/default-precio.ts` | Precio vigente S/ 5.00/kg si no existe |
+
+### Usuarios base
 
 ```text
-backend/src/bootstrap/default-users.ts
-```
-
-Usuarios asegurados:
-
-```text
-admin
-operario
-cajero
+admin      → admin2024
+operario   → coronados2024
+cajero     → coronados2024
+oficina    → coronados2024
 ```
 
 Comportamiento:
 
 - Si el usuario no existe, lo crea con contraseña por defecto.
-- Si el usuario ya existe, lo mantiene activo y asegura su rol.
-- No sobrescribe la contraseña de usuarios existentes.
-- Solo gestiona usuarios base; no crea datos demo de clientes, granjas o jornadas.
+- Si ya existe, lo mantiene activo y asegura su rol.
+- No sobrescribe contraseñas de usuarios existentes.
 
-Contraseñas por defecto:
-
-```text
-admin: admin2024
-operario: coronados2024
-cajero: coronados2024
-```
-
-Se pueden cambiar desde variables de entorno antes de crear los usuarios:
+Variables de entorno opcionales:
 
 ```text
-DEFAULT_ADMIN_USERNAME
-DEFAULT_ADMIN_PASSWORD
-DEFAULT_OPERARIO_USERNAME
-DEFAULT_OPERARIO_PASSWORD
-DEFAULT_CAJERO_USERNAME
-DEFAULT_CAJERO_PASSWORD
+DEFAULT_ADMIN_USERNAME / DEFAULT_ADMIN_PASSWORD
+DEFAULT_OPERARIO_USERNAME / DEFAULT_OPERARIO_PASSWORD
+DEFAULT_CAJERO_USERNAME / DEFAULT_CAJERO_PASSWORD
+DEFAULT_OFICINA_USERNAME / DEFAULT_OFICINA_PASSWORD
 ```
 
-Después de cambiar una contraseña desde la pantalla de administración, el bootstrap no la pisa en siguientes deploys.
+El rol `oficina` tiene API de precios lista; la UI de configuración aún no está implementada.
+
+### Producto y precio inicial
+
+- Producto: `POLLO_VIVO` (Pollo vivo)
+- Precio: **S/ 5.00/kg** vigente desde la fecha actual si no hay ningún precio en BD
+
+Para datos demo completos (granjas, clientes, jornada), ejecutar manualmente `npm run db:seed` contra la base de Railway si se requiere.
 
 ## CORS
 

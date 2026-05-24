@@ -431,6 +431,142 @@ export type CajeroDetalleClienteResponse = {
   facturas: CajeroFactura[];
 };
 
+export type CajeroGuiaEstado = "abierta" | "cerrada";
+
+export type CajeroGuiaListItem = {
+  id: number;
+  numero: string;
+  fecha: string;
+  numeroJabas: number;
+  pesoBrutoTotal: number;
+  devolucion: number;
+  neto: number;
+  importeGuia: number;
+  peladuria: number;
+  netoTotal: number;
+  estado: CajeroGuiaEstado;
+};
+
+export type CajeroClienteGuiasResponse = {
+  cliente: {
+    id: number;
+    nombre: string;
+    tipo: TipoCliente;
+  };
+  guias: CajeroGuiaListItem[];
+  totales: {
+    facturado: number;
+    pagado: number;
+    saldoPendiente: number;
+  };
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+};
+
+export type GuiaDetalleLinea = {
+  nroJaba: number;
+  pesoBruto: number;
+  tara: number;
+  pesoNeto: number;
+  devolucion: number;
+  netoTotal: number;
+  importeGuia: number;
+  peladuria: number;
+  importeTotal: number;
+  saldoAnterior: number;
+};
+
+export type GuiaDetalleTotales = {
+  jabas: number;
+  pesoBruto: number;
+  tara: number;
+  pesoNeto: number;
+  devolucion: number;
+  netoTotal: number;
+  importeGuia: number;
+  peladuria: number;
+  importeTotal: number;
+};
+
+export type GuiaDetalle = {
+  id: number;
+  numero: string;
+  fecha: string;
+  estado: CajeroGuiaEstado;
+  saldoAnteriorInicial: number;
+  totalGeneral: number;
+  cliente: {
+    id: number;
+    nombre: string;
+    tipo: TipoCliente;
+  };
+  lineas: GuiaDetalleLinea[];
+  totales: GuiaDetalleTotales;
+};
+
+export type OperadorGuiaLinea = GuiaDetalleLinea & {
+  id: number;
+  orden: number;
+};
+
+export type OperadorGuia = {
+  id: number;
+  numero: string;
+  fecha: string;
+  estado: "borrador" | "cerrada" | "anulada";
+  editable: boolean;
+  cliente: {
+    id: number;
+    nombre: string;
+    tipo: TipoCliente;
+  };
+  saldoAnteriorInicial: number;
+  totalGeneral: number;
+  lineas: OperadorGuiaLinea[];
+  totales: GuiaDetalleTotales;
+};
+
+export type OperadorGuiaActivaResponse = {
+  guia: OperadorGuia | null;
+};
+
+export type OperadorGuiasJornadaResponse = {
+  jornada: {
+    id: number;
+    codigo: string;
+    fecha: string;
+  };
+  guias: Array<{
+    id: number;
+    numero: string;
+    estado: "borrador" | "cerrada" | "anulada";
+    cliente: { id: number; nombre: string; tipo: TipoCliente };
+    lineasCount: number;
+    totalGeneral: number;
+    createdAt: string;
+  }>;
+};
+
+export type PrecioVigente = {
+  precio: number;
+  precio_kg: number;
+  fecha_desde: string;
+  producto_id: number;
+  precio_id: string | null;
+  origen: "rango" | "ultimo_disponible" | "default";
+};
+
+export type LineaGuiaPayload = {
+  jabas: number;
+  peso_bruto: number;
+  tara?: number;
+  tara_por_jaba?: number;
+  devolucion_kg?: number;
+  peladuria?: number;
+};
+
 export type CajeroRegistrarPagoPayload = {
   factura_id: number;
   cliente_id: number;
@@ -815,6 +951,101 @@ export const apiClient = {
   async getDetalleClienteCajero(id: number) {
     try {
       const response = await api.get<CajeroDetalleClienteResponse>(`/cajero/clientes/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getClienteGuias(clienteId: number, params?: { page?: number; limit?: number }) {
+    try {
+      const response = await api.get<CajeroClienteGuiasResponse>(`/clientes/${clienteId}/guias`, {
+        params: {
+          page: params?.page ?? 1,
+          limit: params?.limit ?? 15,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getGuiaDetalle(guiaId: number) {
+    try {
+      const response = await api.get<GuiaDetalle>(`/guias/${guiaId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getPrecioVigente() {
+    try {
+      const response = await api.get<PrecioVigente>("/precios/vigente");
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getGuiaActiva(clienteId: number) {
+    try {
+      const response = await api.get<OperadorGuiaActivaResponse>("/guias/activa", {
+        params: { cliente_id: clienteId },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getGuiasJornadaActual() {
+    try {
+      const response = await api.get<OperadorGuiasJornadaResponse>("/guias/jornada-actual");
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getGuiaOperador(guiaId: number) {
+    try {
+      const response = await api.get<OperadorGuia>(`/guias/${guiaId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createGuia(clienteId: number) {
+    try {
+      const response = await api.post<OperadorGuia>("/guias", { cliente_id: clienteId });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async addLineaGuia(guiaId: number, payload: LineaGuiaPayload) {
+    try {
+      const response = await api.post<OperadorGuia>(`/guias/${guiaId}/lineas`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateLineaGuia(guiaId: number, lineaId: number, payload: LineaGuiaPayload) {
+    try {
+      const response = await api.put<OperadorGuia>(`/guias/${guiaId}/lineas/${lineaId}`, payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async deleteLineaGuia(guiaId: number, lineaId: number) {
+    try {
+      const response = await api.delete<OperadorGuia>(`/guias/${guiaId}/lineas/${lineaId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async cerrarGuia(guiaId: number) {
+    try {
+      const response = await api.patch<OperadorGuia>(`/guias/${guiaId}/cerrar`);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

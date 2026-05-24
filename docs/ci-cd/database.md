@@ -62,6 +62,14 @@ Roles de usuario:
 - `confirmado`
 - `rechazado`
 
+### `GuiaEstado`
+
+Estado de una guía de entrega:
+
+- `borrador`: editable por operario (agregar/editar/eliminar líneas)
+- `cerrada`: solo lectura para cajero; no admite más pesadas
+- `anulada`: guía invalidada
+
 ## Tablas
 
 ## `usuario`
@@ -92,8 +100,10 @@ Relaciones:
 - `pagos_registrados`: pagos registrados por este usuario con rol cajero.
 - `pagos_validados`: pagos validados por este usuario con rol admin.
 - `egresos_registrados`: egresos registrados por este usuario con rol cajero.
+- `precios_creados`: precios configurados por oficina/admin.
+- `guias_creadas` / `guias_cerradas`: guías del operario.
 
-Controla autenticación, autorización y auditoría básica de gestión de usuarios, caja y cobranza.
+Controla autenticación, autorización y auditoría básica de gestión de usuarios, caja, cobranza y precios.
 
 ## `jornada`
 
@@ -274,6 +284,120 @@ Relaciones:
 
 Si se elimina la jornada actual, sus sobrantes asociados se eliminan por cascada.
 
+## `producto`
+
+Catálogo de productos avícolas (hoy solo `POLLO_VIVO`; preparado para múltiples).
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `Int` | PK autoincremental |
+| `codigo` | `String` | único, ej. `POLLO_VIVO` |
+| `nombre` | `String` | nombre comercial |
+| `activo` | `Boolean` | default `true` |
+| `created_at` | `DateTime` | default `now()` |
+| `updated_at` | `DateTime` | `@updatedAt` |
+
+Relaciones:
+
+- Un producto tiene muchos `precios`.
+- Un producto tiene muchas `guia_entrega`.
+
+Bootstrap al arrancar: `ensureDefaultProducto()` crea `POLLO_VIVO` si no existe.
+
+## `precios`
+
+Histórico de precios por kg (rol oficina). Nunca se eliminan; se cierran con `fecha_hasta`.
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `String` (UUID) | PK |
+| `producto_id` | `Int` | FK a `producto.id` |
+| `precio` | `Decimal(10,4)` | precio por kg en soles |
+| `fecha_desde` | `Date` | inicio de vigencia |
+| `fecha_hasta` | `Date?` | fin de vigencia; `null` = abierto |
+| `vigente` | `Boolean` | solo uno `true` por producto |
+| `creado_por` | `Int` | FK a `usuario.id` (oficina/admin) |
+| `creado_en` | `DateTime` | default `now()` |
+
+Índice único parcial: un solo registro `vigente=true` por `producto_id`.
+
+Lógica al crear precio nuevo:
+
+1. Precios vigentes del producto → `vigente=false`, `fecha_hasta=hoy`
+2. Se crea el nuevo con `vigente=true`, `fecha_hasta=null`
+
+Resolución de precio para una fecha (`obtenerPrecioVigente`):
+
+1. Registro cuyo rango `[fecha_desde, fecha_hasta]` cubre la fecha
+2. Si no hay → último con `fecha_desde ≤ fecha`
+3. Si no hay histórico → default **S/ 5.00/kg**
+
+Bootstrap: `ensureDefaultPrecio()` al arrancar el backend.
+
+## `guia_entrega`
+
+Guía de entrega por cliente y jornada (reemplaza progresivamente el registro suelto en `linea_venta` para cobranza).
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `Int` | PK autoincremental |
+| `numero` | `String` | único, ej. `G-DDMMYYYY-001` |
+| `jornada_id` | `Int` | FK a `jornada.id` |
+| `cliente_id` | `Int` | FK a `cliente.id` |
+| `producto_id` | `Int` | FK a `producto.id` |
+| `fecha_emision` | `Date` | fecha de la guía |
+| `estado` | `GuiaEstado` | default `borrador` |
+| `saldo_anterior` | `Decimal(12,2)` | saldo del cliente al abrir |
+| `total_peso_neto` | `Decimal(10,2)` | agregado de líneas |
+| `total_devolucion` | `Decimal(10,2)` | agregado |
+| `total_neto` | `Decimal(10,2)` | kg neto comercial |
+| `total_importe` | `Decimal(12,2)` | Σ importe guía |
+| `total_peladuria` | `Decimal(12,2)` | Σ peladuría |
+| `total_general` | `Decimal(12,2)` | total con saldo anterior |
+| `precio_kg_aplicado` | `Decimal(10,4)?` | precio al cerrar |
+| `observaciones` | `String?` | opcional |
+| `creado_por` | `Int` | operario |
+| `cerrada_por` | `Int?` | usuario que cerró |
+| `cerrada_at` | `DateTime?` | timestamp de cierre |
+
+Relaciones:
+
+- Pertenece a `jornada`, `cliente`, `producto`, `operador`.
+- Tiene muchas `linea_guia`.
+
+## `linea_guia`
+
+Cada pesada dentro de una guía.
+
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `id` | `Int` | PK autoincremental |
+| `guia_id` | `Int` | FK a `guia_entrega.id` (cascade delete) |
+| `orden` | `Int` | orden en la guía |
+| `jabas` | `Int` | cantidad de jabas |
+| `peso_bruto` | `Decimal(10,2)` | kg |
+| `tara_por_jaba` | `Decimal(10,2)` | default `5.8` |
+| `tara` | `Decimal(10,2)` | tara total |
+| `devolucion_kg` | `Decimal(10,2)` | default `0` |
+| `peso_neto` | `Decimal(10,2)` | bruto − tara |
+| `neto_total` | `Decimal(10,2)` | neto − devolución |
+| `precio_kg` | `Decimal(10,4)` | precio aplicado en la línea |
+| `precio_id` | `String?` | FK a `precios.id` |
+| `importe_guia` | `Decimal(12,2)` | neto_total × precio_kg |
+| `peladuria` | `Decimal(12,2)` | monto en soles |
+| `importe_total` | `Decimal(12,2)` | importe_guía + peladuría |
+| `linea_venta_id` | `Int?` | FK opcional a `linea_venta` |
+| `nota` | `String?` | observación |
+
+Cálculos al guardar línea (dominio `domain/guia/calculos.ts`):
+
+```text
+peso_neto = peso_bruto - tara
+neto_total = peso_neto - devolucion_kg
+importe_guia = neto_total × precio_kg_vigente
+importe_total = importe_guia + peladuria
+```
+
 ## `factura`
 
 Registra el documento de cobranza por cliente y jornada.
@@ -359,8 +483,14 @@ Relaciones:
 jornada 1 ── n entrada_granja
 jornada 1 ── n linea_venta
 jornada 1 ── n devolucion
-jornada 1 ── n sobrante como jornada receptora
-jornada 1 ── n sobrante como jornada origen
+jornada 1 ── n guia_entrega
+jornada 1 ── n sobrante (receptora / origen)
+
+producto 1 ── n precios
+producto 1 ── n guia_entrega
+
+guia_entrega 1 ── n linea_guia
+precios 1 ── n linea_guia (referencia del precio aplicado)
 
 granja 1 ── n entrada_granja
 granja 1 ── n linea_venta
@@ -369,12 +499,20 @@ cliente 1 ── n linea_venta
 cliente 1 ── n devolucion
 cliente 1 ── n factura
 cliente 1 ── n pago
+cliente 1 ── n guia_entrega
 
 factura 1 ── n pago
-usuario 1 ── n pago como cajero registrador
-usuario 1 ── n pago como admin validador
-usuario 1 ── n egreso como cajero registrador
+usuario 1 ── n pago / egreso / precios / guías (según rol)
 ```
+
+## Migraciones relevantes
+
+| Migración | Descripción |
+| --- | --- |
+| `20260523120000_add_guias_precios` | Tablas iniciales `producto`, `precio_diario`, `guia_entrega`, `linea_guia` |
+| `20260523140000_refactor_precios` | `precio_diario` → `precios` con vigencia por rango y UUID |
+
+En producción aplicar con `prisma migrate deploy` (automático en Railway al arrancar).
 
 ## Cálculos Dinámicos
 

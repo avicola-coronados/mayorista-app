@@ -39,6 +39,10 @@
     @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100;
   }
 
+  .operario-input {
+    @apply w-full rounded-[10px] border border-neutral-200 bg-white px-4 py-3.5 text-[16px] font-medium text-neutral-900 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100;
+  }
+
   .primary-button {
     @apply inline-flex items-center justify-center rounded-2xl bg-coronados-orange px-5 py-3 font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-slate-300;
   }

@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { RegistrarPesada } from "./pages/RegistrarPesada";
+import { GuiasOperario } from "./pages/operario/GuiasOperario";
 import { RegistrarDevolucion } from "./pages/RegistrarDevolucion";
 import { Clientes } from "./pages/Clientes";
 import { CierreJornada } from "./pages/CierreJornada";
@@ -12,6 +13,7 @@ import { AdminClientes } from "./pages/admin/AdminClientes";
 import { AdminUsuarios } from "./pages/admin/AdminUsuarios";
 import { ClientesCajero } from "./pages/cajero/ClientesCajero";
 import { DetalleClienteCajero } from "./pages/cajero/DetalleClienteCajero";
+import { DetalleGuiaCajero } from "./pages/cajero/DetalleGuiaCajero";
 import { EgresosCajero } from "./pages/cajero/EgresosCajero";
 import { AuthRoleGuard } from "./components/AuthRoleGuard";
 import { getHomeForRole, resolveAuthRole } from "./lib/authRouting";
@@ -166,6 +168,7 @@ export default function App() {
         <Route index element={<Navigate to="clientes" replace />} />
         <Route path="clientes" element={<ClientesCajero />} />
         <Route path="clientes/:id" element={<DetalleClienteCajero />} />
+        <Route path="clientes/:id/guias/:guiaId" element={<DetalleGuiaCajero />} />
         <Route path="egresos" element={<EgresosCajero />} />
       </Route>
       <Route
@@ -177,6 +180,14 @@ export default function App() {
         element={
           <ProtectedOperarioRoute>
             <RegistrarPesada />
+          </ProtectedOperarioRoute>
+        }
+      />
+      <Route
+        path="/operario/guias"
+        element={
+          <ProtectedOperarioRoute>
+            <GuiasOperario />
           </ProtectedOperarioRoute>
         }
       />

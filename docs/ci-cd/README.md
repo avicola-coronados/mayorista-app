@@ -20,13 +20,16 @@ Este proyecto usa un flujo CI/CD híbrido:
 - `dev`: rama de trabajo y validación previa.
 - `main`: rama estable conectada a producción.
 
-## Archivos Relevantes
+## Archivos relevantes
 
 - `.github/workflows/ci.yml`: validación de builds en GitHub Actions.
-- `vercel.json`: configuración de build y rewrites SPA para Vercel.
-- `frontend/vercel.json`: fallback SPA si Vercel usa `frontend` como root directory.
-- `backend/package.json`: scripts de build, start y migraciones del backend.
-- `frontend/package.json`: scripts de build del frontend.
+- `vercel.json` / `frontend/vercel.json`: build y rewrites SPA para Vercel.
+- `backend/package.json`: scripts de build, start y migraciones.
+- `backend/nixpacks.toml`: build en Railway.
+- `backend/prisma/schema.prisma` y `backend/prisma/migrations/`: modelo de datos.
+- `README.md`: guía general del proyecto, roles y endpoints.
+- `docs/ci-cd/database.md`: referencia del modelo Prisma.
+- `docs/ci-cd/railway.md`: deploy del backend y variables de entorno.
 
 ## Responsabilidades
 

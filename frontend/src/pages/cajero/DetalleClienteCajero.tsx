@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   IconAlertCircle,
   IconBuildingBank,
@@ -16,12 +16,31 @@ import {
 import { CajeroShell } from "../../components/cajero/CajeroShell";
 import { ModalDetallePagos } from "../../components/cajero/ModalDetallePagos";
 import { ModalPago } from "../../components/cajero/ModalPago";
+import {
+  ClienteDetalleHeader,
+  ClienteMetaRow,
+} from "../../components/cajero/cliente/ClienteDetalleHeader";
+import {
+  ClienteDetalleTabs,
+  type ClienteDetalleTab,
+} from "../../components/cajero/cliente/ClienteDetalleTabs";
+import { FacturasGuiasView } from "../../components/cajero/cliente/FacturasGuiasView";
 import { apiClient, type CajeroFactura, type TipoPago } from "../../services/api";
+
+function parseTab(value: string | null): ClienteDetalleTab {
+  if (value === "estado-cuenta") {
+    return "estado-cuenta";
+  }
+
+  return "facturas-guias";
+}
 
 export function DetalleClienteCajero() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const clienteId = Number(id);
+  const activeTab = parseTab(searchParams.get("tab"));
   const [modalPago, setModalPago] = useState<{ factura: CajeroFactura; tipo: TipoPago } | null>(null);
   const [facturaPagos, setFacturaPagos] = useState<CajeroFactura | null>(null);
 
@@ -39,6 +58,10 @@ export function DetalleClienteCajero() {
   const cliente = detalleQuery.data?.cliente;
   const resumen = detalleQuery.data?.resumen;
   const facturas = detalleQuery.data?.facturas ?? [];
+
+  function setActiveTab(tab: ClienteDetalleTab) {
+    setSearchParams(tab === "facturas-guias" ? {} : { tab }, { replace: true });
+  }
 
   function openPago(tipo: TipoPago, factura?: CajeroFactura) {
     const target = factura ?? primeraFacturaPendiente;
@@ -80,131 +103,138 @@ export function DetalleClienteCajero() {
           />
         ) : (
           <>
-            <section className="mb-6 rounded-[12px] border border-neutral-200 bg-[#F9F9F9] p-6">
-              <div className="flex flex-wrap items-start justify-between gap-5">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-[24px] font-medium leading-tight text-neutral-950">{cliente.nombre}</h2>
-                    <TipoBadge tipo={cliente.tipo} />
-                  </div>
+            <ClienteDetalleHeader nombre={cliente.nombre} tipo={cliente.tipo} />
 
-                  <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] font-medium text-neutral-600">
-                    <MetaItem icon={<IconId size={17} />} text={formatDocumento(cliente)} />
-                    {cliente.contacto ? <MetaItem icon={<IconUser size={17} />} text={cliente.contacto} /> : null}
-                    {cliente.telefono ? <MetaItem icon={<IconPhone size={17} />} text={cliente.telefono} /> : null}
-                  </div>
-                </div>
-              </div>
+            <ClienteMetaRow>
+              <MetaItem icon={<IconId size={17} />} text={formatDocumento(cliente)} />
+              {cliente.contacto ? <MetaItem icon={<IconUser size={17} />} text={cliente.contacto} /> : null}
+              {cliente.telefono ? <MetaItem icon={<IconPhone size={17} />} text={cliente.telefono} /> : null}
+            </ClienteMetaRow>
 
-              <div className="mt-6 grid grid-cols-3 gap-4 border-t border-neutral-200 pt-5 max-md:grid-cols-1">
-                <ResumenItem label="Total facturado" value={formatCurrency(resumen.total_facturado)} />
-                <ResumenItem label="Total pagado" value={formatCurrency(resumen.total_pagado)} tone="green" />
-                <ResumenItem label="Saldo pendiente" value={formatCurrency(resumen.saldo_pendiente)} tone="orange" />
-              </div>
-            </section>
+            <ClienteDetalleTabs active={activeTab} onChange={setActiveTab} />
 
-            <section className="mb-6 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openPago("efectivo")}
-                disabled={!primeraFacturaPendiente}
-                className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-coronados-green px-5 text-[14px] font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <IconCash size={18} />
-                Registrar pago en efectivo
-              </button>
-              <button
-                type="button"
-                onClick={() => openPago("deposito")}
-                disabled={!primeraFacturaPendiente}
-                className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#378ADD] px-5 text-[14px] font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <IconBuildingBank size={18} />
-                Registrar depósito bancario
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#E5E5E5] bg-white px-5 text-[14px] font-bold text-neutral-600 transition hover:bg-neutral-50"
-              >
-                <IconPrinter size={18} />
-                Imprimir estado de cuenta
-              </button>
-            </section>
+            {activeTab === "facturas-guias" ? (
+              <FacturasGuiasView
+                clienteId={cliente.id}
+                facturado={resumen.total_facturado}
+                pagado={resumen.total_pagado}
+                saldoPendiente={resumen.saldo_pendiente}
+                facturas={facturas}
+              />
+            ) : (
+              <>
+                <section className="mb-6 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openPago("efectivo")}
+                    disabled={!primeraFacturaPendiente}
+                    className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-coronados-green px-5 text-[14px] font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <IconCash size={18} />
+                    Registrar pago en efectivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openPago("deposito")}
+                    disabled={!primeraFacturaPendiente}
+                    className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#378ADD] px-5 text-[14px] font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <IconBuildingBank size={18} />
+                    Registrar depósito bancario
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#E5E5E5] bg-white px-5 text-[14px] font-bold text-neutral-600 transition hover:bg-neutral-50"
+                  >
+                    <IconPrinter size={18} />
+                    Imprimir estado de cuenta
+                  </button>
+                </section>
 
-            <section>
-              <h3 className="mb-4 text-[18px] font-medium text-neutral-950">Facturas y guías</h3>
+                <section>
+                  <h3 className="mb-4 text-[18px] font-medium text-neutral-950">Facturas</h3>
 
-              {facturas.length === 0 ? (
-                <EmptyFacturas />
-              ) : (
-                <div className="overflow-hidden rounded-[12px] border border-neutral-200 bg-white">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[820px] border-collapse">
-                      <thead className="bg-[#F9F9F9]">
-                        <tr className="border-b border-neutral-200">
-                          <Th>Fecha jornada</Th>
-                          <Th>Documento</Th>
-                          <Th align="right">Monto total</Th>
-                          <Th align="right">Pagado</Th>
-                          <Th align="right">Saldo</Th>
-                          <Th align="center">Estado</Th>
-                          <Th align="center">Acción</Th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {facturas.map((factura) => (
-                          <tr key={factura.id} className="border-b border-neutral-100 transition last:border-b-0 hover:bg-neutral-50">
-                            <Td>{formatDate(factura.jornada_fecha || factura.fecha_emision)}</Td>
-                            <Td>
-                              <p className="text-[14px] font-bold text-neutral-900">{factura.codigo}</p>
-                              <p className="mt-1 text-[11px] font-medium text-neutral-400">
-                                Jornada {factura.jornada_codigo}
-                              </p>
-                            </Td>
-                            <Td align="right" strong>
-                              {formatCurrency(factura.monto_total)}
-                            </Td>
-                            <Td align="right" className={factura.monto_pagado > 0 ? "text-coronados-green" : "text-neutral-500"}>
-                              {formatCurrency(factura.monto_pagado)}
-                            </Td>
-                            <Td
-                              align="right"
-                              strong
-                              className={factura.saldo_pendiente > 0 ? "text-coronados-orange" : "text-coronados-green"}
-                            >
-                              {formatCurrency(factura.saldo_pendiente)}
-                            </Td>
-                            <Td align="center">
-                              <EstadoBadge estado={factura.estado} />
-                            </Td>
-                            <Td align="center">
-                              {factura.estado !== "pagado" && factura.estado !== "anulado" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openPago("efectivo", factura)}
-                                  className="rounded-[6px] bg-coronados-green px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-green-700"
+                  {facturas.length === 0 ? (
+                    <EmptyFacturas />
+                  ) : (
+                    <div className="overflow-hidden rounded-[12px] border border-neutral-200 bg-white">
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[820px] border-collapse">
+                          <thead className="bg-[#F9F9F9]">
+                            <tr className="border-b border-neutral-200">
+                              <Th>Fecha jornada</Th>
+                              <Th>Documento</Th>
+                              <Th align="right">Monto total</Th>
+                              <Th align="right">Pagado</Th>
+                              <Th align="right">Saldo</Th>
+                              <Th align="center">Estado</Th>
+                              <Th align="center">Acción</Th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {facturas.map((factura) => (
+                              <tr
+                                key={factura.id}
+                                className="border-b border-neutral-100 transition last:border-b-0 hover:bg-neutral-50"
+                              >
+                                <Td>{formatDate(factura.jornada_fecha || factura.fecha_emision)}</Td>
+                                <Td>
+                                  <p className="text-[14px] font-bold text-neutral-900">{factura.codigo}</p>
+                                  <p className="mt-1 text-[11px] font-medium text-neutral-400">
+                                    Jornada {factura.jornada_codigo}
+                                  </p>
+                                </Td>
+                                <Td align="right" strong>
+                                  {formatCurrency(factura.monto_total)}
+                                </Td>
+                                <Td
+                                  align="right"
+                                  className={factura.monto_pagado > 0 ? "text-coronados-green" : "text-neutral-500"}
                                 >
-                                  {factura.estado === "pago_parcial" ? "Pagar saldo" : "Pagar"}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setFacturaPagos(factura)}
-                                  className="rounded-[6px] bg-neutral-100 px-3 py-1.5 text-[12px] font-bold text-neutral-600 transition hover:bg-neutral-200"
+                                  {formatCurrency(factura.monto_pagado)}
+                                </Td>
+                                <Td
+                                  align="right"
+                                  strong
+                                  className={
+                                    factura.saldo_pendiente > 0 ? "text-coronados-orange" : "text-coronados-green"
+                                  }
                                 >
-                                  Ver pago
-                                </button>
-                              )}
-                            </Td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </section>
+                                  {formatCurrency(factura.saldo_pendiente)}
+                                </Td>
+                                <Td align="center">
+                                  <EstadoBadge estado={factura.estado} />
+                                </Td>
+                                <Td align="center">
+                                  {factura.estado !== "pagado" && factura.estado !== "anulado" ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openPago("efectivo", factura)}
+                                      className="rounded-[6px] bg-coronados-green px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-green-700"
+                                    >
+                                      {factura.estado === "pago_parcial" ? "Pagar saldo" : "Pagar"}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setFacturaPagos(factura)}
+                                      className="rounded-[6px] bg-neutral-100 px-3 py-1.5 text-[12px] font-bold text-neutral-600 transition hover:bg-neutral-200"
+                                    >
+                                      Ver pago
+                                    </button>
+                                  )}
+                                </Td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
           </>
         )}
       </div>
@@ -231,38 +261,6 @@ function MetaItem({ icon, text }: { icon: ReactNode; text: string }) {
     <span className="inline-flex items-center gap-1.5">
       {icon}
       {text}
-    </span>
-  );
-}
-
-function ResumenItem({
-  label,
-  tone = "default",
-  value,
-}: {
-  label: string;
-  tone?: "default" | "green" | "orange";
-  value: string;
-}) {
-  const color =
-    tone === "green" ? "text-coronados-green" : tone === "orange" ? "text-coronados-orange" : "text-neutral-950";
-
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.04em] text-neutral-400">{label}</p>
-      <p className={`mt-1 text-[20px] font-medium ${color}`}>{value}</p>
-    </div>
-  );
-}
-
-function TipoBadge({ tipo }: { tipo: "mayorista" | "minorista" }) {
-  return (
-    <span
-      className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase ${
-        tipo === "mayorista" ? "bg-[#E6F1FB] text-[#0C447C]" : "bg-[#FAEEDA] text-[#633806]"
-      }`}
-    >
-      {tipo}
     </span>
   );
 }
@@ -327,9 +325,14 @@ function Td({
 function DetalleSkeleton() {
   return (
     <div className="grid gap-6">
-      <div className="h-[184px] animate-pulse rounded-[12px] bg-white" />
-      <div className="h-10 w-[520px] animate-pulse rounded-[8px] bg-white" />
-      <div className="h-[320px] animate-pulse rounded-[12px] bg-white" />
+      <div className="h-12 w-2/3 animate-pulse rounded-[8px] bg-neutral-100" />
+      <div className="h-10 w-full max-w-md animate-pulse rounded-[8px] bg-neutral-100" />
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3].map((key) => (
+          <div key={key} className="h-24 animate-pulse rounded-[12px] bg-neutral-100" />
+        ))}
+      </div>
+      <div className="h-[280px] animate-pulse rounded-[12px] bg-neutral-100" />
     </div>
   );
 }

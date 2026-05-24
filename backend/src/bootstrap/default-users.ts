@@ -26,6 +26,13 @@ const defaultUsers: DefaultUserConfig[] = [
     username: process.env.DEFAULT_OPERARIO_USERNAME ?? "operario",
   },
   {
+    email: "oficina@coronados.com",
+    nombre: "Lucía Oficina",
+    password: process.env.DEFAULT_OFICINA_PASSWORD ?? "coronados2024",
+    role: UserRole.oficina,
+    username: process.env.DEFAULT_OFICINA_USERNAME ?? "oficina",
+  },
+  {
     email: null,
     nombre: "Ana Cajera",
     password: process.env.DEFAULT_CAJERO_PASSWORD ?? "coronados2024",
