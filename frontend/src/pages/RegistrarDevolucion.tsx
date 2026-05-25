@@ -41,8 +41,7 @@ const tipos: Array<{ value: TipoDevolucion; label: string; icon: typeof IconTool
 
 const navItems = [
   { to: "/", label: "Inicio" },
-  { to: "/pesada/nueva", label: "Pesadas", aliases: ["/operario/devolucion", "/operario/guias"] },
-  { to: "/operario/guias", label: "Guías" },
+  { to: "/pesada/nueva", label: "Pesadas", aliases: ["/operario/devolucion"] },
   { to: "/clientes", label: "Clientes" },
   { to: "/cierre", label: "Historial" },
 ];

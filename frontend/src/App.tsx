@@ -3,7 +3,6 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { RegistrarPesada } from "./pages/RegistrarPesada";
-import { GuiasOperario } from "./pages/operario/GuiasOperario";
 import { RegistrarDevolucion } from "./pages/RegistrarDevolucion";
 import { Clientes } from "./pages/Clientes";
 import { CierreJornada } from "./pages/CierreJornada";
@@ -180,14 +179,6 @@ export default function App() {
         element={
           <ProtectedOperarioRoute>
             <RegistrarPesada />
-          </ProtectedOperarioRoute>
-        }
-      />
-      <Route
-        path="/operario/guias"
-        element={
-          <ProtectedOperarioRoute>
-            <GuiasOperario />
           </ProtectedOperarioRoute>
         }
       />
