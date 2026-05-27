@@ -20,13 +20,14 @@ export const devolucionLegacySchema = z
     path: ["peso_neto"],
   });
 
-export const devolucionDesdePesadaSchema = z.object({
-  linea_venta_id: z.coerce.number().int().positive("Pesada inválida"),
+export const devolucionClienteSchema = z.object({
+  jornada_id: z.coerce.number().int().positive("Jornada inválida"),
+  cliente_id: z.coerce.number().int().positive("Cliente inválido"),
   tipo: z.enum(["pelado", "muerto", "vivo"]),
   peso_neto: z.coerce.number().positive("Los kg a devolver deben ser mayores a cero"),
 });
 
 export type CreateDevolucionInput =
-  | z.infer<typeof devolucionDesdePesadaSchema>
+  | z.infer<typeof devolucionClienteSchema>
   | z.infer<typeof devolucionLegacySchema>;
-export type CreateDevolucionDesdePesadaInput = z.infer<typeof devolucionDesdePesadaSchema>;
+export type CreateDevolucionClienteInput = z.infer<typeof devolucionClienteSchema>;

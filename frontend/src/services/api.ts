@@ -321,8 +321,9 @@ export type Devolucion = {
   pesada_label?: string;
 };
 
-export type DevolucionDesdePesadaPayload = {
-  linea_venta_id: number;
+export type DevolucionClientePayload = {
+  jornada_id: number;
+  cliente_id: number;
   tipo: TipoDevolucion;
   peso_neto: number;
 };
@@ -1152,7 +1153,7 @@ export const apiClient = {
       throw new Error(getErrorMessage(error));
     }
   },
-  async createDevolucionDesdePesada(payload: DevolucionDesdePesadaPayload) {
+  async createDevolucionCliente(payload: DevolucionClientePayload) {
     try {
       const response = await api.post<Devolucion>("/devoluciones", payload);
       return response.data;

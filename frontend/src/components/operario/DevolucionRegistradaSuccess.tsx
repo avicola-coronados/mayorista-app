@@ -2,7 +2,6 @@ import { IconCheck } from "@tabler/icons-react";
 
 export type DevolucionSuccessData = {
   kg: number;
-  pesadaLabel: string;
   estadoLabel: string;
   clienteNombre: string;
   fecha: string;
@@ -21,9 +20,7 @@ export function DevolucionRegistradaSuccess({
         <IconCheck size={40} stroke={2.5} className="text-coronados-green" />
       </div>
       <h2 className="mt-6 text-[20px] font-medium text-neutral-950">Devolución registrada</h2>
-      <p className="mt-2 text-[14px] font-medium text-neutral-500">
-        − {data.kg.toFixed(1)} kg · {data.pesadaLabel}
-      </p>
+      <p className="mt-2 text-[14px] font-medium text-neutral-500">− {data.kg.toFixed(1)} kg</p>
       <p className="mt-1 text-[13px] font-medium text-neutral-400">
         Estado: {data.estadoLabel} · {data.clienteNombre} · {data.fecha}
       </p>

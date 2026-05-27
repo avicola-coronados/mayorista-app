@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { IconArrowBackUp, IconChevronDown, IconX } from "@tabler/icons-react";
 import type { ClienteDelDia, TipoDevolucion } from "../../services/api";
 import { apiClient } from "../../services/api";
 import type { DevolucionSuccessData } from "./DevolucionRegistradaSuccess";
-
-type PesadaLinea = ClienteDelDia["lineas"][number];
 
 const ESTADOS: Array<{
   value: TipoDevolucion;
@@ -16,18 +14,6 @@ const ESTADOS: Array<{
   { value: "pelado", label: "Pelado", dotClass: "bg-[#BA7517]" },
   { value: "vivo", label: "Vivo", dotClass: "bg-coronados-green" },
 ];
-
-function formatPesadaLabel(linea: PesadaLinea) {
-  const origen = linea.origen === "partida" ? "Partida" : "Piso";
-  return `${origen} · ${linea.granja.nombre}`;
-}
-
-function formatHora(createdAt: string) {
-  return new Date(createdAt).toLocaleTimeString("es-PE", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function formatFechaHoy() {
   return new Date().toLocaleDateString("es-PE", {
@@ -43,45 +29,40 @@ function round1(value: number) {
 
 export function RegistrarDevolucionSheet({
   cliente,
+  jornadaId,
   open,
   onClose,
   onSuccess,
 }: {
   cliente: ClienteDelDia;
+  jornadaId: number;
   open: boolean;
   onClose: () => void;
   onSuccess: (data: DevolucionSuccessData) => void;
 }) {
-  const pesadas = useMemo(
-    () => [...cliente.lineas].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [cliente.lineas],
-  );
-
-  const [lineaId, setLineaId] = useState(pesadas[0]?.id ?? 0);
   const [kgInput, setKgInput] = useState("");
   const [estado, setEstado] = useState<TipoDevolucion | null>(null);
   const [estadoOpen, setEstadoOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const lineaSeleccionada = pesadas.find((linea) => linea.id === lineaId) ?? pesadas[0];
+  const netoCliente = cliente.total_kg;
   const kg = Number(kgInput) || 0;
-  const netoPesada = lineaSeleccionada?.peso_neto ?? 0;
-  const excedeNeto = kg > netoPesada + 0.001;
-  const netoAjustado = round1(Math.max(netoPesada - kg, 0));
+  const excedeNeto = kg > netoCliente + 0.001;
+  const netoAjustado = round1(Math.max(netoCliente - kg, 0));
   const estadoLabel = ESTADOS.find((item) => item.value === estado)?.label ?? "";
   const canSave = kg > 0 && !excedeNeto && estado !== null;
 
   const mutation = useMutation({
     mutationFn: () =>
-      apiClient.createDevolucionDesdePesada({
-        linea_venta_id: lineaSeleccionada.id,
+      apiClient.createDevolucionCliente({
+        jornada_id: jornadaId,
+        cliente_id: cliente.cliente.id!,
         tipo: estado!,
         peso_neto: kg,
       }),
     onSuccess: (devolucion) => {
       onSuccess({
         kg: devolucion.peso_neto,
-        pesadaLabel: devolucion.pesada_label ?? formatPesadaLabel(lineaSeleccionada),
         estadoLabel,
         clienteNombre: cliente.cliente.nombre,
         fecha: formatFechaHoy(),
@@ -94,7 +75,6 @@ export function RegistrarDevolucionSheet({
       return;
     }
 
-    setLineaId(pesadas[0]?.id ?? 0);
     setKgInput("");
     setEstado(null);
     setEstadoOpen(false);
@@ -116,7 +96,7 @@ export function RegistrarDevolucionSheet({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [estadoOpen]);
 
-  if (!open || !lineaSeleccionada) {
+  if (!open || cliente.cliente.id == null) {
     return null;
   }
 
@@ -157,47 +137,6 @@ export function RegistrarDevolucionSheet({
         </div>
 
         <div className="space-y-5">
-          <section>
-            <p className="mb-2 text-[13px] font-medium text-neutral-700">¿A qué pesada corresponde?</p>
-            <div className="space-y-2">
-              {pesadas.map((linea) => {
-                const selected = linea.id === lineaId;
-
-                return (
-                  <button
-                    key={linea.id}
-                    type="button"
-                    onClick={() => setLineaId(linea.id)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-[8px] border px-3 py-3 text-left transition ${
-                      selected
-                        ? "border-coronados-orange bg-[#FFF0ED]"
-                        : "border-neutral-200 bg-white hover:border-neutral-300"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-semibold text-neutral-900">{formatPesadaLabel(linea)}</p>
-                      <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
-                        {formatHora(linea.created_at)} · {linea.jabas} jabas · {linea.peso_bruto.toFixed(1)} kg bruto
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-[14px] font-bold text-coronados-green">
-                        {linea.peso_neto.toFixed(1)} kg
-                      </span>
-                      <span
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
-                          selected ? "border-coronados-orange" : "border-neutral-300"
-                        }`}
-                      >
-                        {selected ? <span className="h-2.5 w-2.5 rounded-full bg-coronados-orange" /> : null}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
           <div className="grid grid-cols-2 gap-[10px]">
             <div>
               <label htmlFor="kg-devolver" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
@@ -216,8 +155,8 @@ export function RegistrarDevolucionSheet({
               />
               <p className={`mt-1.5 text-[12px] font-medium ${excedeNeto ? "text-coronados-orange" : "text-neutral-400"}`}>
                 {excedeNeto
-                  ? `Supera el neto de la pesada (${netoPesada.toFixed(1)} kg)`
-                  : `Máx. ${netoPesada.toFixed(1)} kg`}
+                  ? `Supera el neto del cliente (${netoCliente.toFixed(1)} kg)`
+                  : `Máx. ${netoCliente.toFixed(1)} kg`}
               </p>
             </div>
 
@@ -281,7 +220,7 @@ export function RegistrarDevolucionSheet({
             <div className="rounded-[8px] bg-[#F0FAF1] px-3 py-3">
               <p className="text-[11px] font-medium text-neutral-600">Neto ajustado</p>
               <p className="mt-1 text-[17px] font-bold text-coronados-green">
-                {kg > 0 ? `${netoAjustado.toFixed(1)} kg` : `${netoPesada.toFixed(1)} kg`}
+                {kg > 0 ? `${netoAjustado.toFixed(1)} kg` : `${netoCliente.toFixed(1)} kg`}
               </p>
             </div>
           </div>

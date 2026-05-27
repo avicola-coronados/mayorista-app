@@ -241,49 +241,97 @@ export async function cerrarGuiasPorJornada(jornadaId: number, usuarioId: number
   }
 }
 
-export async function syncDevolucionKgForLineaVenta(lineaVentaId: number) {
-  const lineaVenta = await prisma.lineaVenta.findFirst({
-    where: { id: lineaVentaId, deleted_at: null },
+function roundKg(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function distribuirDevolucionKg(totalDevolucionKg: number, pesosNeto: number[]) {
+  if (pesosNeto.length === 0 || totalDevolucionKg <= 0) {
+    return pesosNeto.map(() => 0);
+  }
+
+  const totalNeto = pesosNeto.reduce((sum, peso) => sum + peso, 0);
+
+  if (totalNeto <= 0) {
+    const porLinea = roundKg(totalDevolucionKg / pesosNeto.length);
+    return pesosNeto.map(() => porLinea);
+  }
+
+  const shares: number[] = [];
+  let asignado = 0;
+
+  for (let index = 0; index < pesosNeto.length; index += 1) {
+    if (index === pesosNeto.length - 1) {
+      shares.push(roundKg(Math.max(totalDevolucionKg - asignado, 0)));
+      break;
+    }
+
+    const share = roundKg((totalDevolucionKg * pesosNeto[index]) / totalNeto);
+    const capped = Math.min(share, pesosNeto[index]);
+    shares.push(capped);
+    asignado = roundKg(asignado + capped);
+  }
+
+  return shares;
+}
+
+export async function syncDevolucionKgForCliente(jornadaId: number, clienteId: number) {
+  const guia = await prisma.guiaEntrega.findFirst({
+    where: {
+      jornada_id: jornadaId,
+      cliente_id: clienteId,
+      estado: GuiaEstado.borrador,
+    },
+    include: {
+      lineas: {
+        orderBy: { orden: "asc" },
+        include: { linea_venta: true },
+      },
+    },
   });
 
-  if (!lineaVenta?.cliente_id) {
+  if (!guia) {
     return;
   }
 
-  const lineaGuia = await prisma.lineaGuia.findUnique({
-    where: { linea_venta_id: lineaVentaId },
-    include: { guia: true },
-  });
+  const lineasConPesada = guia.lineas.filter((linea) => linea.linea_venta_id && linea.linea_venta);
 
-  if (!lineaGuia || lineaGuia.guia.estado !== GuiaEstado.borrador) {
+  if (lineasConPesada.length === 0) {
     return;
   }
 
   const devolucionesSum = await prisma.devolucion.aggregate({
-    where: { linea_venta_id: lineaVentaId },
+    where: {
+      jornada_id: jornadaId,
+      cliente_id: clienteId,
+    },
     _sum: { peso_neto: true },
   });
 
-  const devolucionKg = Math.min(
-    Number(devolucionesSum._sum.peso_neto ?? 0),
-    Number(lineaVenta.peso_neto),
-  );
+  const totalDevolucionKg = Number(devolucionesSum._sum.peso_neto ?? 0);
+  const pesosNeto = lineasConPesada.map((linea) => Number(linea.linea_venta!.peso_neto));
+  const shares = distribuirDevolucionKg(totalDevolucionKg, pesosNeto);
 
-  const lineaData = await buildLineaGuiaDataFromLineaVenta(
-    lineaVenta,
-    lineaGuia.guia_id,
-    lineaGuia.orden,
-    lineaGuia.guia.producto_id,
-    lineaGuia,
-    { devolucionKg },
-  );
+  for (let index = 0; index < lineasConPesada.length; index += 1) {
+    const lineaGuia = lineasConPesada[index];
+    const lineaVenta = lineaGuia.linea_venta!;
 
-  await prisma.lineaGuia.update({
-    where: { id: lineaGuia.id },
-    data: lineaData,
-  });
+    const lineaData = await buildLineaGuiaDataFromLineaVenta(
+      lineaVenta,
+      guia.id,
+      lineaGuia.orden,
+      guia.producto_id,
+      lineaGuia,
+      { devolucionKg: shares[index] },
+    );
 
-  await recalcularTotalesGuia(lineaGuia.guia_id);
+    await prisma.lineaGuia.update({
+      where: { id: lineaGuia.id },
+      data: lineaData,
+    });
+  }
+
+  await recalcularTotalesGuia(guia.id);
 }
 
 export async function updatePeladuriaLineaGuia(

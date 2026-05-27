@@ -167,9 +167,10 @@ export function Clientes() {
         </div>
       )}
 
-      {devolucionCliente ? (
+      {devolucionCliente && jornadaQuery.data?.id ? (
         <RegistrarDevolucionSheet
           cliente={devolucionCliente}
+          jornadaId={jornadaQuery.data.id}
           open
           onClose={() => setDevolucionCliente(null)}
           onSuccess={handleDevolucionSuccess}
