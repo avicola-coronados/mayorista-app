@@ -1,10 +1,11 @@
 import { useState, type MouseEvent } from "react";
 import { IconNote } from "@tabler/icons-react";
 import { RegistrarDevolucionButton } from "./operario/RegistrarDevolucionSheet";
-import type { ClienteDelDia } from "../services/api";
+import type { ClienteDelDia, Devolucion, TipoDevolucion } from "../services/api";
 
 type ClienteCardProps = {
   cliente: ClienteDelDia;
+  devoluciones: Devolucion[];
   editingNota: number | null;
   isSavingNota: boolean;
   notaTexto: string;
@@ -17,6 +18,7 @@ type ClienteCardProps = {
 
 export function ClienteCard({
   cliente,
+  devoluciones,
   editingNota,
   isSavingNota,
   notaTexto,
@@ -28,6 +30,17 @@ export function ClienteCard({
 }: ClienteCardProps) {
   const [expanded, setExpanded] = useState(false);
   const puedeRegistrarDevolucion = cliente.cliente.id != null && cliente.pesadas > 0 && onRegistrarDevolucion;
+
+  function getTipoMeta(tipo: TipoDevolucion) {
+    switch (tipo) {
+      case "muerto":
+        return { label: "Muerto", dotClass: "bg-[#E24B4A]", textClass: "text-[#C62828]" };
+      case "pelado":
+        return { label: "Pelado", dotClass: "bg-[#BA7517]", textClass: "text-[#BA7517]" };
+      case "vivo":
+        return { label: "Vivo", dotClass: "bg-coronados-green", textClass: "text-coronados-green" };
+    }
+  }
 
   return (
     <article className="panel relative overflow-hidden">
@@ -159,6 +172,39 @@ export function ClienteCard({
               </div>
             );
             })}
+
+            {devoluciones.length > 0 ? (
+              <div className="mt-1 rounded-[12px] border border-neutral-200 bg-white px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-[13px] font-semibold text-neutral-800">Devoluciones</p>
+                  <p className="text-[13px] font-bold text-neutral-950">
+                    {devoluciones.reduce((acc, d) => acc + d.peso_neto, 0).toFixed(2)} kg
+                  </p>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {devoluciones.map((devol) => {
+                    const meta = getTipoMeta(devol.tipo);
+
+                    return (
+                      <div key={devol.id} className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${meta.dotClass}`} />
+                          <span className={`truncate text-[13px] font-medium ${meta.textClass}`}>{meta.label}</span>
+                          <span className="truncate text-[11px] font-medium text-neutral-400">
+                            {new Date(devol.created_at).toLocaleTimeString("es-PE", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <span className="text-[13px] font-bold text-neutral-950">{devol.peso_neto.toFixed(2)} kg</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

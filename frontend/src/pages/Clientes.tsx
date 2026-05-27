@@ -9,7 +9,7 @@ import {
   type DevolucionSuccessData,
 } from "../components/operario/DevolucionRegistradaSuccess";
 import { RegistrarDevolucionSheet } from "../components/operario/RegistrarDevolucionSheet";
-import type { ClienteDelDia } from "../services/api";
+import type { ClienteDelDia, Devolucion } from "../services/api";
 import { apiClient } from "../services/api";
 
 export function Clientes() {
@@ -31,6 +31,12 @@ export function Clientes() {
   });
 
   const jornadaId = jornadaQuery.data?.id;
+
+  const devolucionesQuery = useQuery({
+    queryKey: ["devoluciones", jornadaId],
+    queryFn: () => apiClient.getDevoluciones(jornadaId!),
+    enabled: Boolean(jornadaId),
+  });
 
   const notaMutation = useMutation({
     mutationFn: ({ id, nota }: { id: number; nota: string | null }) => apiClient.updateLineaVentaNota(id, nota),
@@ -167,6 +173,13 @@ export function Clientes() {
               onNotaTextoChange={setNotaTexto}
               onOpenNota={openNota}
               onSaveNota={saveNota}
+              devoluciones={
+                cliente.cliente.id != null
+                  ? (devolucionesQuery.data?.devoluciones ?? []).filter(
+                      (d: Devolucion) => d.cliente_id === cliente.cliente.id,
+                    )
+                  : []
+              }
               onRegistrarDevolucion={
                 cliente.cliente.id != null && cliente.pesadas > 0
                   ? () => setDevolucionCliente(cliente)
