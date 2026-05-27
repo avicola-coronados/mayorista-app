@@ -1,11 +1,13 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   IconAlertTriangle,
+  IconArrowBackUp,
+  IconArrowUp,
   IconBuildingBank,
   IconCash,
-  IconInfoCircle,
+  IconCircleCheck,
   IconX,
 } from "@tabler/icons-react";
 import toast from "react-hot-toast";
@@ -16,22 +18,12 @@ import {
   type TipoPago,
 } from "../../services/api";
 
-const metodosEfectivo = [
-  { value: "efectivo", label: "Efectivo" },
-  { value: "yape", label: "Yape" },
-  { value: "plin", label: "Plin" },
-  { value: "transferencia", label: "Transferencia" },
-];
+const bancos = ["BCP", "Interbank", "BBVA", "Scotiabank", "BanBif", "Banco de la Nación"];
 
-const bancos = [
-  "BCP",
-  "BBVA",
-  "Interbank",
-  "Scotiabank",
-  "Banco de la Nación",
-  "Banco Pichincha",
-  "Otro",
-];
+const inputClassName =
+  "w-full rounded-[8px] border border-neutral-200 px-[14px] py-[11px] text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-coronados-orange focus:ring-0 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-500";
+
+const montoInputClassName = `${inputClassName} text-[18px] font-bold`;
 
 export function ModalPago({
   cliente,
@@ -47,25 +39,56 @@ export function ModalPago({
   tabInicial: TipoPago;
 }) {
   const queryClient = useQueryClient();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [tabActivo, setTabActivo] = useState<TipoPago>(tabInicial);
-  const [montoEfectivo, setMontoEfectivo] = useState(formatAmountInput(factura.saldo_pendiente));
-  const [metodoEfectivo, setMetodoEfectivo] = useState("efectivo");
+  const saldoPendiente = factura.saldo_pendiente;
+
+  const [montoRecibido, setMontoRecibido] = useState("");
   const [observacionesEfectivo, setObservacionesEfectivo] = useState("");
-  const [montoDeposito, setMontoDeposito] = useState(formatAmountInput(factura.saldo_pendiente));
+  const [montoDeposito, setMontoDeposito] = useState("");
   const [banco, setBanco] = useState("");
   const [nroOperacion, setNroOperacion] = useState("");
   const [horaDeposito, setHoraDeposito] = useState("");
   const [fechaDeposito, setFechaDeposito] = useState(getTodayISODate());
   const [observacionesDeposito, setObservacionesDeposito] = useState("");
 
+  const montoRecibidoNum = parseAmount(montoRecibido);
+  const montoDepositoNum = parseAmount(montoDeposito);
+  const vuelto = useMemo(() => {
+    if (!Number.isFinite(montoRecibidoNum) || montoRecibidoNum <= saldoPendiente) {
+      return 0;
+    }
+
+    return Number((montoRecibidoNum - saldoPendiente).toFixed(2));
+  }, [montoRecibidoNum, saldoPendiente]);
+
+  const puedeRegistrarEfectivo =
+    Number.isFinite(montoRecibidoNum) && montoRecibidoNum > 0;
+
+  const puedeEnviarDeposito =
+    Number.isFinite(montoDepositoNum) &&
+    montoDepositoNum > 0 &&
+    Boolean(banco) &&
+    nroOperacion.trim().length > 0 &&
+    Boolean(fechaDeposito);
+
   const registrarPagoMutation = useMutation({
     mutationFn: () => apiClient.registrarPagoCajero(buildPayload()),
-    onSuccess: async (response) => {
-      toast.success(response.mensaje);
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["cajero-detalle-cliente", cliente.id] }),
         queryClient.invalidateQueries({ queryKey: ["cajero-clientes"] }),
       ]);
+
+      if (tabActivo === "efectivo") {
+        const montoAplicado = Math.min(montoRecibidoNum, saldoPendiente);
+        showToastVerde(`Pago de S/ ${montoAplicado.toFixed(2)} registrado correctamente`);
+      } else {
+        showToastAmarillo(
+          "Depósito enviado a validación. Se aplicará al saldo una vez confirmado por oficina.",
+        );
+      }
+
       onSuccess();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -75,11 +98,13 @@ export function ModalPago({
 
   function buildPayload() {
     if (tabActivo === "efectivo") {
+      const montoAplicado = Math.min(montoRecibidoNum, saldoPendiente);
+
       return {
         factura_id: factura.id,
         cliente_id: cliente.id,
-        metodo: metodoEfectivo,
-        monto: parseAmount(montoEfectivo),
+        metodo: "efectivo",
+        monto: montoAplicado,
         observaciones: observacionesEfectivo.trim() || null,
         tipo: "efectivo" as const,
       };
@@ -90,62 +115,23 @@ export function ModalPago({
       factura_id: factura.id,
       cliente_id: cliente.id,
       fecha_deposito: fechaDeposito,
-      hora_deposito: horaDeposito,
+      hora_deposito: horaDeposito || null,
       metodo: "deposito",
-      monto: parseAmount(montoDeposito),
+      monto: montoDepositoNum,
       nro_operacion: nroOperacion.trim(),
       observaciones: observacionesDeposito.trim() || null,
       tipo: "deposito" as const,
     };
   }
 
-  function validateForm() {
-    const monto = tabActivo === "efectivo" ? parseAmount(montoEfectivo) : parseAmount(montoDeposito);
-
-    if (!Number.isFinite(monto) || monto <= 0) {
-      toast.error("Ingresa un monto válido");
-      return false;
-    }
-
-    if (monto > factura.saldo_pendiente) {
-      toast.error("El monto no puede exceder el saldo pendiente");
-      return false;
-    }
-
-    if (tabActivo === "deposito") {
-      if (!banco) {
-        toast.error("Selecciona un banco");
-        return false;
-      }
-
-      if (!nroOperacion.trim()) {
-        toast.error("Ingresa el número de operación");
-        return false;
-      }
-
-      if (!horaDeposito) {
-        toast.error("Ingresa la hora del depósito");
-        return false;
-      }
-
-      if (!fechaDeposito) {
-        toast.error("Ingresa la fecha del depósito");
-        return false;
-      }
-
-      if (fechaDeposito > getTodayISODate()) {
-        toast.error("La fecha del depósito no puede ser futura");
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!validateForm()) {
+    if (tabActivo === "efectivo" && !puedeRegistrarEfectivo) {
+      return;
+    }
+
+    if (tabActivo === "deposito" && !puedeEnviarDeposito) {
       return;
     }
 
@@ -158,91 +144,101 @@ export function ModalPago({
     }
   }
 
+  function scrollToTop() {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex min-h-[600px] items-center justify-center bg-black/50 p-8"
-      onMouseDown={handleClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.45)] p-4">
       <section
-        className="w-full max-w-[550px] rounded-[12px] bg-white shadow-2xl"
-        onMouseDown={(event) => event.stopPropagation()}
+        className="flex max-h-[90vh] w-full max-w-[440px] flex-col overflow-hidden rounded-[16px] bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-registrar-pago-title"
       >
-        <header className="flex items-center justify-between border-b border-[#E5E5E5] px-6 py-5">
-          <h2 className="text-[18px] font-medium text-neutral-950">Registrar pago</h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={isPending}
-            className="flex h-8 w-8 items-center justify-center rounded-[6px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Cerrar modal"
-          >
-            <IconX size={24} />
-          </button>
+        <header className="sticky top-0 z-20 shrink-0 border-b border-neutral-200 bg-white px-5 pt-5">
+          <div className="flex items-center justify-between gap-3 pb-4">
+            <h2 id="modal-registrar-pago-title" className="text-[20px] font-medium text-neutral-950">
+              Registrar pago
+            </h2>
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isPending}
+              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[8px] border border-neutral-200 text-neutral-500 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Cerrar modal"
+            >
+              <IconX size={20} stroke={2.2} />
+            </button>
+          </div>
+
+          <div className="flex gap-0 border-b border-neutral-200">
+            <TabButton
+              active={tabActivo === "efectivo"}
+              icon={<IconCash size={18} />}
+              onClick={() => setTabActivo("efectivo")}
+            >
+              Efectivo
+            </TabButton>
+            <TabButton
+              active={tabActivo === "deposito"}
+              icon={<IconBuildingBank size={18} />}
+              onClick={() => setTabActivo("deposito")}
+            >
+              Depósito bancario
+            </TabButton>
+          </div>
         </header>
 
-        <form onSubmit={handleSubmit}>
-          <div className="max-h-[72vh] overflow-y-auto px-6 py-4">
-            <InfoBox label="Cliente" value={cliente.nombre} />
-            <InfoBox
-              label="Factura"
-              value={`${factura.codigo} - Jornada ${formatDate(factura.jornada_fecha || factura.fecha_emision)}`}
-            />
-            <InfoBox
-              accent="orange"
-              label="Saldo pendiente"
-              value={formatCurrency(factura.saldo_pendiente)}
-            />
-
-            <div className="mb-6 flex gap-2 border-b border-[#E5E5E5]">
-              <TabButton active={tabActivo === "efectivo"} icon={<IconCash size={18} />} onClick={() => setTabActivo("efectivo")}>
-                Efectivo
-              </TabButton>
-              <TabButton
-                active={tabActivo === "deposito"}
-                icon={<IconBuildingBank size={18} />}
-                onClick={() => setTabActivo("deposito")}
-              >
-                Depósito bancario
-              </TabButton>
-            </div>
-
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {tabActivo === "efectivo" ? (
-              <div className="grid gap-4">
-                <Field label="Monto a pagar (S/)" htmlFor="monto-efectivo">
+              <div className="space-y-4">
+                <AlertBox variant="green" icon={<IconCircleCheck size={20} className="shrink-0 text-coronados-green" />}>
+                  El pago en efectivo se registra de forma inmediata y actualiza el saldo del cliente al
+                  instante.
+                </AlertBox>
+
+                <div className="rounded-[8px] bg-neutral-100 px-[14px] py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[13px] font-medium text-neutral-500">
+                      Saldo pendiente de {cliente.nombre}
+                    </p>
+                    <p className="text-[16px] font-bold text-coronados-orange">
+                      {formatCurrency(saldoPendiente)}
+                    </p>
+                  </div>
+                </div>
+
+                <Field label="Monto recibido (S/)" htmlFor="monto-recibido">
                   <input
-                    id="monto-efectivo"
+                    id="monto-recibido"
                     type="number"
                     min="0.01"
-                    max={factura.saldo_pendiente}
                     step="0.01"
-                    value={montoEfectivo}
-                    onChange={(event) => setMontoEfectivo(event.target.value)}
-                    className={inputClassName}
+                    inputMode="decimal"
+                    value={montoRecibido}
+                    onChange={(event) => setMontoRecibido(event.target.value)}
+                    className={montoInputClassName}
+                    placeholder="0.00"
                     required
                     disabled={isPending}
                   />
-                  <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-neutral-500">
-                    <IconInfoCircle size={14} />
-                    Puedes ingresar un monto menor para pago parcial
-                  </p>
                 </Field>
 
-                <Field label="Método de pago" htmlFor="metodo-efectivo">
-                  <select
-                    id="metodo-efectivo"
-                    value={metodoEfectivo}
-                    onChange={(event) => setMetodoEfectivo(event.target.value)}
-                    className={inputClassName}
-                    required
-                    disabled={isPending}
-                  >
-                    {metodosEfectivo.map((metodo) => (
-                      <option key={metodo.value} value={metodo.value}>
-                        {metodo.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                {vuelto > 0 ? (
+                  <div className="rounded-[8px] border border-[#A8D9AD] bg-[#F0FAF1] px-[14px] py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center gap-2 text-[13px] font-medium text-coronados-green">
+                        <IconArrowBackUp size={18} stroke={2.2} />
+                        Vuelto a entregar
+                      </span>
+                      <span className="text-[16px] font-bold text-coronados-green">
+                        S/ {vuelto.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
 
                 <Field label="Observaciones (opcional)" htmlFor="observaciones-efectivo">
                   <textarea
@@ -250,29 +246,33 @@ export function ModalPago({
                     rows={3}
                     value={observacionesEfectivo}
                     onChange={(event) => setObservacionesEfectivo(event.target.value)}
-                    className={inputClassName}
-                    placeholder="Ej: Cliente pagó con billetes de S/ 100..."
+                    className={`${inputClassName} min-h-[72px] resize-y`}
+                    placeholder="Ej: Pago parcial, cliente pagó con billete de 200..."
                     disabled={isPending}
                   />
                 </Field>
               </div>
             ) : (
-              <div className="grid gap-4">
-                <div className="flex gap-3 rounded-[8px] border border-[#FFE599] bg-[#FFF9E6] p-3 text-[13px] font-medium text-[#92400E]">
-                  <IconAlertTriangle size={20} className="shrink-0 text-[#F59E0B]" />
-                  <p>Los depósitos bancarios quedan pendientes de validación por el administrador</p>
-                </div>
+              <div className="space-y-4">
+                <AlertBox
+                  variant="yellow"
+                  icon={<IconAlertTriangle size={20} className="shrink-0 text-[#B08000]" />}
+                >
+                  Los depósitos bancarios quedan pendientes de validación por el área de oficina antes de
+                  aplicarse al saldo.
+                </AlertBox>
 
                 <Field label="Monto depositado (S/)" htmlFor="monto-deposito">
                   <input
                     id="monto-deposito"
                     type="number"
                     min="0.01"
-                    max={factura.saldo_pendiente}
                     step="0.01"
+                    inputMode="decimal"
                     value={montoDeposito}
                     onChange={(event) => setMontoDeposito(event.target.value)}
-                    className={inputClassName}
+                    className={montoInputClassName}
+                    placeholder="0.00"
                     required
                     disabled={isPending}
                   />
@@ -283,7 +283,10 @@ export function ModalPago({
                     id="banco"
                     value={banco}
                     onChange={(event) => setBanco(event.target.value)}
-                    className={inputClassName}
+                    className={`${inputClassName} appearance-none bg-[length:16px] bg-[right_14px_center] bg-no-repeat pr-10`}
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+                    }}
                     required
                     disabled={isPending}
                   >
@@ -296,7 +299,7 @@ export function ModalPago({
                   </select>
                 </Field>
 
-                <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+                <div className="grid grid-cols-2 gap-3">
                   <Field label="N° de operación" htmlFor="nro-operacion">
                     <input
                       id="nro-operacion"
@@ -317,7 +320,6 @@ export function ModalPago({
                       value={horaDeposito}
                       onChange={(event) => setHoraDeposito(event.target.value)}
                       className={inputClassName}
-                      required
                       disabled={isPending}
                     />
                   </Field>
@@ -342,7 +344,7 @@ export function ModalPago({
                     rows={3}
                     value={observacionesDeposito}
                     onChange={(event) => setObservacionesDeposito(event.target.value)}
-                    className={inputClassName}
+                    className={`${inputClassName} min-h-[72px] resize-y`}
                     placeholder="Ej: Depósito realizado por el mismo cliente..."
                     disabled={isPending}
                   />
@@ -351,21 +353,40 @@ export function ModalPago({
             )}
           </div>
 
-          <footer className="flex justify-end gap-2 border-t border-[#E5E5E5] px-6 py-4">
+          <footer className="sticky bottom-0 z-20 flex shrink-0 items-center gap-2 border-t border-neutral-200 bg-white px-5 py-4">
+            <button
+              type="button"
+              onClick={scrollToTop}
+              disabled={isPending}
+              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Ir al inicio del formulario"
+            >
+              <IconArrowUp size={18} stroke={2.2} />
+            </button>
             <button
               type="button"
               onClick={handleClose}
               disabled={isPending}
-              className="rounded-[6px] border border-[#E5E5E5] bg-white px-5 py-2.5 text-[14px] font-bold text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-[8px] border border-neutral-200 bg-white px-4 py-2.5 text-[14px] font-bold text-neutral-600 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isPending}
-              className="rounded-[6px] bg-coronados-green px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                isPending || (tabActivo === "efectivo" ? !puedeRegistrarEfectivo : !puedeEnviarDeposito)
+              }
+              className={`flex-[1.4] rounded-[8px] px-4 py-2.5 text-[14px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                tabActivo === "efectivo"
+                  ? "bg-coronados-green hover:bg-green-700"
+                  : "bg-coronados-orange hover:bg-orange-700"
+              }`}
             >
-              {isPending ? "Registrando..." : "Registrar pago"}
+              {isPending
+                ? "Procesando..."
+                : tabActivo === "efectivo"
+                  ? "Registrar pago"
+                  : "Enviar a validación"}
             </button>
           </footer>
         </form>
@@ -374,28 +395,24 @@ export function ModalPago({
   );
 }
 
-const inputClassName =
-  "w-full rounded-[6px] border border-[#E5E5E5] px-3 py-2.5 text-[14px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-500 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-500";
-
-function InfoBox({
-  accent = "blue",
-  label,
-  value,
+function AlertBox({
+  children,
+  icon,
+  variant,
 }: {
-  accent?: "blue" | "orange";
-  label: string;
-  value: string;
+  children: ReactNode;
+  icon: ReactNode;
+  variant: "green" | "yellow";
 }) {
+  const styles =
+    variant === "green"
+      ? "border-[#A8D9AD] bg-[#F0FAF1] text-[#1A5C22]"
+      : "border-[#F5DFA0] bg-[#FFFBEA] text-[#7A5C00]";
+
   return (
-    <div
-      className={`mb-3 rounded-[6px] border-l-[3px] bg-[#F9F9F9] p-3 ${
-        accent === "orange" ? "border-l-coronados-orange" : "border-l-[#378ADD]"
-      }`}
-    >
-      <p className="mb-1 text-[12px] font-medium text-neutral-500">{label}</p>
-      <p className={`text-[16px] font-medium ${accent === "orange" ? "text-coronados-orange" : "text-neutral-900"}`}>
-        {value}
-      </p>
+    <div className={`flex gap-3 rounded-[8px] border p-3 text-[13px] font-medium leading-snug ${styles}`}>
+      {icon}
+      <p>{children}</p>
     </div>
   );
 }
@@ -415,10 +432,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 border-b-2 px-6 py-3 text-[14px] font-bold transition ${
+      className={`inline-flex flex-1 items-center justify-center gap-2 border-b-2 px-3 py-3 text-[14px] font-bold transition ${
         active
           ? "border-coronados-orange text-coronados-orange"
-          : "border-transparent text-neutral-500 hover:text-neutral-800"
+          : "border-transparent text-neutral-500 hover:text-neutral-700"
       }`}
     >
       {icon}
@@ -437,8 +454,8 @@ function Field({
   label: string;
 }) {
   return (
-    <div>
-      <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-bold text-neutral-800">
+    <div className="mb-4 last:mb-0">
+      <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-medium text-neutral-500">
         {label}
       </label>
       {children}
@@ -446,12 +463,34 @@ function Field({
   );
 }
 
-function parseAmount(value: string) {
-  return Number.parseFloat(value);
+function showToastVerde(message: string) {
+  toast.custom(
+    (t) => (
+      <div
+        className="max-w-sm rounded-[8px] border border-coronados-green bg-[#F0FAF1] px-4 py-3 text-[14px] font-medium text-[#1A5C22] shadow-lg"
+      >
+        {message}
+      </div>
+    ),
+    { duration: 4000, position: "bottom-right" },
+  );
 }
 
-function formatAmountInput(value: number) {
-  return value.toFixed(2);
+function showToastAmarillo(message: string) {
+  toast.custom(
+    (t) => (
+      <div
+        className="max-w-sm rounded-[8px] border border-[#F5DFA0] bg-[#FFFBEA] px-4 py-3 text-[14px] font-medium text-[#7A5C00] shadow-lg"
+      >
+        {message}
+      </div>
+    ),
+    { duration: 4000, position: "bottom-right" },
+  );
+}
+
+function parseAmount(value: string) {
+  return Number.parseFloat(value);
 }
 
 function getTodayISODate() {
@@ -467,12 +506,4 @@ function formatCurrency(value: number) {
     minimumFractionDigits: 2,
     style: "currency",
   }).format(value);
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("es-PE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 }
