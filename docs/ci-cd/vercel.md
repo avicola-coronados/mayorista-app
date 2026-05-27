@@ -24,25 +24,56 @@ Sin estos tres secrets, el paso **Deploy to Vercel** falla con:
 
 ### 2. Obtener `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID`
 
-**Opción A — desde la CLI (recomendado)**
+En Vercel **no verás un campo llamado "ORG_ID"**. En GitHub el secret `VERCEL_ORG_ID` debe ser uno de estos valores según tu cuenta:
 
-En la máquina local, con el proyecto ya enlazado a Vercel:
+| Tipo de cuenta en Vercel | Qué copiar | Dónde está en el dashboard |
+|--------------------------|------------|----------------------------|
+| **Cuenta personal** (Hobby, sin equipo) | **User ID** | [vercel.com/account](https://vercel.com/account) → pestaña que lleve a ajustes de cuenta → **General** → al final, **User ID** (suele empezar con `team_` en cuentas antiguas o ser un id alfanumérico) |
+| **Team / empresa** | **Team ID** | Selector de equipo (arriba) → elige tu team → **Settings** → **General** → al final, **Team ID** |
+
+URL directa del team (cambia `TU_EQUIPO` por el slug del equipo):
+
+`https://vercel.com/teams/TU_EQUIPO/settings`
+
+También puedes ir a: menú del avatar → **Team Settings** → **General** → **Team ID**.
+
+**`VERCEL_PROJECT_ID`**
+
+1. En el dashboard, selecciona el **mismo team** (o tu cuenta personal) donde está el proyecto del frontend.
+2. Abre el proyecto → **Settings** → **General**.
+3. Al final verás **Project ID** (empieza con `prj_`). Ese valor es `VERCEL_PROJECT_ID`.
+
+**Opción más fácil — CLI (recomendado)**
+
+Si ya tienes el proyecto en Vercel, enlázalo una vez en local:
 
 ```bash
 cd frontend
+npx vercel login
 npx vercel link
+```
+
+Elige el scope correcto (tu usuario o tu team) y el proyecto existente. Luego:
+
+```bash
 cat .vercel/project.json
 ```
 
-En el JSON verás `orgId` y `projectId`. Cópialos a los secrets `VERCEL_ORG_ID` y `VERCEL_PROJECT_ID`.
+Ejemplo de salida:
 
-**Opción B — desde el dashboard**
+```json
+{
+  "orgId": "team_xxxxxxxxxxxxxxxx",
+  "projectId": "prj_xxxxxxxxxxxxxxxx"
+}
+```
 
-1. Abre el proyecto en [vercel.com](https://vercel.com).
-2. **Settings → General**: el **Project ID** es `VERCEL_PROJECT_ID`.
-3. Para el **Team / Org ID**: en la URL del equipo o en **Team Settings → General** (también aparece en `.vercel/project.json` tras `vercel link`).
+- `orgId` → secret **`VERCEL_ORG_ID`**
+- `projectId` → secret **`VERCEL_PROJECT_ID`**
 
-> No subas `.vercel/` al repositorio; está en `.gitignore`. Los IDs van solo en GitHub Secrets.
+> No subas `.vercel/` al repositorio. Los IDs van solo en GitHub Secrets.
+
+**Si el proyecto está en un Team y usas la cuenta personal por error**, `vercel link` puede enlazar mal el scope; vuelve a ejecutar `vercel link` y elige el **team** en el primer paso.
 
 ## Variable de entorno del build
 
