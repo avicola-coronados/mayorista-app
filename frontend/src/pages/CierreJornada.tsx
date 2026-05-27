@@ -35,6 +35,8 @@ export function CierreJornada() {
   const desperdicioKg = Number(desperdicio) || 0;
   const muerteroKg = Number(muertero) || 0;
 
+  const vendidoNetoKg = Number((metricas?.vendido_total_kg ?? 0) - (metricas?.devoluciones_total_kg ?? 0));
+
   const merma = useMemo(() => {
     if (!metricas) {
       return 0;
@@ -43,13 +45,12 @@ export function CierreJornada() {
     return Number(
       (
         metricas.entrada_total_kg -
-        metricas.vendido_total_kg +
-        metricas.devoluciones_total_kg -
+        vendidoNetoKg -
         desperdicioKg -
         muerteroKg
       ).toFixed(2),
     );
-  }, [desperdicioKg, metricas, muerteroKg]);
+  }, [desperdicioKg, metricas, muerteroKg, vendidoNetoKg]);
 
   const mermaPorcentaje = useMemo(() => {
     if (!metricas?.entrada_total_kg) {
@@ -148,7 +149,7 @@ export function CierreJornada() {
           <h2 className="text-lg font-bold text-slate-900">Resumen del día</h2>
           <div className="mt-5 grid gap-3">
             <SummaryRow label="Total entrada" value={`${(metricas?.entrada_total_kg ?? 0).toFixed(2)} kg`} />
-            <SummaryRow label="Total vendido" value={`${(metricas?.vendido_total_kg ?? 0).toFixed(2)} kg`} />
+            <SummaryRow label="Total vendido neto" value={`${vendidoNetoKg.toFixed(2)} kg`} />
             <SummaryRow
               label="Total devoluciones"
               value={`${(metricas?.devoluciones_total_kg ?? 0).toFixed(2)} kg`}
@@ -225,7 +226,7 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Fórmula aplicada: entrada total - vendido + devoluciones - desperdicio - muertero.
+              Fórmula aplicada: entrada total - vendido neto - desperdicio - muertero.
             </p>
 
             <button
