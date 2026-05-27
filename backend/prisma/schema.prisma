@@ -180,6 +180,7 @@ model LineaVenta {
   granja         Granja           @relation(fields: [granja_id], references: [id])
   deleter        Usuario?         @relation("LineaVentaDeletedBy", fields: [deleted_by], references: [id], onDelete: SetNull)
   linea_guia     LineaGuia?
+  devoluciones   Devolucion[]
 
   @@index([deleted_at])
   @@map("linea_venta")
@@ -280,18 +281,21 @@ model LineaGuia {
 }
 
 model Devolucion {
-  id         Int            @id @default(autoincrement())
-  jornada_id Int
-  cliente_id Int
-  tipo       TipoDevolucion
-  jabas      Int?
-  peso_bruto Decimal        @db.Decimal(10, 2)
-  tara       Decimal        @db.Decimal(10, 2)
-  peso_neto  Decimal        @db.Decimal(10, 2)
-  created_at DateTime       @default(now())
-  jornada    Jornada        @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
-  cliente    Cliente        @relation(fields: [cliente_id], references: [id])
+  id             Int            @id @default(autoincrement())
+  jornada_id     Int
+  cliente_id     Int
+  linea_venta_id Int?
+  tipo           TipoDevolucion
+  jabas          Int?
+  peso_bruto     Decimal        @db.Decimal(10, 2)
+  tara           Decimal        @db.Decimal(10, 2)
+  peso_neto      Decimal        @db.Decimal(10, 2)
+  created_at     DateTime       @default(now())
+  jornada        Jornada        @relation(fields: [jornada_id], references: [id], onDelete: Cascade)
+  cliente        Cliente        @relation(fields: [cliente_id], references: [id])
+  linea_venta    LineaVenta?    @relation(fields: [linea_venta_id], references: [id], onDelete: SetNull)
 
+  @@index([linea_venta_id])
   @@map("devolucion")
 }
 

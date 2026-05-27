@@ -3,6 +3,7 @@ import {
   calcularPisoDisponible,
   calcularPorcentajeMerma,
 } from "../../domain/pesadas/calculos";
+import { cerrarGuiasPorJornada } from "../guias/guias-sync.service";
 import ExcelJS from "exceljs";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
@@ -364,7 +365,7 @@ export async function exportJornadasXlsx(query: JornadasListQuery) {
   };
 }
 
-export async function closeJornadaById(jornadaId: number, data: CierreJornadaInput) {
+export async function closeJornadaById(jornadaId: number, data: CierreJornadaInput, usuarioId: number) {
   const jornada = await prisma.jornada.findUnique({ where: { id: jornadaId } });
 
   if (!jornada) {
@@ -397,6 +398,8 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
       muertero_kg: data.muertero_kg,
     },
   });
+
+  await cerrarGuiasPorJornada(jornadaId, usuarioId);
 
   return {
     success: true,

@@ -29,6 +29,10 @@ export const guiaActivaQuerySchema = z.object({
   cliente_id: z.coerce.number().int().positive(),
 });
 
+export const updatePeladuriaLineaSchema = z.object({
+  peladuria: z.coerce.number().min(0),
+});
+
 export type CreateGuiaInput = z.infer<typeof createGuiaSchema>;
 export type LineaGuiaBodyInput = z.infer<typeof lineaGuiaBodySchema>;
 export type ListGuiasClienteQuery = z.infer<typeof listGuiasClienteQuerySchema>;

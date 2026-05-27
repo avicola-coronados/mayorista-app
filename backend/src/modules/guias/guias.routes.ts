@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { requireAuth, requireGuiaRead, requireOperario } from "../../middleware/auth.middleware";
+import {
+  requireAuth,
+  requireCajeroOrAdmin,
+  requireGuiaRead,
+  requireOperario,
+} from "../../middleware/auth.middleware";
 import { asyncHandler } from "../../utils/async-handler";
 import {
   deleteLineaGuiaController,
@@ -7,6 +12,7 @@ import {
   getGuiaActiva,
   getGuiasJornadaActual,
   patchCerrarGuia,
+  patchPeladuriaLineaGuia,
   postGuia,
   postLineaGuia,
   putLineaGuia,
@@ -20,6 +26,12 @@ guiasRouter.get("/activa", requireOperario, asyncHandler(getGuiaActiva));
 guiasRouter.get("/jornada-actual", requireOperario, asyncHandler(getGuiasJornadaActual));
 
 guiasRouter.get("/:id", requireGuiaRead, asyncHandler(getGuia));
+
+guiasRouter.patch(
+  "/:id/lineas/:lineaId/peladuria",
+  requireCajeroOrAdmin,
+  asyncHandler(patchPeladuriaLineaGuia),
+);
 
 guiasRouter.post("/", requireOperario, asyncHandler(postGuia));
 guiasRouter.post("/:id/lineas", requireOperario, asyncHandler(postLineaGuia));

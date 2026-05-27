@@ -6,6 +6,7 @@ import {
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { getPisoDisponible, PISO_GRANJA_NOMBRE } from "./piso-disponible.service";
+import { syncGuiaFromLineaVenta } from "../guias/guias-sync.service";
 import { CreateLineaVentaInput, UpdateNotaLineaVentaInput } from "./lineas-venta.schemas";
 
 type LineaVentaDetalle = {
@@ -40,7 +41,7 @@ type LineasVentaGrouped = Record<
   }
 >;
 
-export async function createLineaVenta(data: CreateLineaVentaInput) {
+export async function createLineaVenta(data: CreateLineaVentaInput, actorUserId: number) {
   const jornada = await prisma.jornada.findUnique({
     where: { id: data.jornada_id },
   });
@@ -103,7 +104,7 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
     }
   }
 
-  return prisma.lineaVenta.create({
+  const lineaVenta = await prisma.lineaVenta.create({
     data: {
       jornada_id: data.jornada_id,
       cliente_id: clienteId,
@@ -120,6 +121,10 @@ export async function createLineaVenta(data: CreateLineaVentaInput) {
       granja: true,
     },
   });
+
+  await syncGuiaFromLineaVenta(lineaVenta.id, actorUserId);
+
+  return lineaVenta;
 }
 
 export async function getLineasVentaGrouped(jornadaId: number) {

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { syncGuiaFromLineaVenta, unsyncGuiaFromLineaVenta } from "../modules/guias/guias-sync.service";
 import { prisma } from "../lib/prisma";
 import { calculateJornadaMetrics } from "../modules/jornadas/jornadas.service";
 
@@ -346,6 +347,12 @@ export async function updateAdminLineaVenta(request: Request, response: Response
     },
   });
 
+  const actorUserId = request.user?.id ?? 0;
+
+  if (actorUserId > 0) {
+    await syncGuiaFromLineaVenta(updated.id, actorUserId);
+  }
+
   return response.json({
     mensaje: "Pesada actualizada correctamente",
     linea_venta: {
@@ -411,6 +418,8 @@ export async function deleteAdminLineaVenta(request: Request, response: Response
       delete_reason: body.data.reason?.trim() || "Corrección administrativa",
     },
   });
+
+  await unsyncGuiaFromLineaVenta(id);
 
   return response.json({
     mensaje: "Pesada eliminada correctamente",

@@ -100,7 +100,7 @@ export function DetalleGuiaCajero() {
               <ResumenCard label="Neto total" value={formatGuiaPeso(guia.totales.netoTotal)} highlight="green" />
             </div>
 
-            <GuiaDetalleTable guia={guia} />
+            <GuiaDetalleTable guia={guia} editable={isAbierta} />
 
             <div className="mt-6 flex flex-wrap gap-3 print:hidden">
               <ActionButton

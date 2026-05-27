@@ -1,10 +1,18 @@
 import { Request, Response } from "express";
 import { serializePrisma } from "../../utils/serializers";
 import { createDevolucion, deleteDevolucion } from "./devoluciones.service";
-import { createDevolucionSchema, devolucionIdParamSchema } from "./devoluciones.schemas";
+import {
+  devolucionDesdePesadaSchema,
+  devolucionIdParamSchema,
+  devolucionLegacySchema,
+} from "./devoluciones.schemas";
 
 export async function postDevolucion(request: Request, response: Response) {
-  const data = createDevolucionSchema.parse(request.body);
+  const body = request.body as Record<string, unknown>;
+  const data =
+    body?.linea_venta_id != null
+      ? devolucionDesdePesadaSchema.parse(body)
+      : devolucionLegacySchema.parse(body);
   const devolucion = await createDevolucion(data);
 
   return response.status(201).json(serializePrisma(devolucion));

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { IconNote } from "@tabler/icons-react";
+import { RegistrarDevolucionButton } from "./operario/RegistrarDevolucionSheet";
 import type { ClienteDelDia } from "../services/api";
 
 type ClienteCardProps = {
@@ -11,6 +12,7 @@ type ClienteCardProps = {
   onNotaTextoChange: (value: string) => void;
   onOpenNota: (linea: ClienteDelDia["lineas"][number]) => void;
   onSaveNota: (linea: ClienteDelDia["lineas"][number]) => void;
+  onRegistrarDevolucion?: () => void;
 };
 
 export function ClienteCard({
@@ -22,8 +24,10 @@ export function ClienteCard({
   onNotaTextoChange,
   onOpenNota,
   onSaveNota,
+  onRegistrarDevolucion,
 }: ClienteCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const puedeRegistrarDevolucion = cliente.cliente.id != null && cliente.pesadas > 0 && onRegistrarDevolucion;
 
   return (
     <article className="panel relative overflow-hidden">
@@ -32,27 +36,38 @@ export function ClienteCard({
           Con notas
         </span>
       ) : null}
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 pr-24 text-left"
-      >
-        <div>
-          <h3 className="text-lg font-bold text-slate-900">{cliente.cliente.nombre}</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            {cliente.pesadas} pesada{cliente.pesadas === 1 ? "" : "s"} registradas
-          </p>
-        </div>
+      <div className="px-5 py-4 pr-24">
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="flex w-full items-center justify-between gap-4 text-left"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">{cliente.cliente.nombre}</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              {cliente.pesadas} pesada{cliente.pesadas === 1 ? "" : "s"} registradas
+            </p>
+          </div>
 
-        <div className="text-right">
-          <p className="text-2xl font-bold text-coronados-orange">
-            {cliente.total_kg.toFixed(2)} kg
-          </p>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-            Total
-          </p>
-        </div>
-      </button>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-coronados-orange">
+              {cliente.total_kg.toFixed(2)} kg
+            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              Total
+            </p>
+          </div>
+        </button>
+
+        {puedeRegistrarDevolucion ? (
+          <RegistrarDevolucionButton
+            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+              event.stopPropagation();
+              onRegistrarDevolucion();
+            }}
+          />
+        ) : null}
+      </div>
 
       {expanded ? (
         <div className="border-t border-slate-100 px-5 py-4">

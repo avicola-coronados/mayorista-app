@@ -89,7 +89,7 @@ async function getGuiaEditable(guiaId: number) {
   return guia;
 }
 
-async function recalcularTotalesGuia(guiaId: number) {
+export async function recalcularTotalesGuia(guiaId: number) {
   const guia = await prisma.guiaEntrega.findUnique({
     where: { id: guiaId },
     include: { lineas: true },
@@ -434,6 +434,7 @@ export async function getGuiaDetalleCajero(guiaId: number) {
     saldoAcumulado = roundMoney(saldoAcumulado + importeTotal);
 
     return {
+      id: linea.id,
       nroJaba: linea.jabas,
       pesoBruto: Number(linea.peso_bruto),
       tara: Number(linea.tara),

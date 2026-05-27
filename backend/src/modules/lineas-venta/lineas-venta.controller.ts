@@ -14,7 +14,13 @@ import { AppError } from "../../errors/AppError";
 
 export async function createLineaVentaController(request: Request, response: Response) {
   const data = createLineaVentaSchema.parse(request.body);
-  const lineaVenta = await createLineaVenta(data);
+  const actorUserId = request.user?.id;
+
+  if (!actorUserId) {
+    throw new AppError("Usuario no autenticado", 401);
+  }
+
+  const lineaVenta = await createLineaVenta(data, actorUserId);
 
   return response.status(201).json(serializePrisma(lineaVenta));
 }

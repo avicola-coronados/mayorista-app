@@ -311,12 +311,20 @@ export type Devolucion = {
   jornada_id: number;
   cliente_id: number;
   cliente_nombre: string;
+  linea_venta_id: number | null;
   tipo: TipoDevolucion;
   jabas: number | null;
   peso_bruto: number;
   tara: number;
   peso_neto: number;
   created_at: string;
+  pesada_label?: string;
+};
+
+export type DevolucionDesdePesadaPayload = {
+  linea_venta_id: number;
+  tipo: TipoDevolucion;
+  peso_neto: number;
 };
 
 export type DevolucionesResponse = {
@@ -466,6 +474,7 @@ export type CajeroClienteGuiasResponse = {
 };
 
 export type GuiaDetalleLinea = {
+  id: number;
   nroJaba: number;
   pesoBruto: number;
   tara: number;
@@ -977,6 +986,16 @@ export const apiClient = {
       throw new Error(getErrorMessage(error));
     }
   },
+  async updatePeladuriaLineaGuia(guiaId: number, lineaId: number, peladuria: number) {
+    try {
+      const response = await api.patch<GuiaDetalle>(`/guias/${guiaId}/lineas/${lineaId}/peladuria`, {
+        peladuria,
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
   async getPrecioVigente() {
     try {
       const response = await api.get<PrecioVigente>("/precios/vigente");
@@ -1126,6 +1145,14 @@ export const apiClient = {
     }
   },
   async createDevolucion(payload: DevolucionPayload) {
+    try {
+      const response = await api.post<Devolucion>("/devoluciones", payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createDevolucionDesdePesada(payload: DevolucionDesdePesadaPayload) {
     try {
       const response = await api.post<Devolucion>("/devoluciones", payload);
       return response.data;

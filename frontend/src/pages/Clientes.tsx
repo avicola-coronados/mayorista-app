@@ -4,6 +4,11 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { ClienteCard } from "../components/ClienteCard";
 import { Layout } from "../components/Layout";
+import {
+  DevolucionRegistradaSuccess,
+  type DevolucionSuccessData,
+} from "../components/operario/DevolucionRegistradaSuccess";
+import { RegistrarDevolucionSheet } from "../components/operario/RegistrarDevolucionSheet";
 import type { ClienteDelDia } from "../services/api";
 import { apiClient } from "../services/api";
 
@@ -11,6 +16,9 @@ export function Clientes() {
   const queryClient = useQueryClient();
   const [editingNota, setEditingNota] = useState<number | null>(null);
   const [notaTexto, setNotaTexto] = useState("");
+  const [devolucionCliente, setDevolucionCliente] = useState<ClienteDelDia | null>(null);
+  const [devolucionSuccess, setDevolucionSuccess] = useState<DevolucionSuccessData | null>(null);
+
   const jornadaQuery = useQuery({
     queryKey: ["jornada-activa"],
     queryFn: apiClient.getJornadaActiva,
@@ -21,6 +29,7 @@ export function Clientes() {
     queryFn: () => apiClient.getLineasDelDia(jornadaQuery.data!.id),
     enabled: Boolean(jornadaQuery.data?.id),
   });
+
   const notaMutation = useMutation({
     mutationFn: ({ id, nota }: { id: number; nota: string | null }) => apiClient.updateLineaVentaNota(id, nota),
     onSuccess: async (response) => {
@@ -59,6 +68,19 @@ export function Clientes() {
     setNotaTexto("");
   }
 
+  function handleDevolucionSuccess(data: DevolucionSuccessData) {
+    setDevolucionCliente(null);
+    setDevolucionSuccess(data);
+    void queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
+    void queryClient.invalidateQueries({ queryKey: ["devoluciones"] });
+    void queryClient.invalidateQueries({ queryKey: ["metricas"] });
+  }
+
+  function handleVolverClientes() {
+    setDevolucionSuccess(null);
+    void queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
+  }
+
   if (jornadaQuery.isLoading) {
     return (
       <Layout title="Clientes del día" subtitle="Cargando resumen">
@@ -77,6 +99,14 @@ export function Clientes() {
         <div className="panel border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-800">
           {(jornadaQuery.error as Error)?.message ?? "No se pudo cargar la jornada"}
         </div>
+      </Layout>
+    );
+  }
+
+  if (devolucionSuccess) {
+    return (
+      <Layout title="Clientes del día" subtitle="Devolución registrada">
+        <DevolucionRegistradaSuccess data={devolucionSuccess} onVolver={handleVolverClientes} />
       </Layout>
     );
   }
@@ -127,10 +157,24 @@ export function Clientes() {
               onNotaTextoChange={setNotaTexto}
               onOpenNota={openNota}
               onSaveNota={saveNota}
+              onRegistrarDevolucion={
+                cliente.cliente.id != null && cliente.pesadas > 0
+                  ? () => setDevolucionCliente(cliente)
+                  : undefined
+              }
             />
           ))}
         </div>
       )}
+
+      {devolucionCliente ? (
+        <RegistrarDevolucionSheet
+          cliente={devolucionCliente}
+          open
+          onClose={() => setDevolucionCliente(null)}
+          onSuccess={handleDevolucionSuccess}
+        />
+      ) : null}
     </Layout>
   );
 }

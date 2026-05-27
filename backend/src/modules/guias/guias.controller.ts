@@ -4,7 +4,9 @@ import {
   createGuiaSchema,
   guiaActivaQuerySchema,
   lineaGuiaBodySchema,
+  updatePeladuriaLineaSchema,
 } from "./guias.schemas";
+import { updatePeladuriaLineaGuia } from "./guias-sync.service";
 import {
   addLineaGuia,
   cerrarGuia,
@@ -73,6 +75,17 @@ export async function getGuiaActiva(request: Request, response: Response) {
 export async function getGuiasJornadaActual(request: Request, response: Response) {
   const result = await listGuiasJornadaActual();
   return response.json(result);
+}
+
+export async function patchPeladuriaLineaGuia(request: Request, response: Response) {
+  const guiaId = parseId(request.params.id);
+  const lineaId = parseId(request.params.lineaId);
+  const data = updatePeladuriaLineaSchema.parse(request.body);
+
+  await updatePeladuriaLineaGuia(guiaId, lineaId, data.peladuria);
+
+  const guia = await getGuiaDetalleCajero(guiaId);
+  return response.json(guia);
 }
 
 function parseId(value: string) {
