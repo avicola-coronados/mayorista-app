@@ -30,13 +30,19 @@ export function Clientes() {
     enabled: Boolean(jornadaQuery.data?.id),
   });
 
+  const jornadaId = jornadaQuery.data?.id;
+
   const notaMutation = useMutation({
     mutationFn: ({ id, nota }: { id: number; nota: string | null }) => apiClient.updateLineaVentaNota(id, nota),
     onSuccess: async (response) => {
       toast.success(response.mensaje);
       setEditingNota(null);
       setNotaTexto("");
-      await queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
+      if (jornadaId) {
+        await queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornadaId] });
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -71,14 +77,18 @@ export function Clientes() {
   function handleDevolucionSuccess(data: DevolucionSuccessData) {
     setDevolucionCliente(null);
     setDevolucionSuccess(data);
-    void queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
-    void queryClient.invalidateQueries({ queryKey: ["devoluciones"] });
-    void queryClient.invalidateQueries({ queryKey: ["metricas"] });
+    if (jornadaId) {
+      void queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornadaId] });
+      void queryClient.invalidateQueries({ queryKey: ["devoluciones", jornadaId] });
+      void queryClient.invalidateQueries({ queryKey: ["metricas", jornadaId] });
+    }
   }
 
   function handleVolverClientes() {
     setDevolucionSuccess(null);
-    void queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
+    if (jornadaId) {
+      void queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornadaId] });
+    }
   }
 
   if (jornadaQuery.isLoading) {
