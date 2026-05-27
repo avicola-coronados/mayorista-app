@@ -101,22 +101,18 @@ export function RegistrarDevolucionSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        aria-label="Cerrar"
-        onClick={onClose}
-      />
-
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-5"
+      onClick={onClose}
+      role="presentation"
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="devolucion-sheet-title"
-        className="relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[16px] bg-white px-5 pb-6 pt-3 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[12px] bg-white p-6 shadow-2xl"
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-300" />
-
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <h2 id="devolucion-sheet-title" className="text-[17px] font-medium text-neutral-950">

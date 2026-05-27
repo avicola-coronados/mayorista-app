@@ -37,6 +37,23 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
 
+      - name: Check Vercel secrets
+        run: |
+          missing=0
+          check() {
+            if [ -z "$2" ]; then
+              echo "::error::$1 no está configurado en GitHub (Settings → Secrets and variables → Actions)."
+              missing=1
+            fi
+          }
+          check "VERCEL_TOKEN" "${{ secrets.VERCEL_TOKEN }}"
+          check "VERCEL_ORG_ID" "${{ secrets.VERCEL_ORG_ID }}"
+          check "VERCEL_PROJECT_ID" "${{ secrets.VERCEL_PROJECT_ID }}"
+          if [ "$missing" -eq 1 ]; then
+            echo "Instrucciones: docs/ci-cd/vercel.md"
+            exit 1
+          fi
+
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
         with:
