@@ -30,6 +30,8 @@ export function ClienteCard({
 }: ClienteCardProps) {
   const [expanded, setExpanded] = useState(false);
   const puedeRegistrarDevolucion = cliente.cliente.id != null && cliente.pesadas > 0 && onRegistrarDevolucion;
+  const totalDevolucionesKg = devoluciones.reduce((acc, devolucion) => acc + devolucion.peso_neto, 0);
+  const totalClienteAjustado = Math.max(cliente.total_kg - totalDevolucionesKg, 0);
 
   function getTipoMeta(tipo: TipoDevolucion) {
     switch (tipo) {
@@ -64,11 +66,16 @@ export function ClienteCard({
 
           <div className="text-right">
             <p className="text-2xl font-bold text-coronados-orange">
-              {cliente.total_kg.toFixed(2)} kg
+              {totalClienteAjustado.toFixed(2)} kg
             </p>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
               Total
             </p>
+            {devoluciones.length > 0 ? (
+              <p className="mt-1 text-[12px] font-medium text-neutral-500">
+                {cliente.total_kg.toFixed(2)} - {totalDevolucionesKg.toFixed(2)} = {totalClienteAjustado.toFixed(2)} kg
+              </p>
+            ) : null}
           </div>
         </button>
 
@@ -178,7 +185,7 @@ export function ClienteCard({
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-[13px] font-semibold text-neutral-800">Devoluciones</p>
                   <p className="text-[13px] font-bold text-neutral-950">
-                    {devoluciones.reduce((acc, d) => acc + d.peso_neto, 0).toFixed(2)} kg
+                    {totalDevolucionesKg.toFixed(2)} kg
                   </p>
                 </div>
 
