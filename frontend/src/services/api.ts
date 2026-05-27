@@ -482,6 +482,7 @@ export type GuiaDetalleLinea = {
   pesoNeto: number;
   devolucion: number;
   netoTotal: number;
+  precioKg: number;
   importeGuia: number;
   peladuria: number;
   importeTotal: number;

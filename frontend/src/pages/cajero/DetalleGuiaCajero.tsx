@@ -93,11 +93,12 @@ export function DetalleGuiaCajero() {
               </div>
             </header>
 
-            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <ResumenCard label="Jabas" value={formatGuiaJabas(guia.totales.jabas)} isCount />
               <ResumenCard label="Peso bruto" value={formatGuiaPeso(guia.totales.pesoBruto)} />
               <ResumenCard label="Devolución" value={formatGuiaPeso(guia.totales.devolucion)} />
               <ResumenCard label="Neto total" value={formatGuiaPeso(guia.totales.netoTotal)} highlight="green" />
+              <ResumenCard label="Precio del día" value={`S/ ${(guia.lineas[0]?.precioKg ?? 5).toFixed(2)}/kg`} />
             </div>
 
             <GuiaDetalleTable guia={guia} editable={isAbierta} />

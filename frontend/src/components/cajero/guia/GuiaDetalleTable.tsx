@@ -142,7 +142,11 @@ function Cell({
   bold?: boolean;
 }) {
   const formatted =
-    kind === "entero" ? formatGuiaEntero(value) : kind === "peso" ? formatGuiaPeso(value) : formatGuiaImporte(value);
+    kind === "entero"
+      ? formatGuiaEntero(value)
+      : kind === "peso"
+        ? formatGuiaPeso(value)
+        : formatGuiaImporte(value);
 
   return (
     <td
