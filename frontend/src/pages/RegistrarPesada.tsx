@@ -165,6 +165,11 @@ export function RegistrarPesada() {
   }
 
   function handleOrigenChange(origen: "partida" | "piso") {
+    if (origen === "piso") {
+      setShowNewCliente(false);
+      setNewClienteName("");
+    }
+
     setForm((current) => {
       const selectedGranja = granjasQuery.data?.find((granja) => granja.id === current.granja_id);
       const shouldClearGranja =
@@ -173,7 +178,7 @@ export function RegistrarPesada() {
       return {
         ...current,
         origen,
-        cliente_id: current.cliente_id,
+        cliente_id: origen === "piso" ? 0 : current.cliente_id,
         granja_id: shouldClearGranja ? 0 : current.granja_id,
       };
     });
@@ -195,9 +200,7 @@ export function RegistrarPesada() {
       title="Registrar pesada"
       subtitle={
         isPiso
-          ? selectedCliente
-            ? `Ingreso a piso asignado a: ${selectedCliente.nombre}`
-            : "Registra ingreso a piso sin cliente asignado"
+          ? "Registra ingreso a piso"
           : selectedCliente
             ? `Cliente seleccionado: ${selectedCliente.nombre}`
             : "Registra una venta del día"
@@ -233,34 +236,43 @@ export function RegistrarPesada() {
             </div>
           </div>
 
-          <div className="mt-5">
+          <div className={`mt-5 ${isPiso ? "opacity-60" : ""}`}>
             <div className="mb-2 flex items-center justify-between gap-3">
               <label htmlFor="cliente" className="field-label mb-0">
-                Cliente {isPiso ? "(opcional)" : ""}
+                Cliente
               </label>
               <button
                 type="button"
                 onClick={() => setShowNewCliente(true)}
-                className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
+                disabled={isPiso}
+                className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition enabled:hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Nuevo cliente
               </button>
             </div>
             <select
               id="cliente"
-              className="field-input"
+              className="field-input disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               value={form.cliente_id}
+              disabled={isPiso}
               onChange={(event) =>
                 setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
               }
             >
-              <option value={0}>{isPiso ? "Sin cliente asignado" : "Selecciona un cliente existente"}</option>
+              <option value={0}>
+                {isPiso ? "No aplica para ingreso a piso" : "Selecciona un cliente existente"}
+              </option>
               {clientesQuery.data?.map((cliente) => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre}
                 </option>
               ))}
             </select>
+            {isPiso ? (
+              <p className="mt-1.5 text-[12px] font-medium text-slate-500">
+                El ingreso a piso no requiere asignar un cliente.
+              </p>
+            ) : null}
           </div>
 
           <div className="mt-5">
