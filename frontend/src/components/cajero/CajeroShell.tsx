@@ -37,8 +37,8 @@ export function CajeroShell({
   return (
     <div className="min-h-screen bg-[#F5F5F5]">
       <div className="flex min-h-screen">
-        <aside className="flex w-[175px] shrink-0 flex-col bg-coronados-orange text-white">
-          <div className="p-5">
+        <aside className="sticky top-0 flex h-screen w-[175px] shrink-0 flex-col overflow-hidden bg-coronados-orange text-white">
+          <div className="shrink-0 p-5">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[3px] border-white bg-[#fff7ed]">
                 <div className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-dashed border-coronados-green text-center text-[5px] font-bold leading-tight text-coronados-green">
@@ -56,7 +56,7 @@ export function CajeroShell({
             </div>
           </div>
 
-          <nav className="flex-1">
+          <nav className="min-h-0 flex-1 overflow-y-auto">
             {menuItems.map((item) => {
               const Icon = item.icon;
 
@@ -77,7 +77,7 @@ export function CajeroShell({
             })}
           </nav>
 
-          <div className="mx-5 mb-5 border-t border-white/25 pt-5">
+          <div className="mx-5 mb-5 shrink-0 border-t border-white/25 pt-5">
             <p className="text-[14px] font-bold leading-tight">{displayName} (Cajero)</p>
             <p className="mt-1 text-[12px] font-medium text-white/75">Caja · pagos y consultas</p>
             <button
