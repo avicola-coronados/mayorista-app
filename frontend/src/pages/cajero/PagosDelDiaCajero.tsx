@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   IconAlertCircle,
   IconBuildingBank,
+  IconCalendar,
   IconCash,
   IconClock,
   IconDownload,
@@ -39,18 +40,36 @@ const franjaLabels: Record<FranjaHoraria, string> = {
 };
 
 export function PagosDelDiaCajero() {
-  const hoy = useMemo(() => new Date(), []);
-  const fechaISO = useMemo(() => toISODate(hoy), [hoy]);
+  const hoyISO = useMemo(() => toISODate(new Date()), []);
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(hoyISO);
   const [filtro, setFiltro] = useState<FiltroPago>("todos");
   const printRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((state) => state.user);
   const cajeroNombre = user?.nombre || user?.username || "Cajero";
 
+  const fechaConsulta = useMemo(() => parseISODate(fechaSeleccionada), [fechaSeleccionada]);
+  const esHoy = fechaSeleccionada === hoyISO;
+  const codigoJornada = useMemo(() => formatJornadaCodigo(fechaSeleccionada), [fechaSeleccionada]);
+
   const pagosQuery = useQuery({
-    queryKey: ["cajero-pagos-dia", fechaISO],
-    queryFn: () => apiClient.getPagosDelDia(),
+    queryKey: ["cajero-pagos-dia", fechaSeleccionada],
+    queryFn: () => apiClient.getPagosDelDia({ fecha: fechaSeleccionada }),
     staleTime: 30000,
   });
+
+  function handleFechaChange(value: string) {
+    if (!value || value > hoyISO) {
+      return;
+    }
+
+    setFechaSeleccionada(value);
+    setFiltro("todos");
+  }
+
+  function handleIrAHoy() {
+    setFechaSeleccionada(hoyISO);
+    setFiltro("todos");
+  }
 
   const resumen = pagosQuery.data?.resumen ?? emptyResumen;
   const pagos = pagosQuery.data?.pagos ?? [];
@@ -129,7 +148,7 @@ export function PagosDelDiaCajero() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `consolidado-pagos-${fechaISO}.csv`;
+    link.download = `consolidado-pagos-${fechaSeleccionada}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -138,19 +157,52 @@ export function PagosDelDiaCajero() {
     window.print();
   }
 
-  const contadorTexto = getContadorTexto(filtro, pagosFiltrados.length);
+  const contadorTexto = getContadorTexto(filtro, pagosFiltrados.length, esHoy);
 
   return (
     <>
       <div className="print:hidden">
-        <CajeroShell title="Pagos del día" subtitle={formatLongDate(hoy)}>
+        <CajeroShell title="Pagos del día" subtitle={formatLongDate(fechaConsulta)}>
           <div className="p-[30px]">
             <header className="mb-6 flex items-start justify-between gap-4 max-md:flex-col">
               <div className="min-w-0">
-                <p className="text-[12px] font-medium text-neutral-500">{formatLongDate(hoy)}</p>
+                <p className="text-[12px] font-medium text-neutral-500">{formatLongDate(fechaConsulta)}</p>
                 <h2 className="mt-1 text-[20px] font-medium text-neutral-950">Pagos del día</h2>
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[12px] font-medium text-neutral-500">Fecha de jornada</span>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <IconCalendar
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                          size={16}
+                          stroke={2}
+                        />
+                        <input
+                          type="date"
+                          max={hoyISO}
+                          value={fechaSeleccionada}
+                          onChange={(event) => handleFechaChange(event.target.value)}
+                          className="rounded-[8px] border border-neutral-300 bg-white py-2 pl-9 pr-3 text-[13px] text-neutral-800 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
+                        />
+                      </div>
+                      {!esHoy ? (
+                        <button
+                          type="button"
+                          onClick={handleIrAHoy}
+                          className="rounded-[8px] border border-neutral-300 bg-white px-3 py-2 text-[13px] font-medium text-neutral-600 transition hover:bg-neutral-50"
+                        >
+                          Hoy
+                        </button>
+                      ) : null}
+                    </div>
+                  </label>
+                  <span className="pb-2 text-[12px] font-medium text-neutral-400">
+                    Jornada {codigoJornada}
+                  </span>
+                </div>
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 max-md:mt-2">
                 <button
                   type="button"
                   onClick={handleExportar}
@@ -177,12 +229,12 @@ export function PagosDelDiaCajero() {
             ) : pagosQuery.isLoading ? (
               <LoadingState />
             ) : pagos.length === 0 ? (
-              <EmptyState />
+              <EmptyState esHoy={esHoy} />
             ) : (
               <>
                 <section className="mb-5 grid grid-cols-4 gap-3 max-xl:grid-cols-2 max-sm:grid-cols-1">
                   <MetricCard
-                    label="Total cobrado hoy"
+                    label={esHoy ? "Total cobrado hoy" : "Total cobrado"}
                     subtext="Efectivo + depósitos validados"
                     tone="green"
                     value={formatCurrency(resumen.totalCobrado)}
@@ -208,7 +260,9 @@ export function PagosDelDiaCajero() {
                 </section>
 
                 <section className="mb-5 rounded-[10px] border border-neutral-300/80 bg-white p-4">
-                  <h3 className="text-[13px] font-medium text-neutral-950">Distribución de pagos del día</h3>
+                  <h3 className="text-[13px] font-medium text-neutral-950">
+                    {esHoy ? "Distribución de pagos del día" : "Distribución de pagos de la jornada"}
+                  </h3>
                   <div className="mt-3 flex h-2 gap-0.5 overflow-hidden rounded-[4px]">
                     {resumen.totalEfectivo > 0 ? (
                       <div
@@ -318,7 +372,8 @@ export function PagosDelDiaCajero() {
       <div ref={printRef} className="hidden p-8 print:block">
         <PrintConsolidado
           cajeroNombre={cajeroNombre}
-          fecha={formatLongDate(hoy)}
+          esHoy={esHoy}
+          fecha={formatLongDate(fechaConsulta)}
           fechaHoraGenerado={formatDateTime(new Date())}
           pagos={pagos}
           resumen={resumen}
@@ -330,12 +385,14 @@ export function PagosDelDiaCajero() {
 
 function PrintConsolidado({
   cajeroNombre,
+  esHoy,
   fecha,
   fechaHoraGenerado,
   pagos,
   resumen,
 }: {
   cajeroNombre: string;
+  esHoy: boolean;
   fecha: string;
   fechaHoraGenerado: string;
   pagos: PagoDelDiaItem[];
@@ -354,7 +411,10 @@ function PrintConsolidado({
       </div>
 
       <div className="mb-6 grid grid-cols-4 gap-3">
-        <PrintMetric label="Total cobrado hoy" value={formatCurrency(resumen.totalCobrado)} />
+        <PrintMetric
+          label={esHoy ? "Total cobrado hoy" : "Total cobrado"}
+          value={formatCurrency(resumen.totalCobrado)}
+        />
         <PrintMetric label="En efectivo" value={formatCurrency(resumen.totalEfectivo)} />
         <PrintMetric label="Depósitos validados" value={formatCurrency(resumen.totalValidado)} />
         <PrintMetric label="Pendiente validación" value={formatCurrency(resumen.totalPendiente)} />
@@ -513,13 +573,17 @@ function FilterPill({
   );
 }
 
-function EmptyState() {
+function EmptyState({ esHoy }: { esHoy: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-[10px] border border-neutral-300/80 bg-white px-6 py-16 text-center">
       <IconCash className="text-neutral-300" size={56} stroke={1.2} />
-      <h3 className="mt-4 text-[18px] font-medium text-neutral-900">Sin pagos registrados hoy</h3>
+      <h3 className="mt-4 text-[18px] font-medium text-neutral-900">
+        {esHoy ? "Sin pagos registrados hoy" : "Sin pagos en esta jornada"}
+      </h3>
       <p className="mt-2 max-w-md text-[14px] text-neutral-500">
-        Los pagos aparecerán aquí a medida que se registren en la jornada.
+        {esHoy
+          ? "Los pagos aparecerán aquí a medida que se registren en la jornada."
+          : "No hay pagos registrados para la fecha seleccionada. Prueba con otra jornada."}
       </p>
     </div>
   );
@@ -593,7 +657,7 @@ function getFranjaHoraria(hora: string): FranjaHoraria {
   return "noche";
 }
 
-function getContadorTexto(filtro: FiltroPago, count: number) {
+function getContadorTexto(filtro: FiltroPago, count: number, esHoy: boolean) {
   if (filtro === "efectivo") {
     return `${count} pagos en efectivo`;
   }
@@ -606,7 +670,17 @@ function getContadorTexto(filtro: FiltroPago, count: number) {
     return `${count} depósitos pendientes de validación`;
   }
 
-  return `${count} pagos registrados hoy`;
+  return esHoy ? `${count} pagos registrados hoy` : `${count} pagos registrados en la jornada`;
+}
+
+function parseISODate(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatJornadaCodigo(iso: string) {
+  const [year, month, day] = iso.split("-");
+  return `${day}${month}${year}`;
 }
 
 function labelTipoPago(tipo: PagoDelDiaTipo) {
