@@ -1,7 +1,7 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconAlertCircle, IconPlus, IconReceiptOff } from "@tabler/icons-react";
+import { IconAlertCircle, IconCalendar, IconPlus, IconReceiptOff } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import { CajeroShell } from "../../components/cajero/CajeroShell";
 import {
@@ -39,6 +39,8 @@ const emptyStats: CajeroEgresosStats = {
 
 export function EgresosCajero() {
   const queryClient = useQueryClient();
+  const hoyISO = useMemo(() => toISODate(new Date()), []);
+  const [fechaLista, setFechaLista] = useState(hoyISO);
   const [form, setForm] = useState({
     beneficiario: "",
     comprobante: "",
@@ -48,9 +50,19 @@ export function EgresosCajero() {
     monto: "",
   });
 
-  const egresosQuery = useQuery({
-    queryKey: ["egresos-cajero"],
+  const esHoy = fechaLista === hoyISO;
+  const fechaConsulta = useMemo(() => parseISODate(fechaLista), [fechaLista]);
+  const codigoJornada = useMemo(() => formatJornadaCodigo(fechaLista), [fechaLista]);
+
+  const statsQuery = useQuery({
+    queryKey: ["egresos-cajero-stats"],
     queryFn: () => apiClient.getEgresosCajero(),
+    staleTime: 30000,
+  });
+
+  const listaQuery = useQuery({
+    queryKey: ["egresos-cajero-lista", fechaLista],
+    queryFn: () => apiClient.getEgresosCajero({ fecha: fechaLista }),
     staleTime: 30000,
   });
 
@@ -66,14 +78,30 @@ export function EgresosCajero() {
         metodo_pago: "efectivo",
         monto: "",
       });
-      await queryClient.invalidateQueries({ queryKey: ["egresos-cajero"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["egresos-cajero-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["egresos-cajero-lista"] }),
+      ]);
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const stats = egresosQuery.data?.stats ?? emptyStats;
-  const egresos = egresosQuery.data?.egresos ?? [];
+  const stats = statsQuery.data?.stats ?? emptyStats;
+  const egresos = listaQuery.data?.egresos ?? [];
+  const totalLista = listaQuery.data?.stats.total_dia ?? 0;
   const isSaving = registrarEgresoMutation.isPending;
+
+  function handleFechaListaChange(value: string) {
+    if (!value || value > hoyISO) {
+      return;
+    }
+
+    setFechaLista(value);
+  }
+
+  function handleIrAHoy() {
+    setFechaLista(hoyISO);
+  }
 
   function updateForm(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -236,17 +264,57 @@ export function EgresosCajero() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-[16px] font-medium text-neutral-950">Egresos de hoy</h2>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-[16px] font-medium text-neutral-950">Consolidado de egresos</h2>
+              <p className="mt-1 text-[13px] text-neutral-500">
+                {esHoy
+                  ? `${egresos.length} movimientos hoy · ${formatCurrency(totalLista)}`
+                  : `${egresos.length} movimientos · ${formatCurrency(totalLista)} · ${formatLongDate(fechaConsulta)}`}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium text-neutral-500">Fecha de jornada</span>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <IconCalendar
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                      size={16}
+                      stroke={2}
+                    />
+                    <input
+                      type="date"
+                      max={hoyISO}
+                      value={fechaLista}
+                      onChange={(event) => handleFechaListaChange(event.target.value)}
+                      className="rounded-[8px] border border-neutral-300 bg-white py-2 pl-9 pr-3 text-[13px] text-neutral-800 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
+                    />
+                  </div>
+                  {!esHoy ? (
+                    <button
+                      type="button"
+                      onClick={handleIrAHoy}
+                      className="rounded-[8px] border border-neutral-300 bg-white px-3 py-2 text-[13px] font-medium text-neutral-600 transition hover:bg-neutral-50"
+                    >
+                      Hoy
+                    </button>
+                  ) : null}
+                </div>
+              </label>
+              <span className="pb-2 text-[12px] font-medium text-neutral-400">Jornada {codigoJornada}</span>
+            </div>
+          </div>
 
-          {egresosQuery.isLoading ? (
+          {listaQuery.isLoading ? (
             <EgresosSkeleton />
-          ) : egresosQuery.isError ? (
+          ) : listaQuery.isError ? (
             <ErrorState
-              message={(egresosQuery.error as Error)?.message ?? "Error al cargar egresos"}
-              onRetry={() => egresosQuery.refetch()}
+              message={(listaQuery.error as Error)?.message ?? "Error al cargar egresos"}
+              onRetry={() => listaQuery.refetch()}
             />
           ) : egresos.length === 0 ? (
-            <EmptyState />
+            <EmptyState esHoy={esHoy} />
           ) : (
             <div className="grid gap-3">
               {egresos.map((egreso) => (
@@ -343,12 +411,18 @@ function EgresosSkeleton() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ esHoy }: { esHoy: boolean }) {
   return (
     <div className="flex min-h-[240px] flex-col items-center justify-center rounded-[12px] border border-dashed border-neutral-200 bg-white p-8 text-center">
       <IconReceiptOff size={52} className="text-neutral-300" />
-      <p className="mt-4 text-[16px] font-bold text-neutral-900">No hay egresos registrados hoy</p>
-      <p className="mt-1 text-[13px] font-medium text-neutral-500">Registra el primer movimiento de salida de caja.</p>
+      <p className="mt-4 text-[16px] font-bold text-neutral-900">
+        {esHoy ? "No hay egresos registrados hoy" : "No hay egresos en esta jornada"}
+      </p>
+      <p className="mt-1 text-[13px] font-medium text-neutral-500">
+        {esHoy
+          ? "Registra el primer movimiento de salida de caja."
+          : "No hay movimientos para la fecha seleccionada. Prueba con otra jornada."}
+      </p>
     </div>
   );
 }
@@ -396,4 +470,21 @@ function formatMonth(date: Date) {
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function toISODate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseISODate(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatJornadaCodigo(iso: string) {
+  const [year, month, day] = iso.split("-");
+  return `${day}${month}${year}`;
 }
