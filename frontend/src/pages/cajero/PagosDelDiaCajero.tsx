@@ -48,7 +48,7 @@ export function PagosDelDiaCajero() {
 
   const pagosQuery = useQuery({
     queryKey: ["cajero-pagos-dia", fechaISO],
-    queryFn: () => apiClient.getPagosDelDia({ fecha: fechaISO }),
+    queryFn: () => apiClient.getPagosDelDia(),
     staleTime: 30000,
   });
 

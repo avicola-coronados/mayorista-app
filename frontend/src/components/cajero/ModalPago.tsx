@@ -84,6 +84,7 @@ export function ModalPago({
         queryClient.invalidateQueries({ queryKey: ["cajero-detalle-cliente", cliente.id] }),
         queryClient.invalidateQueries({ queryKey: ["cajero", "cliente-guias", cliente.id] }),
         queryClient.invalidateQueries({ queryKey: ["cajero-clientes"] }),
+        queryClient.invalidateQueries({ queryKey: ["cajero-pagos-dia"] }),
       ]);
 
       if (tabActivo === "efectivo") {

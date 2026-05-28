@@ -1,6 +1,7 @@
 import { GuiaEstado, Prisma } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
+import { APP_TIMEZONE, getCurrentDateInTimezone, getDayRangeInTimezone } from "../../utils/date";
 import {
   CajeroClientesQuery,
   CajeroEgresosQuery,
@@ -17,27 +18,8 @@ function toNumber(value: Prisma.Decimal | number | null | undefined) {
   return Number(value ?? 0);
 }
 
-function startOfToday() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function endOfToday() {
-  const date = new Date();
-  date.setHours(23, 59, 59, 999);
-  return date;
-}
-
 function getDayRange(fecha?: string) {
-  const baseDate = fecha ? new Date(`${fecha}T00:00:00`) : new Date();
-  const start = new Date(baseDate);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(baseDate);
-  end.setHours(23, 59, 59, 999);
-
-  return { end, start };
+  return getDayRangeInTimezone(fecha ?? getCurrentDateInTimezone());
 }
 
 function getMonthRange(mes?: string) {
@@ -87,6 +69,8 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
       : {}),
   };
 
+  const rangoHoy = getDayRange();
+
   const [clientes, pagosHoy] = await Promise.all([
     prisma.cliente.findMany({
       where,
@@ -117,8 +101,8 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
     prisma.pago.aggregate({
       where: {
         created_at: {
-          gte: startOfToday(),
-          lte: endOfToday(),
+          gte: rangoHoy.start,
+          lte: rangoHoy.end,
         },
         estado: "confirmado",
       },
@@ -493,6 +477,7 @@ export async function registrarEgresoCajero(input: RegistrarEgresoInput, cajeroI
 
 function formatHoraPago(date: Date) {
   return date.toLocaleTimeString("es-PE", {
+    timeZone: APP_TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -505,6 +490,7 @@ function formatHoraDeposito(value: Date | null) {
   }
 
   return value.toLocaleTimeString("es-PE", {
+    timeZone: APP_TIMEZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
