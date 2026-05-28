@@ -102,7 +102,7 @@ const conceptosEgreso = [
   "Otro",
 ] as const;
 
-const metodosEgreso = ["efectivo", "transferencia", "cheque", "tarjeta"] as const;
+const metodosEgreso = ["Efectivo", "Transferencia", "Yape"] as const;
 
 export const registrarEgresoSchema = z.object({
   concepto: z.enum(conceptosEgreso, {
