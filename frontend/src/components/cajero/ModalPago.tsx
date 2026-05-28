@@ -19,7 +19,7 @@ import {
   type TipoPago,
 } from "../../services/api";
 
-const bancos = ["BCP", "Interbank", "BBVA", "Scotiabank", "BanBif", "Banco de la Nación"];
+const bancos = ["BCP", "Interbank", "BBVA", "Yape", "Cuenta Nicole", "Cuenta Leonardo", "Cuenta Jose", "Cuenta Dina"];
 
 const inputClassName =
   "w-full rounded-[8px] border border-neutral-200 px-[14px] py-[11px] text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-coronados-orange focus:ring-0 disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:text-neutral-500";
