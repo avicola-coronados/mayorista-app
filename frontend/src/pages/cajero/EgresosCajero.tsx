@@ -23,11 +23,10 @@ const conceptos = [
 ] as const;
 
 const metodosPago = [
-  { label: "Efectivo", value: "efectivo" },
-  { label: "Transferencia", value: "transferencia" },
-  { label: "Cheque", value: "cheque" },
-  { label: "Tarjeta", value: "tarjeta" },
-];
+  { label: "Efectivo", value: "Efectivo" },
+  { label: "Transferencia", value: "Transferencia" },
+  { label: "Yape", value: "Yape" },
+] as const;
 
 const emptyStats: CajeroEgresosStats = {
   total_dia: 0,
@@ -46,7 +45,7 @@ export function EgresosCajero() {
     comprobante: "",
     concepto: "",
     descripcion: "",
-    metodo_pago: "efectivo",
+    metodo_pago: "Efectivo",
     monto: "",
   });
 
@@ -75,7 +74,7 @@ export function EgresosCajero() {
         comprobante: "",
         concepto: "",
         descripcion: "",
-        metodo_pago: "efectivo",
+        metodo_pago: "Efectivo",
         monto: "",
       });
       await Promise.all([
@@ -376,7 +375,7 @@ function EgresoCard({ egreso }: { egreso: CajeroEgreso }) {
   const detail = [
     egreso.beneficiario,
     egreso.comprobante,
-    capitalize(egreso.metodo_pago),
+    egreso.metodo_pago,
   ].filter(Boolean);
   const shortDescription =
     egreso.descripcion.length > 70 ? `${egreso.descripcion.slice(0, 70)}...` : egreso.descripcion;
@@ -466,10 +465,6 @@ function formatMonth(date: Date) {
     month: "long",
     year: "numeric",
   });
-}
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function toISODate(date: Date) {
