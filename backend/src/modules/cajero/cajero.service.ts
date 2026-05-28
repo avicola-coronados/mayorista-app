@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { GuiaEstado, Prisma } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import {
@@ -62,7 +62,7 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
       : {}),
   };
 
-  const [clientes, pagosHoy] = await Promise.all([
+  const [clientes, pagosHoy, guiasPendientesPorCliente] = await Promise.all([
     prisma.cliente.findMany({
       where,
       include: {
@@ -98,13 +98,28 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
       _sum: { monto: true },
       _count: { _all: true },
     }),
+    prisma.guiaEntrega.groupBy({
+      by: ["cliente_id"],
+      where: {
+        estado: GuiaEstado.borrador,
+      },
+      _sum: {
+        total_general: true,
+      },
+    }),
   ]);
 
+  const guiasPendientesMap = new Map(
+    guiasPendientesPorCliente.map((item) => [item.cliente_id, toNumber(item._sum.total_general)]),
+  );
+
   const clientesConSaldos = clientes.map((cliente) => {
-    const saldoPendiente = cliente.facturas.reduce(
+    const saldoPendienteFacturas = cliente.facturas.reduce(
       (sum, factura) => sum + toNumber(factura.saldo_pendiente),
       0,
     );
+    const saldoPendienteGuias = guiasPendientesMap.get(cliente.id) ?? 0;
+    const saldoPendiente = saldoPendienteFacturas + saldoPendienteGuias;
     const montoTotalFacturado = cliente.facturas.reduce(
       (sum, factura) => sum + toNumber(factura.monto_total),
       0,
@@ -154,39 +169,50 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
 }
 
 export async function getDetalleClienteCajero(id: number) {
-  const cliente = await prisma.cliente.findFirst({
-    where: {
-      id,
-      activo: true,
-    },
-    include: {
-      facturas: {
-        include: {
-          jornada: {
-            select: {
-              id: true,
-              codigo: true,
-              fecha: true,
+  const [cliente, guiasPendientesAggregate] = await Promise.all([
+    prisma.cliente.findFirst({
+      where: {
+        id,
+        activo: true,
+      },
+      include: {
+        facturas: {
+          include: {
+            jornada: {
+              select: {
+                id: true,
+                codigo: true,
+                fecha: true,
+              },
+            },
+            pagos: {
+              orderBy: { created_at: "desc" },
+              select: {
+                id: true,
+                monto: true,
+                tipo: true,
+                metodo: true,
+                created_at: true,
+                estado: true,
+              },
             },
           },
-          pagos: {
-            orderBy: { created_at: "desc" },
-            select: {
-              id: true,
-              monto: true,
-              tipo: true,
-              metodo: true,
-              created_at: true,
-              estado: true,
-            },
+          orderBy: {
+            fecha_emision: "desc",
           },
-        },
-        orderBy: {
-          fecha_emision: "desc",
         },
       },
-    },
-  });
+    }),
+    prisma.guiaEntrega.aggregate({
+      where: {
+        cliente_id: id,
+        estado: GuiaEstado.borrador,
+      },
+      _sum: {
+        total_general: true,
+      },
+    }),
+  ]);
 
   if (!cliente) {
     return null;
@@ -200,10 +226,12 @@ export async function getDetalleClienteCajero(id: number) {
     (sum, factura) => sum + toNumber(factura.monto_pagado),
     0,
   );
-  const saldoPendiente = cliente.facturas.reduce(
+  const saldoPendienteFacturas = cliente.facturas.reduce(
     (sum, factura) => sum + toNumber(factura.saldo_pendiente),
     0,
   );
+  const saldoPendienteGuias = toNumber(guiasPendientesAggregate._sum.total_general);
+  const saldoPendiente = saldoPendienteFacturas + saldoPendienteGuias;
 
   return {
     cliente: {
