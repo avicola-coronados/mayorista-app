@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 import {
   apiClient,
   type CajeroDetalleClienteResponse,
-  type CajeroFactura,
+  type CajeroGuiaCobro,
   type TipoPago,
 } from "../../services/api";
 
@@ -28,13 +28,13 @@ const montoInputClassName = `${inputClassName} text-[18px] font-bold`;
 
 export function ModalPago({
   cliente,
-  factura,
+  guia,
   onClose,
   onSuccess,
   tabInicial,
 }: {
   cliente: CajeroDetalleClienteResponse["cliente"];
-  factura: CajeroFactura;
+  guia: CajeroGuiaCobro;
   onClose: () => void;
   onSuccess: () => void;
   tabInicial: TipoPago;
@@ -42,11 +42,11 @@ export function ModalPago({
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabActivo, setTabActivo] = useState<TipoPago>(tabInicial);
-  const saldoPendiente = Number(factura.saldo_pendiente) || 0;
+  const saldoPendiente = Number(guia.saldo_pendiente) || 0;
 
   useEffect(() => {
     setTabActivo(tabInicial);
-  }, [tabInicial, factura.id]);
+  }, [tabInicial, guia.id]);
 
   const [montoRecibido, setMontoRecibido] = useState("");
   const [observacionesEfectivo, setObservacionesEfectivo] = useState("");
@@ -82,6 +82,7 @@ export function ModalPago({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["cajero-detalle-cliente", cliente.id] }),
+        queryClient.invalidateQueries({ queryKey: ["cajero", "cliente-guias", cliente.id] }),
         queryClient.invalidateQueries({ queryKey: ["cajero-clientes"] }),
       ]);
 
@@ -106,7 +107,7 @@ export function ModalPago({
       const montoAplicado = Math.min(montoRecibidoNum, saldoPendiente);
 
       return {
-        factura_id: factura.id,
+        guia_id: guia.id,
         cliente_id: cliente.id,
         metodo: "efectivo",
         monto: montoAplicado,
@@ -117,7 +118,7 @@ export function ModalPago({
 
     return {
       banco,
-      factura_id: factura.id,
+      guia_id: guia.id,
       cliente_id: cliente.id,
       fecha_deposito: fechaDeposito,
       hora_deposito: horaDeposito || null,
@@ -219,7 +220,7 @@ export function ModalPago({
                 <div className="rounded-[8px] bg-neutral-100 px-[14px] py-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[13px] font-medium text-neutral-500">
-                      Saldo pendiente de {cliente.nombre}
+                      Saldo pendiente · {guia.numero}
                     </p>
                     <p className="text-[16px] font-bold text-coronados-orange">
                       {formatCurrency(saldoPendiente)}

@@ -1,20 +1,14 @@
 import { IconX } from "@tabler/icons-react";
-import type { CajeroFactura } from "../../services/api";
+import type { CajeroGuiaCobro } from "../../services/api";
 
-export function ModalDetallePagos({
-  factura,
-  onClose,
-}: {
-  factura: CajeroFactura;
-  onClose: () => void;
-}) {
+export function ModalDetallePagos({ guia, onClose }: { guia: CajeroGuiaCobro; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5">
       <section className="w-full max-w-[560px] rounded-[12px] bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
           <div>
-            <h2 className="text-[18px] font-medium text-neutral-950">Pagos de {factura.codigo}</h2>
-            <p className="mt-1 text-[13px] font-medium text-neutral-500">Jornada {factura.jornada_codigo}</p>
+            <h2 className="text-[18px] font-medium text-neutral-950">Pagos de {guia.numero}</h2>
+            <p className="mt-1 text-[13px] font-medium text-neutral-500">Jornada {guia.jornada_codigo}</p>
           </div>
           <button
             type="button"
@@ -27,13 +21,13 @@ export function ModalDetallePagos({
         </header>
 
         <div className="px-6 py-5">
-          {factura.pagos.length === 0 ? (
+          {guia.pagos.length === 0 ? (
             <p className="rounded-[8px] bg-neutral-50 p-4 text-[13px] font-medium text-neutral-500">
-              Esta factura no tiene pagos registrados.
+              Esta guía no tiene pagos registrados.
             </p>
           ) : (
             <div className="grid gap-3">
-              {factura.pagos.map((pago) => (
+              {guia.pagos.map((pago) => (
                 <article key={pago.id} className="rounded-[8px] border border-neutral-200 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>

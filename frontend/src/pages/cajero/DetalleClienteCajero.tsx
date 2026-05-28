@@ -1,49 +1,22 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  IconAlertCircle,
-  IconBuildingBank,
-  IconCash,
-  IconChevronRight,
-  IconId,
-  IconPrinter,
-  IconPhone,
-  IconReceiptOff,
-  IconUser,
-} from "@tabler/icons-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { IconAlertCircle, IconChevronRight, IconId, IconPhone, IconPrinter, IconUser } from "@tabler/icons-react";
 import { CajeroRegistrarPagoBar } from "../../components/cajero/CajeroRegistrarPagoBar";
 import { CajeroShell } from "../../components/cajero/CajeroShell";
 import { ModalDetallePagos } from "../../components/cajero/ModalDetallePagos";
 import { ModalPago } from "../../components/cajero/ModalPago";
-import {
-  ClienteDetalleHeader,
-  ClienteMetaRow,
-} from "../../components/cajero/cliente/ClienteDetalleHeader";
-import {
-  ClienteDetalleTabs,
-  type ClienteDetalleTab,
-} from "../../components/cajero/cliente/ClienteDetalleTabs";
-import { FacturasGuiasView } from "../../components/cajero/cliente/FacturasGuiasView";
-import { apiClient, type CajeroFactura, type TipoPago } from "../../services/api";
-
-function parseTab(value: string | null): ClienteDetalleTab {
-  if (value === "estado-cuenta") {
-    return "estado-cuenta";
-  }
-
-  return "facturas-guias";
-}
+import { ClienteDetalleHeader, ClienteMetaRow } from "../../components/cajero/cliente/ClienteDetalleHeader";
+import { GuiasClienteView } from "../../components/cajero/cliente/GuiasClienteView";
+import { apiClient, type CajeroGuiaCobro, type TipoPago } from "../../services/api";
 
 export function DetalleClienteCajero() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
   const clienteId = Number(id);
-  const activeTab = parseTab(searchParams.get("tab"));
-  const [modalPago, setModalPago] = useState<{ factura: CajeroFactura; tipo: TipoPago } | null>(null);
-  const [facturaPagos, setFacturaPagos] = useState<CajeroFactura | null>(null);
+  const [modalPago, setModalPago] = useState<{ guia: CajeroGuiaCobro; tipo: TipoPago } | null>(null);
+  const [guiaPagos, setGuiaPagos] = useState<CajeroGuiaCobro | null>(null);
 
   const detalleQuery = useQuery({
     queryKey: ["cajero-detalle-cliente", clienteId],
@@ -52,30 +25,22 @@ export function DetalleClienteCajero() {
     staleTime: 30000,
   });
 
-  const primeraFacturaPendiente = useMemo(
-    () => detalleQuery.data?.facturas.find((factura) => factura.saldo_pendiente > 0),
-    [detalleQuery.data?.facturas],
+  const primeraGuiaPendiente = useMemo(
+    () => detalleQuery.data?.guias.find((guia) => guia.saldo_pendiente > 0),
+    [detalleQuery.data?.guias],
   );
   const cliente = detalleQuery.data?.cliente;
   const resumen = detalleQuery.data?.resumen;
-  const facturas = detalleQuery.data?.facturas ?? [];
+  const guias = detalleQuery.data?.guias ?? [];
 
-  function setActiveTab(tab: ClienteDetalleTab) {
-    setSearchParams(tab === "facturas-guias" ? {} : { tab }, { replace: true });
-  }
-
-  function openPago(tipo: TipoPago, factura?: CajeroFactura) {
-    const target = factura ?? primeraFacturaPendiente;
+  function openPago(tipo: TipoPago, guia?: CajeroGuiaCobro) {
+    const target = guia ?? primeraGuiaPendiente;
 
     if (!target) {
       return;
     }
 
-    setModalPago({ factura: target, tipo });
-  }
-
-  function puedePagarFactura(factura: CajeroFactura) {
-    return factura.estado !== "pagado" && factura.estado !== "anulado" && factura.saldo_pendiente > 0;
+    setModalPago({ guia: target, tipo });
   }
 
   return (
@@ -116,119 +81,27 @@ export function DetalleClienteCajero() {
               {cliente.telefono ? <MetaItem icon={<IconPhone size={17} />} text={cliente.telefono} /> : null}
             </ClienteMetaRow>
 
-            <ClienteDetalleTabs active={activeTab} onChange={setActiveTab} />
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+              <CajeroRegistrarPagoBar guiaPendiente={primeraGuiaPendiente} onRegistrar={openPago} />
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#E5E5E5] bg-white px-5 text-[14px] font-bold text-neutral-600 transition hover:bg-neutral-50"
+              >
+                <IconPrinter size={18} />
+                Imprimir estado de cuenta
+              </button>
+            </div>
 
-            <CajeroRegistrarPagoBar
-              facturaPendiente={primeraFacturaPendiente}
-              onRegistrar={openPago}
+            <GuiasClienteView
+              clienteId={cliente.id}
+              totalGuias={resumen.total_guias}
+              pagado={resumen.total_pagado}
+              saldoPendiente={resumen.saldo_pendiente}
+              guias={guias}
+              onPagarGuia={(guia, tipo) => openPago(tipo, guia)}
+              onVerPagos={setGuiaPagos}
             />
-
-            {activeTab === "facturas-guias" ? (
-              <FacturasGuiasView
-                clienteId={cliente.id}
-                facturado={resumen.total_facturado}
-                pagado={resumen.total_pagado}
-                saldoPendiente={resumen.saldo_pendiente}
-                facturas={facturas}
-                onPagarFactura={(factura, tipo) => openPago(tipo, factura)}
-                puedePagarFactura={puedePagarFactura}
-              />
-            ) : (
-              <>
-                <section className="mb-6 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#E5E5E5] bg-white px-5 text-[14px] font-bold text-neutral-600 transition hover:bg-neutral-50"
-                  >
-                    <IconPrinter size={18} />
-                    Imprimir estado de cuenta
-                  </button>
-                </section>
-
-                <section>
-                  <h3 className="mb-4 text-[18px] font-medium text-neutral-950">Facturas</h3>
-
-                  {facturas.length === 0 ? (
-                    <EmptyFacturas />
-                  ) : (
-                    <div className="overflow-hidden rounded-[12px] border border-neutral-200 bg-white">
-                      <div className="overflow-x-auto">
-                        <table className="w-full min-w-[820px] border-collapse">
-                          <thead className="bg-[#F9F9F9]">
-                            <tr className="border-b border-neutral-200">
-                              <Th>Fecha jornada</Th>
-                              <Th>Documento</Th>
-                              <Th align="right">Monto total</Th>
-                              <Th align="right">Pagado</Th>
-                              <Th align="right">Saldo</Th>
-                              <Th align="center">Estado</Th>
-                              <Th align="center">Acción</Th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {facturas.map((factura) => (
-                              <tr
-                                key={factura.id}
-                                className="border-b border-neutral-100 transition last:border-b-0 hover:bg-neutral-50"
-                              >
-                                <Td>{formatDate(factura.jornada_fecha || factura.fecha_emision)}</Td>
-                                <Td>
-                                  <p className="text-[14px] font-bold text-neutral-900">{factura.codigo}</p>
-                                  <p className="mt-1 text-[11px] font-medium text-neutral-400">
-                                    Jornada {factura.jornada_codigo}
-                                  </p>
-                                </Td>
-                                <Td align="right" strong>
-                                  {formatCurrency(factura.monto_total)}
-                                </Td>
-                                <Td
-                                  align="right"
-                                  className={factura.monto_pagado > 0 ? "text-coronados-green" : "text-neutral-500"}
-                                >
-                                  {formatCurrency(factura.monto_pagado)}
-                                </Td>
-                                <Td
-                                  align="right"
-                                  strong
-                                  className={
-                                    factura.saldo_pendiente > 0 ? "text-coronados-orange" : "text-coronados-green"
-                                  }
-                                >
-                                  {formatCurrency(factura.saldo_pendiente)}
-                                </Td>
-                                <Td align="center">
-                                  <EstadoBadge estado={factura.estado} />
-                                </Td>
-                                <Td align="center">
-                                  {factura.estado !== "pagado" && factura.estado !== "anulado" ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => openPago("efectivo", factura)}
-                                      className="rounded-[6px] bg-coronados-green px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-green-700"
-                                    >
-                                      {factura.estado === "pago_parcial" ? "Pagar saldo" : "Pagar"}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => setFacturaPagos(factura)}
-                                      className="rounded-[6px] bg-neutral-100 px-3 py-1.5 text-[12px] font-bold text-neutral-600 transition hover:bg-neutral-200"
-                                    >
-                                      Ver pago
-                                    </button>
-                                  )}
-                                </Td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
           </>
         )}
       </div>
@@ -236,16 +109,14 @@ export function DetalleClienteCajero() {
       {modalPago && cliente ? (
         <ModalPago
           cliente={cliente}
-          factura={modalPago.factura}
+          guia={modalPago.guia}
           onClose={() => setModalPago(null)}
           onSuccess={() => setModalPago(null)}
           tabInicial={modalPago.tipo}
         />
       ) : null}
 
-      {facturaPagos ? (
-        <ModalDetallePagos factura={facturaPagos} onClose={() => setFacturaPagos(null)} />
-      ) : null}
+      {guiaPagos ? <ModalDetallePagos guia={guiaPagos} onClose={() => setGuiaPagos(null)} /> : null}
     </CajeroShell>
   );
 }
@@ -256,63 +127,6 @@ function MetaItem({ icon, text }: { icon: ReactNode; text: string }) {
       {icon}
       {text}
     </span>
-  );
-}
-
-function EstadoBadge({ estado }: { estado: CajeroFactura["estado"] }) {
-  const styles = {
-    anulado: "bg-neutral-100 text-neutral-500",
-    pagado: "bg-[#EAF3DE] text-[#3B6D11]",
-    pago_parcial: "bg-[#FFE5CC] text-[#C45500]",
-    pendiente: "bg-[#FFF9E6] text-[#92400E]",
-  };
-  const labels = {
-    anulado: "Anulado",
-    pagado: "Pagado",
-    pago_parcial: "Pago parcial",
-    pendiente: "Pendiente",
-  };
-
-  return (
-    <span className={`inline-flex rounded-full px-[10px] py-1 text-[11px] font-bold ${styles[estado]}`}>
-      {labels[estado]}
-    </span>
-  );
-}
-
-function Th({
-  align = "left",
-  children,
-}: {
-  align?: "left" | "center" | "right";
-  children: ReactNode;
-}) {
-  const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
-
-  return (
-    <th className={`px-4 py-3 ${alignClass} text-[11px] font-bold uppercase tracking-[0.04em] text-neutral-500`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  align = "left",
-  children,
-  className = "",
-  strong = false,
-}: {
-  align?: "left" | "center" | "right";
-  children: ReactNode;
-  className?: string;
-  strong?: boolean;
-}) {
-  const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
-
-  return (
-    <td className={`px-4 py-3 ${alignClass} text-[13px] ${strong ? "font-bold" : "font-medium"} ${className}`}>
-      {children}
-    </td>
   );
 }
 
@@ -327,16 +141,6 @@ function DetalleSkeleton() {
         ))}
       </div>
       <div className="h-[280px] animate-pulse rounded-[12px] bg-neutral-100" />
-    </div>
-  );
-}
-
-function EmptyFacturas() {
-  return (
-    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-[12px] border border-dashed border-neutral-200 bg-white p-8 text-center">
-      <IconReceiptOff size={52} className="text-neutral-300" />
-      <p className="mt-4 text-[16px] font-bold text-neutral-900">No hay facturas registradas</p>
-      <p className="mt-1 text-[13px] font-medium text-neutral-500">Este cliente no tiene documentos de pago.</p>
     </div>
   );
 }
@@ -374,10 +178,7 @@ function ErrorState({
   );
 }
 
-function formatDocumento(cliente: {
-  documento_tipo: string | null;
-  documento_num: string | null;
-}) {
+function formatDocumento(cliente: { documento_tipo: string | null; documento_num: string | null }) {
   if (!cliente.documento_tipo && !cliente.documento_num) {
     return "Sin documento";
   }
@@ -387,20 +188,4 @@ function formatDocumento(cliente: {
   }
 
   return `${cliente.documento_tipo ?? "Doc."}: ${cliente.documento_num}`;
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-PE", {
-    currency: "PEN",
-    minimumFractionDigits: 2,
-    style: "currency",
-  }).format(value);
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("es-PE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 }

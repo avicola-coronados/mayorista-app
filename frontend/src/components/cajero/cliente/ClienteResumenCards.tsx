@@ -1,15 +1,15 @@
 export function ClienteResumenCards({
-  facturado,
+  totalGuias,
   pagado,
   saldoPendiente,
 }: {
-  facturado: number;
+  totalGuias: number;
   pagado: number;
   saldoPendiente: number;
 }) {
   return (
     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <MetricCard label="Total facturado" value={formatCurrency(facturado)} />
+      <MetricCard label="Total guías" value={formatCurrency(totalGuias)} />
       <MetricCard label="Total pagado" value={formatCurrency(pagado)} tone="green" />
       <MetricCard label="Saldo pendiente" value={formatCurrency(saldoPendiente)} tone="orange" />
     </div>

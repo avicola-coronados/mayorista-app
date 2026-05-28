@@ -245,6 +245,7 @@ model GuiaEntrega {
   operador           Usuario     @relation("GuiaCreadaPor", fields: [creado_por], references: [id])
   cerrador           Usuario?    @relation("GuiaCerradaPor", fields: [cerrada_por], references: [id], onDelete: SetNull)
   lineas             LineaGuia[]
+  pagos              Pago[]
 
   @@index([jornada_id, cliente_id])
   @@index([cliente_id, fecha_emision])
@@ -340,7 +341,8 @@ model Factura {
 
 model Pago {
   id               Int        @id @default(autoincrement())
-  factura_id       Int
+  factura_id       Int?
+  guia_id          Int?
   cliente_id       Int
   monto            Decimal    @db.Decimal(10, 2)
   tipo             TipoPago
@@ -356,12 +358,14 @@ model Pago {
   registrado_por   Int
   created_at       DateTime   @default(now())
   updated_at       DateTime   @updatedAt
-  factura          Factura   @relation(fields: [factura_id], references: [id])
+  factura          Factura?   @relation(fields: [factura_id], references: [id])
+  guia             GuiaEntrega? @relation(fields: [guia_id], references: [id])
   cliente          Cliente    @relation(fields: [cliente_id], references: [id])
   cajero           Usuario    @relation("PagoRegistradoPor", fields: [registrado_por], references: [id])
   validador        Usuario?   @relation("PagoValidadoPor", fields: [validado_por], references: [id], onDelete: SetNull)
 
   @@index([factura_id])
+  @@index([guia_id])
   @@index([cliente_id])
   @@index([estado])
   @@index([registrado_por])

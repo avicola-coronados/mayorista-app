@@ -29,9 +29,9 @@ export function DetalleGuiaCajero() {
   const isAbierta = guia?.estado === "abierta";
   const backUrl =
     guia?.cliente.id != null
-      ? `/cajero/clientes/${guia.cliente.id}?tab=facturas-guias`
+      ? `/cajero/clientes/${guia.cliente.id}`
       : clienteId > 0
-        ? `/cajero/clientes/${clienteId}?tab=facturas-guias`
+        ? `/cajero/clientes/${clienteId}`
         : "/cajero/clientes";
 
   return (

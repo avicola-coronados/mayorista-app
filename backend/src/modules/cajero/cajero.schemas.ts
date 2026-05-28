@@ -15,7 +15,7 @@ const horaSchema = z.string().regex(/^\d{2}:\d{2}$/, "Hora de depósito inválid
 
 export const registrarPagoSchema = z
   .object({
-    factura_id: z.coerce.number().int().positive("Factura inválida"),
+    guia_id: z.coerce.number().int().positive("Guía inválida"),
     cliente_id: z.coerce.number().int().positive("Cliente inválido"),
     monto: z.coerce.number().positive("El monto debe ser mayor a 0"),
     tipo: z.enum(["efectivo", "deposito"]),

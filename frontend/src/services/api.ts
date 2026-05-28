@@ -373,10 +373,10 @@ export type CajeroCliente = {
   contacto: string | null;
   telefono: string | null;
   saldo_pendiente: number;
-  monto_total_facturado: number;
+  monto_total_guias: number;
   monto_total_pagado: number;
   ultimo_pago: string | null;
-  num_facturas_pendientes: number;
+  num_guias_pendientes: number;
 };
 
 export type CajeroClientesStats = {
@@ -400,11 +400,11 @@ export type CajeroClientesResponse = {
   clientes: CajeroCliente[];
 };
 
-export type EstadoFactura = "pendiente" | "pago_parcial" | "pagado" | "anulado";
+export type EstadoCobroGuia = "pendiente" | "pago_parcial" | "pagado" | "anulado";
 export type TipoPago = "efectivo" | "deposito";
 export type EstadoPago = "pendiente" | "confirmado" | "rechazado";
 
-export type CajeroPagoFactura = {
+export type CajeroPagoGuia = {
   id: number;
   monto: number;
   tipo: TipoPago;
@@ -413,18 +413,19 @@ export type CajeroPagoFactura = {
   estado: EstadoPago;
 };
 
-export type CajeroFactura = {
+export type CajeroGuiaCobro = {
   id: number;
-  codigo: string;
+  numero: string;
   jornada_id: number;
   jornada_codigo: string;
   jornada_fecha: string;
   fecha_emision: string;
+  estado_guia: "abierta" | "cerrada";
   monto_total: number;
   monto_pagado: number;
   saldo_pendiente: number;
-  estado: EstadoFactura;
-  pagos: CajeroPagoFactura[];
+  estado_cobro: EstadoCobroGuia;
+  pagos: CajeroPagoGuia[];
 };
 
 export type CajeroDetalleClienteResponse = {
@@ -435,11 +436,11 @@ export type CajeroDetalleClienteResponse = {
     email: string | null;
   };
   resumen: {
-    total_facturado: number;
+    total_guias: number;
     total_pagado: number;
     saldo_pendiente: number;
   };
-  facturas: CajeroFactura[];
+  guias: CajeroGuiaCobro[];
 };
 
 export type CajeroGuiaEstado = "abierta" | "cerrada";
@@ -466,7 +467,7 @@ export type CajeroClienteGuiasResponse = {
   };
   guias: CajeroGuiaListItem[];
   totales: {
-    facturado: number;
+    total_guias: number;
     pagado: number;
     saldoPendiente: number;
   };
@@ -581,7 +582,7 @@ export type LineaGuiaPayload = {
 };
 
 export type CajeroRegistrarPagoPayload = {
-  factura_id: number;
+  guia_id: number;
   cliente_id: number;
   monto: number;
   tipo: TipoPago;

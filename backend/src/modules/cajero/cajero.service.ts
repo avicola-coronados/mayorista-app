@@ -47,6 +47,30 @@ function getMonthRange(mes?: string) {
   return { end, start };
 }
 
+function calcularResumenCobroGuia(params: {
+  totalGeneral: number;
+  estadoGuia: GuiaEstado;
+  pagosConfirmados: number;
+}) {
+  if (params.estadoGuia === GuiaEstado.anulada) {
+    return {
+      estado: "anulado" as const,
+      monto_pagado: 0,
+      saldo_pendiente: 0,
+    };
+  }
+
+  const montoPagado = Number(params.pagosConfirmados.toFixed(2));
+  const saldoPendiente = Number(Math.max(0, params.totalGeneral - montoPagado).toFixed(2));
+  const estado = saldoPendiente === 0 ? "pagado" : montoPagado > 0 ? "pago_parcial" : "pendiente";
+
+  return {
+    estado,
+    monto_pagado: montoPagado,
+    saldo_pendiente: saldoPendiente,
+  };
+}
+
 export async function getClientesCajero(query: CajeroClientesQuery) {
   const where: Prisma.ClienteWhereInput = {
     activo: true,
@@ -62,19 +86,21 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
       : {}),
   };
 
-  const [clientes, pagosHoy, guiasPendientesPorCliente] = await Promise.all([
+  const [clientes, pagosHoy] = await Promise.all([
     prisma.cliente.findMany({
       where,
       include: {
-        facturas: {
+        guias: {
           select: {
-            monto_total: true,
-            monto_pagado: true,
-            saldo_pendiente: true,
+            total_general: true,
             estado: true,
+            pagos: {
+              where: { estado: "confirmado" },
+              select: { monto: true },
+            },
           },
           where: {
-            estado: { not: "anulado" },
+            estado: { not: GuiaEstado.anulada },
           },
         },
         pagos: {
@@ -98,39 +124,22 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
       _sum: { monto: true },
       _count: { _all: true },
     }),
-    prisma.guiaEntrega.groupBy({
-      by: ["cliente_id"],
-      where: {
-        estado: GuiaEstado.borrador,
-      },
-      _sum: {
-        total_general: true,
-      },
-    }),
   ]);
 
-  const guiasPendientesMap = new Map(
-    guiasPendientesPorCliente.map((item) => [item.cliente_id, toNumber(item._sum.total_general)]),
-  );
-
   const clientesConSaldos = clientes.map((cliente) => {
-    const saldoPendienteFacturas = cliente.facturas.reduce(
-      (sum, factura) => sum + toNumber(factura.saldo_pendiente),
-      0,
-    );
-    const saldoPendienteGuias = guiasPendientesMap.get(cliente.id) ?? 0;
-    const saldoPendiente = saldoPendienteFacturas + saldoPendienteGuias;
-    const montoTotalFacturado = cliente.facturas.reduce(
-      (sum, factura) => sum + toNumber(factura.monto_total),
-      0,
-    );
-    const montoTotalPagado = cliente.facturas.reduce(
-      (sum, factura) => sum + toNumber(factura.monto_pagado),
-      0,
-    );
-    const numFacturasPendientes = cliente.facturas.filter(
-      (factura) => factura.estado !== "pagado",
-    ).length;
+    const resumenGuias = cliente.guias.map((guia) => {
+      const totalGeneral = toNumber(guia.total_general);
+      const pagosConfirmados = guia.pagos.reduce((sum, pago) => sum + toNumber(pago.monto), 0);
+      return calcularResumenCobroGuia({
+        totalGeneral,
+        estadoGuia: guia.estado,
+        pagosConfirmados,
+      });
+    });
+    const saldoPendiente = resumenGuias.reduce((sum, guia) => sum + guia.saldo_pendiente, 0);
+    const montoTotalGuias = cliente.guias.reduce((sum, guia) => sum + toNumber(guia.total_general), 0);
+    const montoTotalPagado = resumenGuias.reduce((sum, guia) => sum + guia.monto_pagado, 0);
+    const numGuiasPendientes = resumenGuias.filter((guia) => guia.estado !== "pagado").length;
 
     return {
       id: cliente.id,
@@ -141,10 +150,10 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
       contacto: cliente.contacto,
       telefono: cliente.telefono,
       saldo_pendiente: Number(saldoPendiente.toFixed(2)),
-      monto_total_facturado: Number(montoTotalFacturado.toFixed(2)),
+      monto_total_guias: Number(montoTotalGuias.toFixed(2)),
       monto_total_pagado: Number(montoTotalPagado.toFixed(2)),
       ultimo_pago: cliente.pagos[0]?.created_at ?? null,
-      num_facturas_pendientes: numFacturasPendientes,
+      num_guias_pendientes: numGuiasPendientes,
     };
   });
 
@@ -169,69 +178,65 @@ export async function getClientesCajero(query: CajeroClientesQuery) {
 }
 
 export async function getDetalleClienteCajero(id: number) {
-  const [cliente, guiasPendientesAggregate] = await Promise.all([
-    prisma.cliente.findFirst({
-      where: {
-        id,
-        activo: true,
-      },
-      include: {
-        facturas: {
-          include: {
-            jornada: {
-              select: {
-                id: true,
-                codigo: true,
-                fecha: true,
-              },
-            },
-            pagos: {
-              orderBy: { created_at: "desc" },
-              select: {
-                id: true,
-                monto: true,
-                tipo: true,
-                metodo: true,
-                created_at: true,
-                estado: true,
-              },
+  const cliente = await prisma.cliente.findFirst({
+    where: {
+      id,
+      activo: true,
+    },
+    include: {
+      guias: {
+        where: {
+          estado: { not: GuiaEstado.anulada },
+        },
+        include: {
+          jornada: {
+            select: {
+              id: true,
+              codigo: true,
+              fecha: true,
             },
           },
-          orderBy: {
-            fecha_emision: "desc",
+          pagos: {
+            orderBy: { created_at: "desc" },
+            select: {
+              id: true,
+              monto: true,
+              tipo: true,
+              metodo: true,
+              created_at: true,
+              estado: true,
+            },
           },
         },
+        orderBy: {
+          fecha_emision: "desc",
+        },
       },
-    }),
-    prisma.guiaEntrega.aggregate({
-      where: {
-        cliente_id: id,
-        estado: GuiaEstado.borrador,
-      },
-      _sum: {
-        total_general: true,
-      },
-    }),
-  ]);
+    },
+  });
 
   if (!cliente) {
     return null;
   }
 
-  const totalFacturado = cliente.facturas.reduce(
-    (sum, factura) => sum + toNumber(factura.monto_total),
+  const totalGuias = cliente.guias.reduce((sum, guia) => sum + toNumber(guia.total_general), 0);
+  const resumenGuias = cliente.guias.map((guia) => {
+    const totalGeneral = toNumber(guia.total_general);
+    const pagosConfirmados = guia.pagos
+      .filter((pago) => pago.estado === "confirmado")
+      .reduce((sum, pago) => sum + toNumber(pago.monto), 0);
+
+    return calcularResumenCobroGuia({
+      totalGeneral,
+      estadoGuia: guia.estado,
+      pagosConfirmados,
+    });
+  });
+  const totalPagado = resumenGuias.reduce(
+    (sum, guia) => sum + guia.monto_pagado,
     0,
   );
-  const totalPagado = cliente.facturas.reduce(
-    (sum, factura) => sum + toNumber(factura.monto_pagado),
-    0,
-  );
-  const saldoPendienteFacturas = cliente.facturas.reduce(
-    (sum, factura) => sum + toNumber(factura.saldo_pendiente),
-    0,
-  );
-  const saldoPendienteGuias = toNumber(guiasPendientesAggregate._sum.total_general);
-  const saldoPendiente = saldoPendienteFacturas + saldoPendienteGuias;
+  const saldoPendiente = resumenGuias.reduce((sum, guia) => sum + guia.saldo_pendiente, 0);
 
   return {
     cliente: {
@@ -245,22 +250,34 @@ export async function getDetalleClienteCajero(id: number) {
       email: cliente.email,
     },
     resumen: {
-      total_facturado: Number(totalFacturado.toFixed(2)),
+      total_guias: Number(totalGuias.toFixed(2)),
       total_pagado: Number(totalPagado.toFixed(2)),
       saldo_pendiente: Number(saldoPendiente.toFixed(2)),
     },
-    facturas: cliente.facturas.map((factura) => ({
-      id: factura.id,
-      codigo: factura.codigo,
-      jornada_id: factura.jornada_id,
-      jornada_codigo: factura.jornada.codigo,
-      jornada_fecha: factura.jornada.fecha,
-      fecha_emision: factura.fecha_emision,
-      monto_total: toNumber(factura.monto_total),
-      monto_pagado: toNumber(factura.monto_pagado),
-      saldo_pendiente: toNumber(factura.saldo_pendiente),
-      estado: factura.estado,
-      pagos: factura.pagos.map((pago) => ({
+    guias: cliente.guias.map((guia) => {
+      const totalGeneral = toNumber(guia.total_general);
+      const pagosConfirmados = guia.pagos
+        .filter((pago) => pago.estado === "confirmado")
+        .reduce((sum, pago) => sum + toNumber(pago.monto), 0);
+      const resumenCobro = calcularResumenCobroGuia({
+        totalGeneral,
+        estadoGuia: guia.estado,
+        pagosConfirmados,
+      });
+
+      return {
+        id: guia.id,
+        numero: guia.numero,
+        jornada_id: guia.jornada_id,
+        jornada_codigo: guia.jornada.codigo,
+        jornada_fecha: guia.jornada.fecha,
+        fecha_emision: guia.fecha_emision,
+        estado_guia: guia.estado === GuiaEstado.borrador ? "abierta" : "cerrada",
+        monto_total: totalGeneral,
+        monto_pagado: resumenCobro.monto_pagado,
+        saldo_pendiente: resumenCobro.saldo_pendiente,
+        estado_cobro: resumenCobro.estado,
+        pagos: guia.pagos.map((pago) => ({
         id: pago.id,
         monto: toNumber(pago.monto),
         tipo: pago.tipo,
@@ -268,7 +285,8 @@ export async function getDetalleClienteCajero(id: number) {
         fecha: pago.created_at,
         estado: pago.estado,
       })),
-    })),
+      };
+    }),
   };
 }
 
@@ -285,27 +303,43 @@ export async function registrarPagoCajero(input: RegistrarPagoInput, cajeroId: n
   }
 
   return prisma.$transaction(async (transaction) => {
-    const factura = await transaction.factura.findUnique({
-      where: { id: input.factura_id },
+    const guia = await transaction.guiaEntrega.findUnique({
+      where: { id: input.guia_id },
+      include: {
+        pagos: {
+          where: {
+            estado: "confirmado",
+          },
+          select: {
+            monto: true,
+          },
+        },
+      },
     });
 
-    if (!factura) {
-      throw new AppError("Factura no encontrada", 404);
+    if (!guia) {
+      throw new AppError("Guía no encontrada", 404);
     }
 
-    if (factura.cliente_id !== input.cliente_id) {
-      throw new AppError("La factura no pertenece al cliente seleccionado", 400);
+    if (guia.cliente_id !== input.cliente_id) {
+      throw new AppError("La guía no pertenece al cliente seleccionado", 400);
     }
 
-    if (factura.estado === "anulado") {
-      throw new AppError("No se puede registrar pagos en una factura anulada", 400);
+    if (guia.estado === GuiaEstado.anulada) {
+      throw new AppError("No se puede registrar pagos en una guía anulada", 400);
     }
 
-    const saldoPendiente = toNumber(factura.saldo_pendiente);
+    const pagosConfirmados = guia.pagos.reduce((sum, pago) => sum + toNumber(pago.monto), 0);
+    const resumenCobro = calcularResumenCobroGuia({
+      totalGeneral: toNumber(guia.total_general),
+      estadoGuia: guia.estado,
+      pagosConfirmados,
+    });
+    const saldoPendiente = resumenCobro.saldo_pendiente;
     const monto = Number(input.monto.toFixed(2));
 
     if (saldoPendiente <= 0) {
-      throw new AppError("La factura no tiene saldo pendiente", 400);
+      throw new AppError("La guía no tiene saldo pendiente", 400);
     }
 
     if (monto > saldoPendiente) {
@@ -315,7 +349,8 @@ export async function registrarPagoCajero(input: RegistrarPagoInput, cajeroId: n
     const estado = input.tipo === "efectivo" ? "confirmado" : "pendiente";
     const pago = await transaction.pago.create({
       data: {
-        factura_id: input.factura_id,
+        guia_id: input.guia_id,
+        factura_id: null,
         cliente_id: input.cliente_id,
         monto,
         tipo: input.tipo,
@@ -329,21 +364,6 @@ export async function registrarPagoCajero(input: RegistrarPagoInput, cajeroId: n
         registrado_por: cajeroId,
       },
     });
-
-    if (estado === "confirmado") {
-      const montoPagado = Number((toNumber(factura.monto_pagado) + monto).toFixed(2));
-      const nuevoSaldo = Number(Math.max(0, toNumber(factura.monto_total) - montoPagado).toFixed(2));
-      const nuevoEstado = nuevoSaldo === 0 ? "pagado" : "pago_parcial";
-
-      await transaction.factura.update({
-        where: { id: factura.id },
-        data: {
-          monto_pagado: montoPagado,
-          saldo_pendiente: nuevoSaldo,
-          estado: nuevoEstado,
-        },
-      });
-    }
 
     return {
       mensaje:

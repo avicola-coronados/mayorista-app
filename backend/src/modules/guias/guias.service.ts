@@ -36,16 +36,29 @@ async function generarNumeroGuia() {
   return `${prefix}-${String(count + 1).padStart(3, "0")}`;
 }
 
-async function getSaldoAnteriorCliente(clienteId: number) {
-  const facturas = await prisma.factura.findMany({
+async function calcularSaldoPendienteClienteGuias(clienteId: number) {
+  const guias = await prisma.guiaEntrega.findMany({
     where: {
       cliente_id: clienteId,
-      estado: { not: "anulado" },
+      estado: { not: GuiaEstado.anulada },
     },
-    select: { saldo_pendiente: true },
+    include: {
+      pagos: {
+        where: { estado: "confirmado" },
+        select: { monto: true },
+      },
+    },
   });
 
-  return facturas.reduce((sum, factura) => sum + Number(factura.saldo_pendiente), 0);
+  return guias.reduce((sum, guia) => {
+    const total = Number(guia.total_general);
+    const pagado = guia.pagos.reduce((acc, pago) => acc + Number(pago.monto), 0);
+    return sum + Math.max(0, total - pagado);
+  }, 0);
+}
+
+async function getSaldoAnteriorCliente(clienteId: number) {
+  return calcularSaldoPendienteClienteGuias(clienteId);
 }
 
 async function getJornadaActivaOrThrow(jornadaId?: number) {
@@ -484,22 +497,30 @@ function roundMoney(value: number) {
 }
 
 async function getClienteTotalesCajero(clienteId: number) {
-  const facturas = await prisma.factura.findMany({
+  const guias = await prisma.guiaEntrega.findMany({
     where: {
       cliente_id: clienteId,
-      estado: { not: "anulado" },
+      estado: { not: GuiaEstado.anulada },
     },
-    select: {
-      monto_total: true,
-      monto_pagado: true,
-      saldo_pendiente: true,
+    include: {
+      pagos: {
+        where: { estado: "confirmado" },
+        select: { monto: true },
+      },
     },
   });
 
+  const resumenGuias = guias.map((guia) => {
+    const total = Number(guia.total_general);
+    const pagado = guia.pagos.reduce((sum, pago) => sum + Number(pago.monto), 0);
+    const pendiente = guia.estado === GuiaEstado.anulada ? 0 : Math.max(0, total - pagado);
+    return { total, pagado, pendiente };
+  });
+
   return {
-    facturado: facturas.reduce((sum, item) => sum + Number(item.monto_total), 0),
-    pagado: facturas.reduce((sum, item) => sum + Number(item.monto_pagado), 0),
-    saldoPendiente: facturas.reduce((sum, item) => sum + Number(item.saldo_pendiente), 0),
+    total_guias: resumenGuias.reduce((sum, item) => sum + item.total, 0),
+    pagado: resumenGuias.reduce((sum, item) => sum + item.pagado, 0),
+    saldoPendiente: resumenGuias.reduce((sum, item) => sum + item.pendiente, 0),
   };
 }
 
@@ -664,23 +685,28 @@ export async function getClientesConSaldo(buscar?: string) {
     where,
     orderBy: { nombre: "asc" },
     include: {
-      facturas: {
-        where: { estado: { not: "anulado" } },
-        select: { saldo_pendiente: true },
-      },
       guias: {
-        where: { estado: GuiaEstado.borrador },
-        select: { id: true },
+        where: { estado: { not: GuiaEstado.anulada } },
+        select: { id: true, estado: true },
       },
     },
   });
 
-  return clientes.map((cliente) => ({
-    id: cliente.id,
-    nombre: cliente.nombre,
-    codigo: cliente.codigo,
-    tipo: cliente.tipo,
-    saldo_pendiente: cliente.facturas.reduce((sum, f) => sum + Number(f.saldo_pendiente), 0),
-    guias_abiertas: cliente.guias.length,
-  }));
+  const clientesConSaldo = await Promise.all(
+    clientes.map(async (cliente) => {
+      const saldoPendiente = await calcularSaldoPendienteClienteGuias(cliente.id);
+      const guiasAbiertas = cliente.guias.filter((guia) => guia.estado === GuiaEstado.borrador).length;
+
+      return {
+        id: cliente.id,
+        nombre: cliente.nombre,
+        codigo: cliente.codigo,
+        tipo: cliente.tipo,
+        saldo_pendiente: Number(saldoPendiente.toFixed(2)),
+        guias_abiertas: guiasAbiertas,
+      };
+    }),
+  );
+
+  return clientesConSaldo;
 }

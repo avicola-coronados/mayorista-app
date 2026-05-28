@@ -19,15 +19,24 @@ async function generarNumeroGuia() {
 }
 
 async function getSaldoAnteriorCliente(clienteId: number) {
-  const facturas = await prisma.factura.findMany({
+  const guias = await prisma.guiaEntrega.findMany({
     where: {
       cliente_id: clienteId,
-      estado: { not: "anulado" },
+      estado: { not: GuiaEstado.anulada },
     },
-    select: { saldo_pendiente: true },
+    include: {
+      pagos: {
+        where: { estado: "confirmado" },
+        select: { monto: true },
+      },
+    },
   });
 
-  return facturas.reduce((sum, factura) => sum + Number(factura.saldo_pendiente), 0);
+  return guias.reduce((sum, guia) => {
+    const total = Number(guia.total_general);
+    const pagado = guia.pagos.reduce((acc, pago) => acc + Number(pago.monto), 0);
+    return sum + Math.max(0, total - pagado);
+  }, 0);
 }
 
 async function findOrCreateGuiaBorrador(params: {
