@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Layout } from "../components/Layout";
+import {
+  calcularEntradaDiaMostrada,
+  calcularPisoJornada,
+  calcularPorcentajeMerma,
+  calcularVendidoNeto,
+} from "../lib/jornadaMetricas";
 import { apiClient } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -35,30 +41,36 @@ export function CierreJornada() {
   const desperdicioKg = Number(desperdicio) || 0;
   const muerteroKg = Number(muertero) || 0;
 
-  const vendidoNetoKg = Number((metricas?.vendido_total_kg ?? 0) - (metricas?.devoluciones_total_kg ?? 0));
+  const entradaRegistradaKg = metricas?.entrada_registrada_kg ?? 0;
+  const entradaDiaKg = metricas
+    ? calcularEntradaDiaMostrada(
+        entradaRegistradaKg,
+        metricas.vendido_total_kg,
+        metricas.devoluciones_total_kg,
+      )
+    : 0;
+  const vendidoNetoKg = metricas
+    ? (metricas.vendido_neto_kg ??
+      calcularVendidoNeto(metricas.vendido_total_kg, metricas.devoluciones_total_kg))
+    : 0;
 
   const merma = useMemo(() => {
     if (!metricas) {
       return 0;
     }
 
-    return Number(
-      (
-        metricas.entrada_total_kg -
-        vendidoNetoKg -
-        desperdicioKg -
-        muerteroKg
-      ).toFixed(2),
-    );
-  }, [desperdicioKg, metricas, muerteroKg, vendidoNetoKg]);
+    return calcularPisoJornada({
+      entradaRegistradaKg,
+      vendidoBrutoKg: metricas.vendido_total_kg,
+      devolucionesKg: metricas.devoluciones_total_kg,
+      desperdicioKg,
+      muerteroKg,
+    });
+  }, [desperdicioKg, entradaRegistradaKg, metricas, muerteroKg]);
 
   const mermaPorcentaje = useMemo(() => {
-    if (!metricas?.entrada_total_kg) {
-      return 0;
-    }
-
-    return Number(((merma / metricas.entrada_total_kg) * 100).toFixed(2));
-  }, [merma, metricas?.entrada_total_kg]);
+    return calcularPorcentajeMerma(merma, entradaDiaKg);
+  }, [entradaDiaKg, merma]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -120,7 +132,7 @@ export function CierreJornada() {
       return;
     }
 
-    if (desperdicioKg + muerteroKg > metricas.entrada_total_kg) {
+    if (desperdicioKg + muerteroKg > entradaDiaKg) {
       toast.error("Desperdicio y muertero no pueden exceder la entrada total");
       return;
     }
@@ -148,13 +160,18 @@ export function CierreJornada() {
         <section className="panel p-5 sm:p-6">
           <h2 className="text-lg font-bold text-slate-900">Resumen del día</h2>
           <div className="mt-5 grid gap-3">
-            <SummaryRow label="Total entrada" value={`${(metricas?.entrada_total_kg ?? 0).toFixed(2)} kg`} />
+            <SummaryRow label="Total entrada" value={`${entradaDiaKg.toFixed(2)} kg`} />
+            {entradaRegistradaKg === 0 && entradaDiaKg > 0 ? (
+              <p className="rounded-2xl bg-amber-50 px-4 py-2 text-xs text-amber-900">
+                Sin entrada de granja registrada: se estima como vendido bruto + devoluciones.
+              </p>
+            ) : null}
             <SummaryRow label="Total vendido neto" value={`${vendidoNetoKg.toFixed(2)} kg`} />
             <SummaryRow
               label="Total devoluciones"
               value={`${(metricas?.devoluciones_total_kg ?? 0).toFixed(2)} kg`}
             />
-            <SummaryRow label="Piso disponible inicial" value={`${(metricas?.piso_disponible_kg ?? 0).toFixed(2)} kg`} />
+            <SummaryRow label="Piso disponible (previo al cierre)" value={`${(metricas?.piso_disponible_kg ?? 0).toFixed(2)} kg`} />
           </div>
 
           <div className="mt-6">
@@ -226,7 +243,9 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Fórmula aplicada: entrada total - vendido neto - desperdicio - muertero.
+              Piso al cerrar: con entrada registrada, entrada − vendido neto − desperdicio − muertero;
+              sin registro, devoluciones − desperdicio − muertero. Entrada del día = vendido neto +
+              devoluciones + piso + desperdicio + muertero.
             </p>
 
             <button

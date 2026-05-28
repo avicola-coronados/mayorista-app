@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { apiClient, type CajeroFactura } from "../../../services/api";
+import { apiClient, type CajeroFactura, type TipoPago } from "../../../services/api";
 import { ClienteResumenCards } from "./ClienteResumenCards";
 import { GuiaCard } from "./GuiaCard";
 
@@ -12,12 +12,16 @@ export function FacturasGuiasView({
   pagado,
   saldoPendiente,
   facturas,
+  onPagarFactura,
+  puedePagarFactura,
 }: {
   clienteId: number;
   facturado: number;
   pagado: number;
   saldoPendiente: number;
   facturas: CajeroFactura[];
+  onPagarFactura?: (factura: CajeroFactura, tipo: TipoPago) => void;
+  puedePagarFactura?: (factura: CajeroFactura) => boolean;
 }) {
   const [filtro, setFiltro] = useState<FiltroDocumento>("guias");
 
@@ -37,7 +41,11 @@ export function FacturasGuiasView({
       {filtro === "guias" ? (
         <GuiasList clienteId={clienteId} />
       ) : (
-        <FacturasList facturas={facturas} />
+        <FacturasList
+          facturas={facturas}
+          onPagarFactura={onPagarFactura}
+          puedePagarFactura={puedePagarFactura}
+        />
       )}
     </div>
   );
@@ -137,7 +145,15 @@ function GuiasList({ clienteId }: { clienteId: number }) {
   );
 }
 
-function FacturasList({ facturas }: { facturas: CajeroFactura[] }) {
+function FacturasList({
+  facturas,
+  onPagarFactura,
+  puedePagarFactura,
+}: {
+  facturas: CajeroFactura[];
+  onPagarFactura?: (factura: CajeroFactura, tipo: TipoPago) => void;
+  puedePagarFactura?: (factura: CajeroFactura) => boolean;
+}) {
   if (facturas.length === 0) {
     return (
       <p className="rounded-[12px] border border-dashed border-neutral-200 bg-neutral-50 px-4 py-12 text-center text-[14px] font-medium text-neutral-500">
@@ -157,10 +173,14 @@ function FacturasList({ facturas }: { facturas: CajeroFactura[] }) {
             <th className="px-4 py-3 text-right">Pagado</th>
             <th className="px-4 py-3 text-right">Saldo</th>
             <th className="px-4 py-3">Estado</th>
+            {onPagarFactura ? <th className="px-4 py-3 text-center">Acción</th> : null}
           </tr>
         </thead>
         <tbody>
-          {facturas.map((factura) => (
+          {facturas.map((factura) => {
+            const puedePagar = puedePagarFactura?.(factura) ?? false;
+
+            return (
             <tr key={factura.id} className="border-b border-neutral-100 last:border-0">
               <td className="px-4 py-3 font-semibold text-neutral-900">{factura.codigo}</td>
               <td className="px-4 py-3 text-neutral-600">{formatDate(factura.fecha_emision)}</td>
@@ -168,8 +188,33 @@ function FacturasList({ facturas }: { facturas: CajeroFactura[] }) {
               <td className="px-4 py-3 text-right text-coronados-green">{formatCurrency(factura.monto_pagado)}</td>
               <td className="px-4 py-3 text-right text-coronados-orange">{formatCurrency(factura.saldo_pendiente)}</td>
               <td className="px-4 py-3 capitalize text-neutral-600">{factura.estado.replace(/_/g, " ")}</td>
+              {onPagarFactura ? (
+                <td className="px-4 py-3 text-center">
+                  {puedePagar ? (
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onPagarFactura(factura, "efectivo")}
+                        className="rounded-[6px] bg-coronados-green px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-green-700"
+                      >
+                        Efectivo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onPagarFactura(factura, "deposito")}
+                        className="rounded-[6px] bg-[#378ADD] px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-blue-600"
+                      >
+                        Depósito
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-medium text-neutral-400">—</span>
+                  )}
+                </td>
+              ) : null}
             </tr>
-          ))}
+          );
+          })}
         </tbody>
       </table>
     </div>

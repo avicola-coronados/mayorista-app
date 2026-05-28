@@ -38,19 +38,28 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
 
       - name: Check Vercel secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           missing=0
           check() {
             if [ -z "$2" ]; then
-              echo "::error::$1 no está configurado en GitHub (Settings → Secrets and variables → Actions)."
+              echo "::error::$1 no está disponible para este repositorio."
               missing=1
             fi
           }
-          check "VERCEL_TOKEN" "${{ secrets.VERCEL_TOKEN }}"
-          check "VERCEL_ORG_ID" "${{ secrets.VERCEL_ORG_ID }}"
-          check "VERCEL_PROJECT_ID" "${{ secrets.VERCEL_PROJECT_ID }}"
+          check "VERCEL_TOKEN" "$VERCEL_TOKEN"
+          check "VERCEL_ORG_ID" "$VERCEL_ORG_ID"
+          check "VERCEL_PROJECT_ID" "$VERCEL_PROJECT_ID"
           if [ "$missing" -eq 1 ]; then
-            echo "Instrucciones: docs/ci-cd/vercel.md"
+            echo ""
+            echo "Los secrets deben llamarse exactamente VERCEL_TOKEN, VERCEL_ORG_ID y VERCEL_PROJECT_ID."
+            echo "Si los creaste en la organización: Organization → Settings → Secrets and variables → Actions"
+            echo "→ abre cada secret → Repository access → incluye este repositorio (o 'All repositories')."
+            echo "No uses Variables para el token; deben ser Secrets (candado)."
+            echo "Instrucciones completas: docs/ci-cd/vercel.md"
             exit 1
           fi
 

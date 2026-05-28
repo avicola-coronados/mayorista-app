@@ -1,42 +1,11 @@
-export const DEFAULT_TARA_POR_JABA = 5.8;
-
 export function roundKg(value: number) {
   return Number(value.toFixed(2));
-}
-
-export function calcularTara(jabas: number, taraPorJaba: number) {
-  return roundKg(jabas * taraPorJaba);
-}
-
-export function calcularPesoNeto(pesoBruto: number, tara: number) {
-  return roundKg(pesoBruto - tara);
-}
-
-export function calcularPisoDisponible({
-  entradaKg,
-  vendidoKg,
-  devolucionesKg,
-  desperdicioKg,
-  muerteroKg,
-}: {
-  entradaKg: number;
-  vendidoKg: number;
-  devolucionesKg: number;
-  desperdicioKg: number;
-  muerteroKg: number;
-}) {
-  return roundKg(entradaKg - vendidoKg + devolucionesKg - desperdicioKg - muerteroKg);
-}
-
-export function calcularMerma(params: Parameters<typeof calcularPisoDisponible>[0]) {
-  return calcularPisoDisponible(params);
 }
 
 export function calcularVendidoNeto(vendidoBrutoKg: number, devolucionesKg: number) {
   return roundKg(vendidoBrutoKg - devolucionesKg);
 }
 
-/** Entrada física registrada (granja, sobrante, piso) o estimada del día si no hay registro. */
 export function calcularEntradaDiaMostrada(
   entradaRegistradaKg: number,
   vendidoBrutoKg: number,
@@ -49,7 +18,6 @@ export function calcularEntradaDiaMostrada(
   return roundKg(vendidoBrutoKg + devolucionesKg);
 }
 
-/** Piso sobrante al cierre: con entrada registrada usa balance neto; sin registro, devoluciones menos pérdidas. */
 export function calcularPisoJornada({
   entradaRegistradaKg,
   vendidoBrutoKg,

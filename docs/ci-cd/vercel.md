@@ -4,13 +4,28 @@ El workflow `.github/workflows/deploy-frontend-vercel.yml` despliega el frontend
 
 ## Secrets obligatorios en GitHub
 
-En el repositorio de GitHub: **Settings → Secrets and variables → Actions → New repository secret**.
+El workflow lee **`secrets.VERCEL_*`** (Secrets, con candado). No sirven si los guardaste solo como **Variables** (`vars.VERCEL_*`).
+
+Puedes crearlos en el **repositorio** o en la **organización**. Si usas secrets de organización, GitHub **no los pasa al workflow** hasta que des acceso a este repo.
 
 | Secret | Descripción |
 |--------|-------------|
 | `VERCEL_TOKEN` | Token de acceso de Vercel |
 | `VERCEL_ORG_ID` | ID del equipo (o usuario) en Vercel |
 | `VERCEL_PROJECT_ID` | ID del proyecto del frontend |
+
+### Repositorio
+
+**Settings → Secrets and variables → Actions → New repository secret**.
+
+### Organización (tu caso)
+
+1. **Organization → Settings → Secrets and variables → Actions → New organization secret**.
+2. Crea los tres con los nombres exactos de la tabla.
+3. En cada secret, en **Repository access**, elige **Selected repositories** e incluye `mayorista-app`, o **All repositories** si aplica a todo el org.
+4. En el repo: **Settings → Secrets and variables → Actions → Organization secrets** y confirma que aparecen los tres.
+
+Si el secret existe en la org pero el job dice que falta, casi siempre es que el repositorio **no está en la lista de acceso** del secret.
 
 Sin estos tres secrets, el paso **Deploy to Vercel** falla con:
 

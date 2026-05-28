@@ -1,4 +1,5 @@
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -41,7 +42,11 @@ export function ModalPago({
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabActivo, setTabActivo] = useState<TipoPago>(tabInicial);
-  const saldoPendiente = factura.saldo_pendiente;
+  const saldoPendiente = Number(factura.saldo_pendiente) || 0;
+
+  useEffect(() => {
+    setTabActivo(tabInicial);
+  }, [tabInicial, factura.id]);
 
   const [montoRecibido, setMontoRecibido] = useState("");
   const [observacionesEfectivo, setObservacionesEfectivo] = useState("");
@@ -128,10 +133,22 @@ export function ModalPago({
     event.preventDefault();
 
     if (tabActivo === "efectivo" && !puedeRegistrarEfectivo) {
+      toast.error("Ingresa un monto recibido mayor a 0");
       return;
     }
 
     if (tabActivo === "deposito" && !puedeEnviarDeposito) {
+      if (!Number.isFinite(montoDepositoNum) || montoDepositoNum <= 0) {
+        toast.error("Ingresa el monto depositado");
+      } else if (!banco) {
+        toast.error("Selecciona el banco");
+      } else if (!nroOperacion.trim()) {
+        toast.error("Ingresa el número de operación");
+      } else if (!fechaDeposito) {
+        toast.error("Ingresa la fecha del depósito");
+      } else {
+        toast.error("Completa los datos del depósito");
+      }
       return;
     }
 
@@ -148,8 +165,8 @@ export function ModalPago({
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.45)] p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.45)] p-4">
       <section
         className="flex max-h-[90vh] w-full max-w-[440px] flex-col overflow-hidden rounded-[16px] bg-white shadow-2xl"
         role="dialog"
@@ -373,9 +390,7 @@ export function ModalPago({
             </button>
             <button
               type="submit"
-              disabled={
-                isPending || (tabActivo === "efectivo" ? !puedeRegistrarEfectivo : !puedeEnviarDeposito)
-              }
+              disabled={isPending}
               className={`flex-[1.4] rounded-[8px] px-4 py-2.5 text-[14px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 tabActivo === "efectivo"
                   ? "bg-coronados-green hover:bg-green-700"
@@ -391,7 +406,8 @@ export function ModalPago({
           </footer>
         </form>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

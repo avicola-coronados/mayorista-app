@@ -1,7 +1,8 @@
 import {
-  calcularMerma,
-  calcularPisoDisponible,
+  calcularEntradaDiaMostrada,
+  calcularPisoJornada,
   calcularPorcentajeMerma,
+  calcularVendidoNeto,
 } from "../../domain/pesadas/calculos";
 import { cerrarGuiasPorJornada } from "../guias/guias-sync.service";
 import ExcelJS from "exceljs";
@@ -106,14 +107,16 @@ export async function calculateJornadaMetrics(jornadaId: number) {
   const entradaGranjaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const sobranteTotal = sobranteAggregate._sum.peso_neto?.toNumber() ?? 0;
   const pisoEntradaTotal = pisoEntradaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const entradaTotal = Number((entradaGranjaTotal + sobranteTotal + pisoEntradaTotal).toFixed(2));
+  const entradaRegistrada = Number((entradaGranjaTotal + sobranteTotal + pisoEntradaTotal).toFixed(2));
   const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const vendidoNeto = calcularVendidoNeto(vendidoTotal, devolucionesTotal);
   const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
   const muertero = jornada.muertero_kg?.toNumber() ?? 0;
-  const pisoDisponible = calcularPisoDisponible({
-    entradaKg: entradaTotal,
-    vendidoKg: vendidoTotal,
+  const entradaDia = calcularEntradaDiaMostrada(entradaRegistrada, vendidoTotal, devolucionesTotal);
+  const pisoDisponible = calcularPisoJornada({
+    entradaRegistradaKg: entradaRegistrada,
+    vendidoBrutoKg: vendidoTotal,
     devolucionesKg: devolucionesTotal,
     desperdicioKg: desperdicio,
     muerteroKg: muertero,
@@ -123,8 +126,10 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     clientesAtendidos > 0 ? Number((vendidoTotal / clientesAtendidos).toFixed(2)) : 0;
 
   return {
-    entrada_total_kg: entradaTotal,
+    entrada_registrada_kg: entradaRegistrada,
+    entrada_total_kg: entradaDia,
     vendido_total_kg: vendidoTotal,
+    vendido_neto_kg: vendidoNeto,
     piso_disponible_kg: pisoDisponible,
     devoluciones_total_kg: devolucionesTotal,
     sobrante_total_kg: sobranteTotal,
@@ -377,9 +382,9 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
   }
 
   const metrics = await calculateJornadaMetrics(jornadaId);
-  const merma = calcularMerma({
-    entradaKg: metrics.entrada_total_kg,
-    vendidoKg: metrics.vendido_total_kg,
+  const merma = calcularPisoJornada({
+    entradaRegistradaKg: metrics.entrada_registrada_kg,
+    vendidoBrutoKg: metrics.vendido_total_kg,
     devolucionesKg: metrics.devoluciones_total_kg,
     desperdicioKg: data.desperdicio_kg,
     muerteroKg: data.muertero_kg,
@@ -500,9 +505,9 @@ async function buildJornadaSummary(jornada: {
   const metrics = await calculateJornadaMetrics(jornada.id);
   const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
   const muertero = jornada.muertero_kg?.toNumber() ?? 0;
-  const merma = calcularMerma({
-    entradaKg: metrics.entrada_total_kg,
-    vendidoKg: metrics.vendido_total_kg,
+  const merma = calcularPisoJornada({
+    entradaRegistradaKg: metrics.entrada_registrada_kg,
+    vendidoBrutoKg: metrics.vendido_total_kg,
     devolucionesKg: metrics.devoluciones_total_kg,
     desperdicioKg: desperdicio,
     muerteroKg: muertero,

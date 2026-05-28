@@ -131,8 +131,10 @@ export type ClientePayload = {
 };
 
 export type MetricasJornada = {
+  entrada_registrada_kg?: number;
   entrada_total_kg: number;
   vendido_total_kg: number;
+  vendido_neto_kg?: number;
   piso_disponible_kg: number;
   devoluciones_total_kg: number;
   sobrante_total_kg: number;

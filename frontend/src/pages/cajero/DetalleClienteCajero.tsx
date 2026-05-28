@@ -13,6 +13,7 @@ import {
   IconReceiptOff,
   IconUser,
 } from "@tabler/icons-react";
+import { CajeroRegistrarPagoBar } from "../../components/cajero/CajeroRegistrarPagoBar";
 import { CajeroShell } from "../../components/cajero/CajeroShell";
 import { ModalDetallePagos } from "../../components/cajero/ModalDetallePagos";
 import { ModalPago } from "../../components/cajero/ModalPago";
@@ -73,6 +74,10 @@ export function DetalleClienteCajero() {
     setModalPago({ factura: target, tipo });
   }
 
+  function puedePagarFactura(factura: CajeroFactura) {
+    return factura.estado !== "pagado" && factura.estado !== "anulado" && factura.saldo_pendiente > 0;
+  }
+
   return (
     <CajeroShell
       title="Detalle de Cuenta"
@@ -113,6 +118,11 @@ export function DetalleClienteCajero() {
 
             <ClienteDetalleTabs active={activeTab} onChange={setActiveTab} />
 
+            <CajeroRegistrarPagoBar
+              facturaPendiente={primeraFacturaPendiente}
+              onRegistrar={openPago}
+            />
+
             {activeTab === "facturas-guias" ? (
               <FacturasGuiasView
                 clienteId={cliente.id}
@@ -120,28 +130,12 @@ export function DetalleClienteCajero() {
                 pagado={resumen.total_pagado}
                 saldoPendiente={resumen.saldo_pendiente}
                 facturas={facturas}
+                onPagarFactura={(factura, tipo) => openPago(tipo, factura)}
+                puedePagarFactura={puedePagarFactura}
               />
             ) : (
               <>
                 <section className="mb-6 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPago("efectivo")}
-                    disabled={!primeraFacturaPendiente}
-                    className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-coronados-green px-5 text-[14px] font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <IconCash size={18} />
-                    Registrar pago en efectivo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openPago("deposito")}
-                    disabled={!primeraFacturaPendiente}
-                    className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#378ADD] px-5 text-[14px] font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <IconBuildingBank size={18} />
-                    Registrar depósito bancario
-                  </button>
                   <button
                     type="button"
                     onClick={() => window.print()}

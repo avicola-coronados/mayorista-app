@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  calcularEntradaDiaMostrada,
   calcularMerma,
   calcularPesoNeto,
   calcularPisoDisponible,
+  calcularPisoJornada,
   calcularPorcentajeMerma,
   calcularTara,
+  calcularVendidoNeto,
 } from "./calculos";
 
 describe("calculos de pesadas", () => {
@@ -92,6 +95,20 @@ describe("calculos de pesadas", () => {
 
     expect(piso).toBe(0);
     expect(calcularPorcentajeMerma(piso, entradaTotal)).toBe(0);
+  });
+
+  it("estima entrada y piso cuando no hay registro de granja", () => {
+    expect(calcularEntradaDiaMostrada(0, 272, 15)).toBe(287);
+    expect(calcularVendidoNeto(272, 15)).toBe(257);
+    expect(
+      calcularPisoJornada({
+        entradaRegistradaKg: 0,
+        vendidoBrutoKg: 272,
+        devolucionesKg: 15,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(15);
   });
 
   it("evita division por cero y limita porcentaje entre 0 y 100", () => {
