@@ -636,6 +636,40 @@ export type CajeroEgresosParams = {
   mes?: string;
 };
 
+export type PagoDelDiaTipo = "efectivo" | "deposito_validado" | "deposito_pendiente";
+
+export type PagoDelDiaItem = {
+  id: string;
+  cliente: string;
+  tipo: PagoDelDiaTipo;
+  monto: number;
+  hora: string;
+  observacion?: string;
+  banco?: string;
+  nroOperacion?: string;
+  horaEnviado?: string | null;
+};
+
+export type PagosDelDiaResumen = {
+  totalCobrado: number;
+  totalEfectivo: number;
+  countEfectivo: number;
+  totalValidado: number;
+  countValidado: number;
+  totalPendiente: number;
+  countPendiente: number;
+  clientesQuePagaron: number;
+};
+
+export type PagosDelDiaResponse = {
+  resumen: PagosDelDiaResumen;
+  pagos: PagoDelDiaItem[];
+};
+
+export type PagosDelDiaParams = {
+  fecha?: string;
+};
+
 export type CajeroRegistrarEgresoPayload = {
   concepto: string;
   descripcion: string;
@@ -1086,6 +1120,14 @@ export const apiClient = {
   async getEgresosCajero(params?: CajeroEgresosParams) {
     try {
       const response = await api.get<CajeroEgresosResponse>("/cajero/egresos", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getPagosDelDia(params?: PagosDelDiaParams) {
+    try {
+      const response = await api.get<PagosDelDiaResponse>("/cajero/pagos/dia", { params });
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

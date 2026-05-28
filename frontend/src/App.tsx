@@ -14,6 +14,7 @@ import { ClientesCajero } from "./pages/cajero/ClientesCajero";
 import { DetalleClienteCajero } from "./pages/cajero/DetalleClienteCajero";
 import { DetalleGuiaCajero } from "./pages/cajero/DetalleGuiaCajero";
 import { EgresosCajero } from "./pages/cajero/EgresosCajero";
+import { PagosDelDiaCajero } from "./pages/cajero/PagosDelDiaCajero";
 import { AuthRoleGuard } from "./components/AuthRoleGuard";
 import { getHomeForRole, resolveAuthRole } from "./lib/authRouting";
 import { useAuthStore } from "./store/authStore";
@@ -168,6 +169,7 @@ export default function App() {
         <Route path="clientes" element={<ClientesCajero />} />
         <Route path="clientes/:id" element={<DetalleClienteCajero />} />
         <Route path="clientes/:id/guias/:guiaId" element={<DetalleGuiaCajero />} />
+        <Route path="pagos" element={<PagosDelDiaCajero />} />
         <Route path="egresos" element={<EgresosCajero />} />
       </Route>
       <Route

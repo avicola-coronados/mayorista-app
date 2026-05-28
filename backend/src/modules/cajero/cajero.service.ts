@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma";
 import {
   CajeroClientesQuery,
   CajeroEgresosQuery,
+  CajeroPagosDiaQuery,
   RegistrarEgresoInput,
   RegistrarPagoInput,
 } from "./cajero.schemas";
@@ -487,5 +488,116 @@ export async function registrarEgresoCajero(input: RegistrarEgresoInput, cajeroI
       fecha: egreso.fecha,
       registrado_por: egreso.cajero.nombre || egreso.cajero.username,
     },
+  };
+}
+
+function formatHoraPago(date: Date) {
+  return date.toLocaleTimeString("es-PE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatHoraDeposito(value: Date | null) {
+  if (!value) {
+    return null;
+  }
+
+  return value.toLocaleTimeString("es-PE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function mapTipoPagoDelDia(pago: { tipo: string; estado: string }) {
+  if (pago.tipo === "efectivo") {
+    return "efectivo" as const;
+  }
+
+  if (pago.estado === "confirmado") {
+    return "deposito_validado" as const;
+  }
+
+  return "deposito_pendiente" as const;
+}
+
+export async function getPagosDelDia(query: CajeroPagosDiaQuery) {
+  const dayRange = getDayRange(query.fecha);
+
+  const pagosDb = await prisma.pago.findMany({
+    where: {
+      created_at: {
+        gte: dayRange.start,
+        lte: dayRange.end,
+      },
+      estado: {
+        not: "rechazado",
+      },
+    },
+    include: {
+      cliente: {
+        select: {
+          nombre: true,
+        },
+      },
+    },
+    orderBy: {
+      created_at: "asc",
+    },
+  });
+
+  let totalEfectivo = 0;
+  let countEfectivo = 0;
+  let totalValidado = 0;
+  let countValidado = 0;
+  let totalPendiente = 0;
+  let countPendiente = 0;
+  const clientesQuePagaron = new Set<number>();
+
+  const pagos = pagosDb.map((pago) => {
+    const monto = toNumber(pago.monto);
+    const tipo = mapTipoPagoDelDia(pago);
+    clientesQuePagaron.add(pago.cliente_id);
+
+    if (tipo === "efectivo") {
+      totalEfectivo += monto;
+      countEfectivo += 1;
+    } else if (tipo === "deposito_validado") {
+      totalValidado += monto;
+      countValidado += 1;
+    } else {
+      totalPendiente += monto;
+      countPendiente += 1;
+    }
+
+    return {
+      id: String(pago.id),
+      cliente: pago.cliente.nombre,
+      tipo,
+      monto,
+      hora: formatHoraPago(pago.created_at),
+      observacion: pago.observaciones ?? undefined,
+      banco: pago.banco ?? undefined,
+      nroOperacion: pago.nro_operacion ?? undefined,
+      horaEnviado: formatHoraDeposito(pago.hora_deposito),
+    };
+  });
+
+  const totalCobrado = Number((totalEfectivo + totalValidado).toFixed(2));
+
+  return {
+    resumen: {
+      totalCobrado,
+      totalEfectivo: Number(totalEfectivo.toFixed(2)),
+      countEfectivo,
+      totalValidado: Number(totalValidado.toFixed(2)),
+      countValidado,
+      totalPendiente: Number(totalPendiente.toFixed(2)),
+      countPendiente,
+      clientesQuePagaron: clientesQuePagaron.size,
+    },
+    pagos,
   };
 }

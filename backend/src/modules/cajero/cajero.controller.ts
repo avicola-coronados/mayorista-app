@@ -4,6 +4,7 @@ import { serializePrisma } from "../../utils/serializers";
 import {
   cajeroClientesQuerySchema,
   cajeroEgresosQuerySchema,
+  cajeroPagosDiaQuerySchema,
   registrarEgresoSchema,
   registrarPagoSchema,
 } from "./cajero.schemas";
@@ -11,6 +12,7 @@ import {
   getClientesCajero,
   getDetalleClienteCajero,
   getEgresosCajero,
+  getPagosDelDia,
   registrarEgresoCajero,
   registrarPagoCajero,
 } from "./cajero.service";
@@ -34,6 +36,13 @@ export async function getDetalleCliente(request: Request, response: Response) {
   if (!result) {
     throw new AppError("Cliente no encontrado", 404);
   }
+
+  return response.json(serializePrisma(result));
+}
+
+export async function getPagosDia(request: Request, response: Response) {
+  const query = cajeroPagosDiaQuerySchema.parse(request.query);
+  const result = await getPagosDelDia(query);
 
   return response.json(serializePrisma(result));
 }
