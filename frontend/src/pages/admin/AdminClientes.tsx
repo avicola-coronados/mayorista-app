@@ -254,7 +254,10 @@ function ClienteAdminCard({
           {getInitials(cliente.nombre)}
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[16px] font-medium text-neutral-950">{cliente.nombre}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-[16px] font-medium text-neutral-950">{cliente.nombre}</h2>
+            <TipoBadge tipo={cliente.tipo} />
+          </div>
           <p className="mt-1 text-[13px] font-medium text-neutral-500">{metadata.join(" · ")}</p>
         </div>
       </div>
@@ -311,6 +314,7 @@ function ClienteModal({ modal, onClose }: { modal: ModalState; onClose: () => vo
   const [form, setForm] = useState<Required<ClientePayload>>({
     nombre: modal?.cliente?.nombre ?? "",
     codigo: modal?.cliente?.codigo ?? null,
+    tipo: modal?.cliente?.tipo ?? "minorista",
     telefono: modal?.cliente?.telefono ?? null,
     direccion: modal?.cliente?.direccion ?? null,
     activo: modal?.cliente?.activo ?? true,
@@ -321,6 +325,7 @@ function ClienteModal({ modal, onClose }: { modal: ModalState; onClose: () => vo
       setForm({
         nombre: detailQuery.data.nombre,
         codigo: detailQuery.data.codigo ?? null,
+        tipo: detailQuery.data.tipo ?? "minorista",
         telefono: detailQuery.data.telefono ?? null,
         direccion: detailQuery.data.direccion ?? null,
         activo: detailQuery.data.activo,
@@ -417,6 +422,19 @@ function ClienteModal({ modal, onClose }: { modal: ModalState; onClose: () => vo
             placeholder="Ej: CLI-001"
             value={form.codigo ?? ""}
           />
+          <label htmlFor="cliente-tipo" className="mb-4 block">
+            <span className="mb-2 block text-[13px] font-medium text-neutral-700">Tipo de cliente</span>
+            <select
+              id="cliente-tipo"
+              className="w-full rounded-[8px] border border-neutral-200 px-[14px] py-[10px] text-[14px] font-medium text-neutral-950 outline-none transition focus:border-coronados-orange focus:ring-4 focus:ring-orange-100"
+              disabled={disabled}
+              value={form.tipo}
+              onChange={(event) => updateField("tipo", event.target.value as "mayorista" | "minorista")}
+            >
+              <option value="minorista">Minorista</option>
+              <option value="mayorista">Mayorista</option>
+            </select>
+          </label>
           <TextField
             disabled={disabled}
             id="cliente-telefono"
@@ -618,10 +636,23 @@ function normalizePayload(form: Required<ClientePayload>): Required<ClientePaylo
   return {
     nombre: form.nombre.trim(),
     codigo: form.codigo?.trim() || null,
+    tipo: form.tipo,
     telefono: form.telefono?.trim() || null,
     direccion: form.direccion?.trim() || null,
     activo: form.activo,
   };
+}
+
+function TipoBadge({ tipo }: { tipo: "mayorista" | "minorista" }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-[3px] text-[10px] font-bold uppercase ${
+        tipo === "mayorista" ? "bg-[#E6F1FB] text-[#0C447C]" : "bg-[#FAEEDA] text-[#633806]"
+      }`}
+    >
+      {tipo}
+    </span>
+  );
 }
 
 function getInitials(nombre: string) {

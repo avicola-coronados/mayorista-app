@@ -91,6 +91,12 @@ export const cajeroPagosDiaQuerySchema = z.object({
   fecha: fechaISODateSchema.optional(),
 });
 
+export const cajeroHistorialQuerySchema = z.object({
+  cliente: z.coerce.number().int().positive().optional(),
+  desde: fechaISODateSchema.optional(),
+  hasta: fechaISODateSchema.optional(),
+});
+
 const conceptosEgreso = [
   "Pago a proveedores",
   "Combustible",
@@ -120,5 +126,6 @@ export const registrarEgresoSchema = z.object({
 export type CajeroClientesQuery = z.infer<typeof cajeroClientesQuerySchema>;
 export type CajeroEgresosQuery = z.infer<typeof cajeroEgresosQuerySchema>;
 export type CajeroPagosDiaQuery = z.infer<typeof cajeroPagosDiaQuerySchema>;
+export type CajeroHistorialQuery = z.infer<typeof cajeroHistorialQuerySchema>;
 export type RegistrarEgresoInput = z.infer<typeof registrarEgresoSchema>;
 export type RegistrarPagoInput = z.infer<typeof registrarPagoSchema>;

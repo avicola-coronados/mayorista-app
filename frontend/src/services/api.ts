@@ -94,6 +94,7 @@ export type Cliente = {
   id: number;
   nombre: string;
   codigo?: string | null;
+  tipo: "mayorista" | "minorista";
   telefono?: string | null;
   direccion?: string | null;
   activo: boolean;
@@ -125,6 +126,7 @@ export type AdminClientesResponse = {
 export type ClientePayload = {
   nombre: string;
   codigo?: string | null;
+  tipo?: "mayorista" | "minorista";
   telefono?: string | null;
   direccion?: string | null;
   activo?: boolean;
@@ -670,6 +672,52 @@ export type PagosDelDiaParams = {
   fecha?: string;
 };
 
+export type HistorialTipoRegistro =
+  | "efectivo"
+  | "deposito_validado"
+  | "deposito_pendiente"
+  | "guia"
+  | "devolucion";
+
+export type HistorialRegistro = {
+  id: string;
+  fecha: string;
+  hora: string;
+  cliente: string;
+  clienteId: string;
+  tipo: HistorialTipoRegistro;
+  detalle: string;
+  monto?: number;
+  montoKg?: number;
+  banco?: string;
+  nroOperacion?: string;
+  estado?: string;
+};
+
+export type HistorialClienteOption = {
+  id: string;
+  nombre: string;
+};
+
+export type HistorialTotales = {
+  efectivo: number;
+  depositoValidado: number;
+  depositoPendiente: number;
+  totalCobrado: number;
+};
+
+export type HistorialResponse = {
+  registros: HistorialRegistro[];
+  clientes: HistorialClienteOption[];
+  totales: HistorialTotales;
+};
+
+export type HistorialParams = {
+  cliente?: number;
+  desde?: string;
+  hasta?: string;
+};
+
 export type CajeroRegistrarEgresoPayload = {
   concepto: string;
   descripcion: string;
@@ -1128,6 +1176,14 @@ export const apiClient = {
   async getPagosDelDia(params?: PagosDelDiaParams) {
     try {
       const response = await api.get<PagosDelDiaResponse>("/cajero/pagos/dia", { params });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getHistorialCajero(params?: HistorialParams) {
+    try {
+      const response = await api.get<HistorialResponse>("/cajero/historial", { params });
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

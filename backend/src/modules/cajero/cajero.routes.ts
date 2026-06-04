@@ -5,6 +5,7 @@ import {
   getClientes,
   getDetalleCliente,
   getEgresos,
+  getHistorial,
   getPagosDia,
   postEgreso,
   postPago,
@@ -17,5 +18,6 @@ cajeroRouter.get("/clientes", asyncHandler(getClientes));
 cajeroRouter.get("/clientes/:id", asyncHandler(getDetalleCliente));
 cajeroRouter.get("/pagos/dia", asyncHandler(getPagosDia));
 cajeroRouter.post("/pagos", asyncHandler(postPago));
+cajeroRouter.get("/historial", asyncHandler(getHistorial));
 cajeroRouter.get("/egresos", asyncHandler(getEgresos));
 cajeroRouter.post("/egresos", asyncHandler(postEgreso));

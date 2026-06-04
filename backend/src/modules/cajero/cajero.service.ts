@@ -5,6 +5,7 @@ import { APP_TIMEZONE, getCurrentDateInTimezone, getDayRangeInTimezone } from ".
 import {
   CajeroClientesQuery,
   CajeroEgresosQuery,
+  CajeroHistorialQuery,
   CajeroPagosDiaQuery,
   RegistrarEgresoInput,
   RegistrarPagoInput,
@@ -585,5 +586,239 @@ export async function getPagosDelDia(query: CajeroPagosDiaQuery) {
       clientesQuePagaron: clientesQuePagaron.size,
     },
     pagos,
+  };
+}
+
+type HistorialTipoRegistro =
+  | "efectivo"
+  | "deposito_validado"
+  | "deposito_pendiente"
+  | "guia"
+  | "devolucion";
+
+type HistorialRegistroInterno = {
+  id: string;
+  fecha: string;
+  hora: string;
+  cliente: string;
+  clienteId: string;
+  tipo: HistorialTipoRegistro;
+  detalle: string;
+  monto?: number;
+  montoKg?: number;
+  banco?: string;
+  nroOperacion?: string;
+  estado?: string;
+  sortAt: number;
+};
+
+const DEVOLUCION_ESTADO: Record<string, string> = {
+  muerto: "Muerto",
+  pelado: "Pelado",
+  vivo: "Vivo",
+};
+
+function getHistorialDateRange(query: CajeroHistorialQuery) {
+  if (!query.desde && !query.hasta) {
+    return null;
+  }
+
+  const start = query.desde ? getDayRangeInTimezone(query.desde).start : new Date(0);
+  const end = query.hasta ? getDayRangeInTimezone(query.hasta).end : new Date(8640000000000000);
+
+  return { end, start };
+}
+
+function formatFechaISOInTimezone(date: Date) {
+  return getCurrentDateInTimezone(date, APP_TIMEZONE);
+}
+
+function formatHoraHistorial(date: Date) {
+  return date.toLocaleTimeString("es-PE", {
+    timeZone: APP_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatGuiaFechaCorta(date: Date) {
+  return date.toLocaleDateString("es-PE", {
+    timeZone: APP_TIMEZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function mapPagoHistorialTipo(pago: { tipo: string; estado: string }) {
+  if (pago.tipo === "efectivo") {
+    return "efectivo" as const;
+  }
+
+  if (pago.estado === "confirmado") {
+    return "deposito_validado" as const;
+  }
+
+  return "deposito_pendiente" as const;
+}
+
+function buildPagoDetalle(pago: { tipo: string; observaciones: string | null }) {
+  if (pago.tipo === "efectivo") {
+    return pago.observaciones?.trim() || "Pago en efectivo";
+  }
+
+  return pago.observaciones?.trim() || "Depósito bancario";
+}
+
+export async function getHistorialCajero(query: CajeroHistorialQuery) {
+  const dateRange = getHistorialDateRange(query);
+  const createdAtFilter = dateRange
+    ? {
+        gte: dateRange.start,
+        lte: dateRange.end,
+      }
+    : undefined;
+
+  const [pagosDb, guiasDb, devolucionesDb] = await Promise.all([
+    prisma.pago.findMany({
+      where: {
+        ...(createdAtFilter ? { created_at: createdAtFilter } : {}),
+        estado: { not: "rechazado" },
+      },
+      include: {
+        cliente: { select: { id: true, nombre: true } },
+      },
+    }),
+    prisma.guiaEntrega.findMany({
+      where: {
+        estado: GuiaEstado.cerrada,
+        ...(createdAtFilter
+          ? {
+              OR: [
+                { cerrada_at: createdAtFilter },
+                {
+                  cerrada_at: null,
+                  created_at: createdAtFilter,
+                },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        cliente: { select: { id: true, nombre: true } },
+        lineas: { select: { jabas: true } },
+      },
+    }),
+    prisma.devolucion.findMany({
+      where: {
+        ...(createdAtFilter ? { created_at: createdAtFilter } : {}),
+      },
+      include: {
+        cliente: { select: { id: true, nombre: true } },
+        linea_venta: {
+          select: {
+            granja: { select: { nombre: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const registros: HistorialRegistroInterno[] = [];
+
+  for (const pago of pagosDb) {
+    const sortAt = pago.created_at.getTime();
+    const tipo = mapPagoHistorialTipo(pago);
+
+    registros.push({
+      id: `pago-${pago.id}`,
+      fecha: formatFechaISOInTimezone(pago.created_at),
+      hora: formatHoraHistorial(pago.created_at),
+      cliente: pago.cliente.nombre,
+      clienteId: String(pago.cliente.id),
+      tipo,
+      detalle: buildPagoDetalle(pago),
+      monto: toNumber(pago.monto),
+      banco: pago.banco ?? undefined,
+      nroOperacion: pago.nro_operacion ?? undefined,
+      sortAt,
+    });
+  }
+
+  for (const guia of guiasDb) {
+    const eventoAt = guia.cerrada_at ?? guia.created_at;
+    const totalJabas = guia.lineas.reduce((sum, linea) => sum + linea.jabas, 0);
+    const netoKg = toNumber(guia.total_neto);
+
+    registros.push({
+      id: `guia-${guia.id}`,
+      fecha: formatFechaISOInTimezone(eventoAt),
+      hora: formatHoraHistorial(eventoAt),
+      cliente: guia.cliente.nombre,
+      clienteId: String(guia.cliente.id),
+      tipo: "guia",
+      detalle: `Guía ${formatGuiaFechaCorta(guia.fecha_emision)} · ${totalJabas} jabas · ${netoKg.toFixed(2)} kg`,
+      monto: toNumber(guia.total_general),
+      sortAt: eventoAt.getTime(),
+    });
+  }
+
+  for (const devolucion of devolucionesDb) {
+    const estado = DEVOLUCION_ESTADO[devolucion.tipo] ?? devolucion.tipo;
+    const nombrePartida = devolucion.linea_venta?.granja?.nombre ?? "Devolución";
+
+    registros.push({
+      id: `devolucion-${devolucion.id}`,
+      fecha: formatFechaISOInTimezone(devolucion.created_at),
+      hora: formatHoraHistorial(devolucion.created_at),
+      cliente: devolucion.cliente.nombre,
+      clienteId: String(devolucion.cliente.id),
+      tipo: "devolucion",
+      detalle: `${nombrePartida} · ${estado}`,
+      montoKg: toNumber(devolucion.peso_neto),
+      estado,
+      sortAt: devolucion.created_at.getTime(),
+    });
+  }
+
+  registros.sort((a, b) => b.sortAt - a.sortAt);
+
+  const clientesMap = new Map<string, { id: string; nombre: string }>();
+  for (const registro of registros) {
+    clientesMap.set(registro.clienteId, { id: registro.clienteId, nombre: registro.cliente });
+  }
+
+  const clientes = Array.from(clientesMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
+  const registrosFiltrados = query.cliente
+    ? registros.filter((registro) => Number(registro.clienteId) === query.cliente)
+    : registros;
+
+  let efectivo = 0;
+  let depositoValidado = 0;
+  let depositoPendiente = 0;
+
+  for (const registro of registrosFiltrados) {
+    if (registro.tipo === "efectivo" && registro.monto) {
+      efectivo += registro.monto;
+    } else if (registro.tipo === "deposito_validado" && registro.monto) {
+      depositoValidado += registro.monto;
+    } else if (registro.tipo === "deposito_pendiente" && registro.monto) {
+      depositoPendiente += registro.monto;
+    }
+  }
+
+  const totalCobrado = Number((efectivo + depositoValidado).toFixed(2));
+
+  return {
+    registros: registrosFiltrados.map(({ sortAt: _sortAt, ...registro }) => registro),
+    clientes,
+    totales: {
+      efectivo: Number(efectivo.toFixed(2)),
+      depositoValidado: Number(depositoValidado.toFixed(2)),
+      depositoPendiente: Number(depositoPendiente.toFixed(2)),
+      totalCobrado,
+    },
   };
 }

@@ -4,6 +4,7 @@ import { serializePrisma } from "../../utils/serializers";
 import {
   cajeroClientesQuerySchema,
   cajeroEgresosQuerySchema,
+  cajeroHistorialQuerySchema,
   cajeroPagosDiaQuerySchema,
   registrarEgresoSchema,
   registrarPagoSchema,
@@ -12,6 +13,7 @@ import {
   getClientesCajero,
   getDetalleClienteCajero,
   getEgresosCajero,
+  getHistorialCajero,
   getPagosDelDia,
   registrarEgresoCajero,
   registrarPagoCajero,
@@ -56,6 +58,13 @@ export async function postPago(request: Request, response: Response) {
   const result = await registrarPagoCajero(data, request.user.id);
 
   return response.status(201).json(serializePrisma(result));
+}
+
+export async function getHistorial(request: Request, response: Response) {
+  const query = cajeroHistorialQuerySchema.parse(request.query);
+  const result = await getHistorialCajero(query);
+
+  return response.json(serializePrisma(result));
 }
 
 export async function getEgresos(request: Request, response: Response) {

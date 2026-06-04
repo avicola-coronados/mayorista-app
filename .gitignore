@@ -9,3 +9,4 @@ coverage
 frontend/dist
 backend/dist
 backend/generated
+*.tsbuildinfo
