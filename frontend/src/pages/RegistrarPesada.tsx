@@ -212,7 +212,7 @@ export function RegistrarPesada() {
             <span className="field-label">Origen</span>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { value: "partida", label: "Partida" },
+                { value: "partida", label: "Ingreso" },
                 { value: "piso", label: "Piso" },
               ].map((option) => (
                 <label
