@@ -1,17 +1,96 @@
-name: Probar GitHub Actions
+name: Desplegar Mayorista en Vultr
 
 on:
   workflow_dispatch:
 
 jobs:
-  prueba:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Mostrar mensaje
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compilar frontend
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
-          echo "GitHub Actions funciona correctamente"
-          ls -la
+          npm ci
+          npm run build
+
+      - name: Compilar backend
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm ci
+          npm run build:ci
+
+      - name: Copiar frontend a Vultr
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+          source: "frontend/dist/*"
+          target: "/var/www/mayorista-app/frontend"
+          strip_components: 2
+          overwrite: true
+          rm: true
+
+      - name: Copiar backend a Vultr
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+          source: "backend/dist,backend/prisma,backend/package.json,backend/package-lock.json"
+          target: "/var/www/mayorista-app/backend"
+          strip_components: 1
+          overwrite: true
+          rm: true
+
+      - name: Configurar y ejecutar backend
+        uses: appleboy/ssh-action@v1
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PORT: ${{ secrets.PORT }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          FRONTEND_URLS: ${{ secrets.FRONTEND_URLS }}
+          APP_TIMEZONE: ${{ secrets.APP_TIMEZONE }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+          envs: DATABASE_URL,JWT_SECRET,PORT,FRONTEND_URL,FRONTEND_URLS,APP_TIMEZONE
+          script: |
+            cd /var/www/mayorista-app/backend
+
+            printf '%s\n' \
+              "DATABASE_URL=$DATABASE_URL" \
+              "JWT_SECRET=$JWT_SECRET" \
+              "PORT=$PORT" \
+              "FRONTEND_URL=$FRONTEND_URL" \
+              "FRONTEND_URLS=$FRONTEND_URLS" \
+              "APP_TIMEZONE=$APP_TIMEZONE" > .env
+
+            chmod 600 .env
+            npm ci
+            npx prisma migrate deploy
+
+            pm2 delete mayorista-backend || true
+            pm2 start dist/index.js --name mayorista-backend
+            pm2 save
+
+            echo "Backend iniciado correctamente"
+            pm2 status
