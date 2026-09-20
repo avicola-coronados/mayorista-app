@@ -1,7 +1,15 @@
 import { NextFunction, Request, Response } from "express";
 import { verifyToken } from "../utils/jwt";
 
+function isPreflight(request: Request) {
+  return request.method === "OPTIONS";
+}
+
 export function requireAuth(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   const authorization = request.headers.authorization;
 
   if (!authorization?.startsWith("Bearer ")) {
@@ -19,6 +27,10 @@ export function requireAuth(request: Request, response: Response, next: NextFunc
 }
 
 export function requireAdmin(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   if (request.user?.role !== "admin") {
     return response.status(403).json({ message: "Acceso restringido a administradores" });
   }
@@ -27,6 +39,10 @@ export function requireAdmin(request: Request, response: Response, next: NextFun
 }
 
 export function requireCajero(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   if (request.user?.role !== "cajero") {
     return response.status(403).json({ message: "Acceso restringido a cajeros" });
   }
@@ -35,6 +51,10 @@ export function requireCajero(request: Request, response: Response, next: NextFu
 }
 
 export function requireCajeroOrAdmin(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   if (!request.user?.role || !["cajero", "admin"].includes(request.user.role)) {
     return response.status(403).json({ message: "Acceso restringido a cajeros y administradores" });
   }
@@ -44,6 +64,10 @@ export function requireCajeroOrAdmin(request: Request, response: Response, next:
 
 export function requireRole(...roles: string[]) {
   return (request: Request, response: Response, next: NextFunction) => {
+    if (isPreflight(request)) {
+      return next();
+    }
+
     if (!request.user?.role || !roles.includes(request.user.role)) {
       return response.status(403).json({ message: "Acceso no permitido para este rol" });
     }
@@ -53,6 +77,10 @@ export function requireRole(...roles: string[]) {
 }
 
 export function requireOperario(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   if (!request.user?.role || !["operario", "admin"].includes(request.user.role)) {
     return response.status(403).json({ message: "Acceso restringido a operarios" });
   }
@@ -61,6 +89,10 @@ export function requireOperario(request: Request, response: Response, next: Next
 }
 
 export function requireOficina(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   if (!request.user?.role || !["oficina", "admin"].includes(request.user.role)) {
     return response.status(403).json({ message: "Acceso restringido a oficina" });
   }
@@ -69,6 +101,10 @@ export function requireOficina(request: Request, response: Response, next: NextF
 }
 
 export function requireGuiaRead(request: Request, response: Response, next: NextFunction) {
+  if (isPreflight(request)) {
+    return next();
+  }
+
   if (!request.user?.role || !["cajero", "operario", "oficina", "admin"].includes(request.user.role)) {
     return response.status(403).json({ message: "Acceso de lectura no permitido para este rol" });
   }
