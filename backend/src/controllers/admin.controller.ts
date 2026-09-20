@@ -53,7 +53,7 @@ async function calculateAdminMetrics(jornadaId: number) {
   const entradaTotal = metrics.entrada_total_kg;
   const vendidoTotal = metrics.vendido_total_kg;
   const devolucionesTotal = metrics.devoluciones_total_kg;
-  const mermaKg = metrics.piso_disponible_kg;
+  const mermaKg = metrics.merma_kg;
   const mermaPorcentaje =
     entradaTotal > 0 ? Math.min(100, Math.max(0, Number(((mermaKg / entradaTotal) * 100).toFixed(2)))) : 0;
   const mermaEstado =

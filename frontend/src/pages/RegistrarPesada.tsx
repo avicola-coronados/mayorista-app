@@ -6,10 +6,11 @@ import { apiClient } from "../services/api";
 
 const DEFAULT_TARA_POR_JABA = 5.8;
 
+type OrigenPesada = "partida" | "piso";
+
 type FormState = {
   cliente_id: number;
   granja_id: number;
-  origen: "partida" | "piso";
   jabas: string;
   tara_por_jaba: string;
   peso_bruto: string;
@@ -18,13 +19,12 @@ type FormState = {
 const initialState: FormState = {
   cliente_id: 0,
   granja_id: 0,
-  origen: "partida",
   jabas: "5",
   tara_por_jaba: DEFAULT_TARA_POR_JABA.toString(),
   peso_bruto: "",
 };
 
-export function RegistrarPesada() {
+export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(initialState);
   const [newClienteName, setNewClienteName] = useState("");
@@ -38,6 +38,7 @@ export function RegistrarPesada() {
   const clientesQuery = useQuery({
     queryKey: ["clientes"],
     queryFn: apiClient.getClientes,
+    enabled: origen === "partida",
   });
 
   const granjasQuery = useQuery({
@@ -46,7 +47,7 @@ export function RegistrarPesada() {
   });
 
   const selectedCliente = clientesQuery.data?.find((cliente) => cliente.id === form.cliente_id);
-  const isPiso = form.origen === "piso";
+  const isPiso = origen === "piso";
   const granjasDisponibles = useMemo(
     () =>
       granjasQuery.data
@@ -67,13 +68,13 @@ export function RegistrarPesada() {
         jornada_id: jornada!.id,
         cliente_id: form.cliente_id || null,
         granja_id: form.granja_id,
-        origen: form.origen,
+        origen,
         jabas,
         peso_bruto: pesoBruto,
         tara_por_jaba: taraPorJaba,
       }),
     onSuccess: async () => {
-      toast.success("Pesada guardada correctamente");
+      toast.success(isPiso ? "Piso guardado correctamente" : "Ingreso guardado correctamente");
       setForm(initialState);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
@@ -104,9 +105,9 @@ export function RegistrarPesada() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  if (jornadaQuery.isLoading || clientesQuery.isLoading || granjasQuery.isLoading) {
+  if (jornadaQuery.isLoading || granjasQuery.isLoading || (!isPiso && clientesQuery.isLoading)) {
     return (
-      <Layout title="Registrar pesada" subtitle="Cargando catálogos del día">
+      <Layout title={isPiso ? "Registrar piso" : "Registrar ingreso"} subtitle="Cargando catálogos del día">
         <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="panel h-[26rem] animate-pulse bg-slate-100" />
           <div className="panel h-[26rem] animate-pulse bg-slate-100" />
@@ -115,9 +116,9 @@ export function RegistrarPesada() {
     );
   }
 
-  if (jornadaQuery.isError || clientesQuery.isError || granjasQuery.isError) {
+  if (jornadaQuery.isError || granjasQuery.isError || (!isPiso && clientesQuery.isError)) {
     return (
-      <Layout title="Registrar pesada" subtitle="No se pudo preparar el formulario">
+      <Layout title={isPiso ? "Registrar piso" : "Registrar ingreso"} subtitle="No se pudo preparar el formulario">
         <div className="panel border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-800">
           {(jornadaQuery.error as Error)?.message ||
             (clientesQuery.error as Error)?.message ||
@@ -164,26 +165,6 @@ export function RegistrarPesada() {
     mutation.mutate();
   }
 
-  function handleOrigenChange(origen: "partida" | "piso") {
-    if (origen === "piso") {
-      setShowNewCliente(false);
-      setNewClienteName("");
-    }
-
-    setForm((current) => {
-      const selectedGranja = granjasQuery.data?.find((granja) => granja.id === current.granja_id);
-      const shouldClearGranja =
-        origen === "piso" && selectedGranja?.nombre.trim().toLowerCase() === "piso";
-
-      return {
-        ...current,
-        origen,
-        cliente_id: origen === "piso" ? 0 : current.cliente_id,
-        granja_id: shouldClearGranja ? 0 : current.granja_id,
-      };
-    });
-  }
-
   function handleCreateCliente(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -197,7 +178,7 @@ export function RegistrarPesada() {
 
   return (
     <Layout
-      title="Registrar pesada"
+      title={isPiso ? "Registrar piso" : "Registrar ingreso"}
       subtitle={
         isPiso
           ? "Registra ingreso a piso"
@@ -208,72 +189,41 @@ export function RegistrarPesada() {
     >
       <form onSubmit={handleSubmit} className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="panel p-5 sm:p-6">
-          <div>
-            <span className="field-label">Origen</span>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { value: "partida", label: "Ingreso" },
-                { value: "piso", label: "Piso" },
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className={`cursor-pointer rounded-2xl border px-4 py-3 text-center font-semibold transition ${
-                    form.origen === option.value
-                      ? "border-coronados-orange bg-orange-50 text-coronados-orange"
-                      : "border-slate-200 text-slate-600"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    className="sr-only"
-                    name="origen"
-                    checked={form.origen === option.value}
-                    onChange={() => handleOrigenChange(option.value as "partida" | "piso")}
-                  />
-                  {option.label}
+          {!isPiso ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="cliente" className="field-label mb-0">
+                  Cliente
                 </label>
-              ))}
-            </div>
-          </div>
-
-          <div className={`mt-5 ${isPiso ? "opacity-60" : ""}`}>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <label htmlFor="cliente" className="field-label mb-0">
-                Cliente
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowNewCliente(true)}
-                disabled={isPiso}
-                className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition enabled:hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                <button
+                  type="button"
+                  onClick={() => setShowNewCliente(true)}
+                  className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
+                >
+                  Nuevo cliente
+                </button>
+              </div>
+              <select
+                id="cliente"
+                className="field-input"
+                value={form.cliente_id}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
+                }
               >
-                Nuevo cliente
-              </button>
+                <option value={0}>Selecciona un cliente existente</option>
+                {clientesQuery.data?.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>
+                    {cliente.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              id="cliente"
-              className="field-input disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-              value={form.cliente_id}
-              disabled={isPiso}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
-              }
-            >
-              <option value={0}>
-                {isPiso ? "No aplica para ingreso a piso" : "Selecciona un cliente existente"}
-              </option>
-              {clientesQuery.data?.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nombre}
-                </option>
-              ))}
-            </select>
-            {isPiso ? (
-              <p className="mt-1.5 text-[12px] font-medium text-slate-500">
-                El ingreso a piso no requiere asignar un cliente.
-              </p>
-            ) : null}
-          </div>
+          ) : (
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-600">
+              El registro de piso no requiere cliente. Elige la granja de origen y los pesos.
+            </p>
+          )}
 
           <div className="mt-5">
             <label htmlFor="granja" className="field-label">
@@ -384,7 +334,7 @@ export function RegistrarPesada() {
               className="primary-button mt-5 w-full"
               disabled={mutation.isPending || jornada?.estado === "cerrada"}
             >
-              {mutation.isPending ? "Guardando..." : "Guardar pesada"}
+              {mutation.isPending ? "Guardando..." : isPiso ? "Guardar piso" : "Guardar ingreso"}
             </button>
           </div>
 

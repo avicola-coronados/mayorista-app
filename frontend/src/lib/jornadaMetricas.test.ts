@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularEntradaDiaMostrada,
+  calcularMermaJornada,
   calcularPisoJornada,
   calcularVendidoNeto,
 } from "./jornadaMetricas";
@@ -30,5 +31,29 @@ describe("jornadaMetricas", () => {
         muerteroKg: 0,
       }),
     ).toBe(70);
+  });
+
+  it("no permite merma negativa si una pesada vende más que la entrada", () => {
+    expect(
+      calcularPisoJornada({
+        entradaRegistradaKg: 250.4,
+        vendidoBrutoKg: 280.1,
+        devolucionesKg: 0,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(0);
+  });
+
+  it("calcula merma como muertero + desperdicio + (entrada - neto)", () => {
+    expect(
+      calcularMermaJornada({
+        entradaRegistradaKg: 1000,
+        vendidoBrutoKg: 950,
+        devolucionesKg: 10,
+        desperdicioKg: 5,
+        muerteroKg: 8,
+      }),
+    ).toBe(73);
   });
 });

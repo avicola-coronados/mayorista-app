@@ -1,5 +1,5 @@
 import { FormEvent, forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconArrowLeft,
@@ -12,6 +12,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import toast from "react-hot-toast";
+import { OPERARIO_NAV_ITEMS } from "../lib/operarioNav";
 import { apiClient, type Devolucion, type TipoDevolucion } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -39,16 +40,10 @@ const tipos: Array<{ value: TipoDevolucion; label: string; icon: typeof IconTool
   { value: "vivo", label: "Vivo", icon: IconHeart },
 ];
 
-const navItems = [
-  { to: "/", label: "Inicio" },
-  { to: "/pesada/nueva", label: "Pesadas", aliases: ["/operario/devolucion"] },
-  { to: "/clientes", label: "Clientes" },
-  { to: "/cierre", label: "Historial" },
-];
+const navItems = OPERARIO_NAV_ITEMS;
 
 export function RegistrarDevolucion() {
   const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const tableRef = useRef<HTMLDivElement>(null);
   const pesoBrutoRef = useRef<HTMLInputElement>(null);
@@ -443,16 +438,16 @@ export function RegistrarDevolucion() {
       ) : null}
 
       <nav className="fixed inset-x-0 bottom-2 z-20 mx-auto w-[calc(100%-1rem)] max-w-6xl overflow-hidden rounded-b-[16px] bg-white px-4 py-2 shadow-2xl shadow-slate-900/10">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-1">
           {navItems.map((item) => {
-            const activeByAlias = item.aliases?.includes(location.pathname) ?? false;
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center gap-1 rounded-[8px] px-3 py-1 text-center text-[12px] font-semibold transition ${
-                    isActive || activeByAlias
+                  `flex flex-col items-center justify-center gap-1 rounded-[8px] px-2 py-1 text-center text-[11px] font-semibold transition sm:text-[12px] ${
+                    isActive
                       ? "text-coronados-orange"
                       : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600"
                   }`
@@ -462,7 +457,7 @@ export function RegistrarDevolucion() {
                   <>
                     <span
                       className={`h-[19px] w-[19px] rounded-[5px] ${
-                        isActive || activeByAlias ? "bg-orange-100" : "bg-neutral-100"
+                        isActive ? "bg-orange-100" : "bg-neutral-100"
                       }`}
                     />
                     <span>{item.label}</span>

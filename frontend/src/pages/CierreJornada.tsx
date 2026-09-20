@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { Layout } from "../components/Layout";
 import {
   calcularEntradaDiaMostrada,
-  calcularPisoJornada,
+  calcularMermaJornada,
   calcularPorcentajeMerma,
   calcularVendidoNeto,
 } from "../lib/jornadaMetricas";
@@ -59,7 +59,7 @@ export function CierreJornada() {
       return 0;
     }
 
-    return calcularPisoJornada({
+    return calcularMermaJornada({
       entradaRegistradaKg,
       vendidoBrutoKg: metricas.vendido_total_kg,
       devolucionesKg: metricas.devoluciones_total_kg,
@@ -138,7 +138,7 @@ export function CierreJornada() {
     }
 
     if (mermaPorcentaje > 2 && desperdicioKg + muerteroKg === 0) {
-      const highMermaConfirmed = window.confirm("El piso disponible es alto. ¿Estás seguro de cerrar sin desperdicio ni muertero?");
+      const highMermaConfirmed = window.confirm("La merma es alta. ¿Estás seguro de cerrar sin desperdicio ni muertero?");
 
       if (!highMermaConfirmed) {
         return;
@@ -243,9 +243,8 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Piso al cerrar: con entrada registrada, entrada − vendido neto − desperdicio − muertero;
-              sin registro, devoluciones − desperdicio − muertero. Entrada del día = vendido neto +
-              devoluciones + piso + desperdicio + muertero.
+              Merma = muertero + desperdicio + (entrada − neto). El piso disponible se calcula aparte
+              como entrada − neto − desperdicio − muertero.
             </p>
 
             <button

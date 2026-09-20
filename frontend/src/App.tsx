@@ -182,7 +182,15 @@ export default function App() {
         path="/pesada/nueva"
         element={
           <ProtectedOperarioRoute>
-            <RegistrarPesada />
+            <RegistrarPesada origen="partida" />
+          </ProtectedOperarioRoute>
+        }
+      />
+      <Route
+        path="/pesada/piso"
+        element={
+          <ProtectedOperarioRoute>
+            <RegistrarPesada origen="piso" />
           </ProtectedOperarioRoute>
         }
       />

@@ -34,10 +34,49 @@ export function calcularPisoJornada({
   const vendidoNeto = calcularVendidoNeto(vendidoBrutoKg, devolucionesKg);
 
   if (entradaRegistradaKg > 0) {
-    return roundKg(entradaRegistradaKg - vendidoNeto - desperdicioKg - muerteroKg);
+    return Math.max(0, roundKg(entradaRegistradaKg - vendidoNeto - desperdicioKg - muerteroKg));
   }
 
-  return roundKg(devolucionesKg - desperdicioKg - muerteroKg);
+  return Math.max(0, roundKg(devolucionesKg - desperdicioKg - muerteroKg));
+}
+
+export function calcularMerma({
+  entradaKg,
+  vendidoNetoKg,
+  desperdicioKg,
+  muerteroKg,
+}: {
+  entradaKg: number;
+  vendidoNetoKg: number;
+  desperdicioKg: number;
+  muerteroKg: number;
+}) {
+  const diferencia = Math.max(0, roundKg(entradaKg - vendidoNetoKg));
+  return roundKg(muerteroKg + desperdicioKg + diferencia);
+}
+
+export function calcularMermaJornada({
+  entradaRegistradaKg,
+  vendidoBrutoKg,
+  devolucionesKg,
+  desperdicioKg,
+  muerteroKg,
+}: {
+  entradaRegistradaKg: number;
+  vendidoBrutoKg: number;
+  devolucionesKg: number;
+  desperdicioKg: number;
+  muerteroKg: number;
+}) {
+  const vendidoNeto = calcularVendidoNeto(vendidoBrutoKg, devolucionesKg);
+  const entradaKg = entradaRegistradaKg > 0 ? entradaRegistradaKg : 0;
+
+  return calcularMerma({
+    entradaKg,
+    vendidoNetoKg: vendidoNeto,
+    desperdicioKg,
+    muerteroKg,
+  });
 }
 
 export function calcularPorcentajeMerma(mermaKg: number, entradaKg: number) {

@@ -1,5 +1,6 @@
 import {
   calcularEntradaDiaMostrada,
+  calcularMermaJornada,
   calcularPisoJornada,
   calcularPorcentajeMerma,
   calcularVendidoNeto,
@@ -49,11 +50,11 @@ type JornadaDetalle = {
   }>;
   desglose_merma: {
     entrada_total: number;
-    menos_vendido: number;
-    mas_devoluciones: number;
-    menos_desperdicio: number;
-    menos_muertero: number;
-    resultado_piso: number;
+    neto: number;
+    diferencia_entrada_neto: number;
+    desperdicio: number;
+    muertero: number;
+    resultado_merma: number;
   };
 };
 
@@ -121,6 +122,14 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     desperdicioKg: desperdicio,
     muerteroKg: muertero,
   });
+  const merma = calcularMermaJornada({
+    entradaRegistradaKg: entradaRegistrada,
+    vendidoBrutoKg: vendidoTotal,
+    devolucionesKg: devolucionesTotal,
+    desperdicioKg: desperdicio,
+    muerteroKg: muertero,
+  });
+  const mermaPorcentaje = calcularPorcentajeMerma(merma, entradaDia);
   const clientesAtendidos = counts.length;
   const promedioPorCliente =
     clientesAtendidos > 0 ? Number((vendidoTotal / clientesAtendidos).toFixed(2)) : 0;
@@ -131,6 +140,8 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     vendido_total_kg: vendidoTotal,
     vendido_neto_kg: vendidoNeto,
     piso_disponible_kg: pisoDisponible,
+    merma_kg: merma,
+    merma_porcentaje: mermaPorcentaje,
     devoluciones_total_kg: devolucionesTotal,
     sobrante_total_kg: sobranteTotal,
     desperdicio_kg: desperdicio,
@@ -382,13 +393,15 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
   }
 
   const metrics = await calculateJornadaMetrics(jornadaId);
-  const merma = calcularPisoJornada({
+  const mermaParams = {
     entradaRegistradaKg: metrics.entrada_registrada_kg,
     vendidoBrutoKg: metrics.vendido_total_kg,
     devolucionesKg: metrics.devoluciones_total_kg,
     desperdicioKg: data.desperdicio_kg,
     muerteroKg: data.muertero_kg,
-  });
+  };
+  const pisoDisponible = calcularPisoJornada(mermaParams);
+  const merma = calcularMermaJornada(mermaParams);
   const mermaPorcentaje = calcularPorcentajeMerma(merma, metrics.entrada_total_kg);
 
   if (data.desperdicio_kg + data.muertero_kg > metrics.entrada_total_kg) {
@@ -408,7 +421,7 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
 
   return {
     success: true,
-    piso_disponible_kg: merma,
+    piso_disponible_kg: pisoDisponible,
     merma_kg: merma,
     merma_porcentaje: mermaPorcentaje,
   };
@@ -503,16 +516,6 @@ async function buildJornadaSummary(jornada: {
   muertero_kg: { toNumber(): number } | null;
 }): Promise<JornadaSummary> {
   const metrics = await calculateJornadaMetrics(jornada.id);
-  const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
-  const muertero = jornada.muertero_kg?.toNumber() ?? 0;
-  const merma = calcularPisoJornada({
-    entradaRegistradaKg: metrics.entrada_registrada_kg,
-    vendidoBrutoKg: metrics.vendido_total_kg,
-    devolucionesKg: metrics.devoluciones_total_kg,
-    desperdicioKg: desperdicio,
-    muerteroKg: muertero,
-  });
-  const mermaPorcentaje = calcularPorcentajeMerma(merma, metrics.entrada_total_kg);
 
   return {
     id: jornada.id,
@@ -521,11 +524,11 @@ async function buildJornadaSummary(jornada: {
     entrada_total_kg: metrics.entrada_total_kg,
     vendido_total_kg: metrics.vendido_total_kg,
     devoluciones_total_kg: metrics.devoluciones_total_kg,
-    desperdicio_kg: desperdicio,
-    muertero_kg: muertero,
-    piso_disponible_kg: merma,
-    merma_kg: merma,
-    merma_porcentaje: mermaPorcentaje,
+    desperdicio_kg: jornada.desperdicio_kg?.toNumber() ?? 0,
+    muertero_kg: jornada.muertero_kg?.toNumber() ?? 0,
+    piso_disponible_kg: metrics.piso_disponible_kg,
+    merma_kg: metrics.merma_kg,
+    merma_porcentaje: metrics.merma_porcentaje,
     estado: jornada.estado,
   };
 }
@@ -660,14 +663,20 @@ async function buildJornadaDetalle(jornada: {
         tiene_notas: venta.cliente_id ? clientesConNotas.has(venta.cliente_id) : false,
       };
     }),
-    desglose_merma: {
-      entrada_total: summary.entrada_total_kg,
-      menos_vendido: -summary.vendido_total_kg,
-      mas_devoluciones: summary.devoluciones_total_kg,
-      menos_desperdicio: -summary.desperdicio_kg,
-      menos_muertero: -summary.muertero_kg,
-      resultado_piso: summary.piso_disponible_kg,
-    },
+    desglose_merma: (() => {
+      const neto = calcularVendidoNeto(summary.vendido_total_kg, summary.devoluciones_total_kg);
+
+      return {
+        entrada_total: summary.entrada_total_kg,
+        neto,
+        diferencia_entrada_neto: Number(
+          (summary.merma_kg - summary.desperdicio_kg - summary.muertero_kg).toFixed(2),
+        ),
+        desperdicio: summary.desperdicio_kg,
+        muertero: summary.muertero_kg,
+        resultado_merma: summary.merma_kg,
+      };
+    })(),
   };
 }
 

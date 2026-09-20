@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calcularEntradaDiaMostrada,
   calcularMerma,
+  calcularMermaJornada,
   calcularPesoNeto,
   calcularPisoDisponible,
   calcularPisoJornada,
@@ -41,17 +42,25 @@ describe("calculos de pesadas", () => {
     ).toBe(70);
   });
 
-  it("descuenta desperdicio y muertero", () => {
-    const piso = calcularMerma({
+  it("suma desperdicio y muertero a la merma junto con entrada menos neto", () => {
+    const merma = calcularMerma({
       entradaKg: 1000,
-      vendidoKg: 950,
-      devolucionesKg: 10,
+      vendidoNetoKg: 940,
       desperdicioKg: 5,
       muerteroKg: 8,
     });
 
-    expect(piso).toBe(47);
-    expect(calcularPorcentajeMerma(piso, 1000)).toBe(4.7);
+    expect(merma).toBe(73);
+    expect(calcularPorcentajeMerma(merma, 1000)).toBe(7.3);
+    expect(
+      calcularMermaJornada({
+        entradaRegistradaKg: 1000,
+        vendidoBrutoKg: 950,
+        devolucionesKg: 10,
+        desperdicioKg: 5,
+        muerteroKg: 8,
+      }),
+    ).toBe(73);
   });
 
   it("considera sobrante dentro de la entrada total", () => {
@@ -109,6 +118,39 @@ describe("calculos de pesadas", () => {
         muerteroKg: 0,
       }),
     ).toBe(15);
+  });
+
+  it("no permite merma negativa si se vendió más que la entrada", () => {
+    expect(
+      calcularPisoJornada({
+        entradaRegistradaKg: 1000,
+        vendidoBrutoKg: 1100,
+        devolucionesKg: 0,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(0);
+
+    expect(
+      calcularPisoDisponible({
+        entradaKg: 100,
+        vendidoKg: 150,
+        devolucionesKg: 10,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(0);
+
+    expect(
+      calcularMerma({
+        entradaKg: 250.4,
+        vendidoNetoKg: 280.1,
+        desperdicioKg: 2,
+        muerteroKg: 3,
+      }),
+    ).toBe(5);
+
+    expect(calcularPorcentajeMerma(0, 1000)).toBe(0);
   });
 
   it("evita division por cero y limita porcentaje entre 0 y 100", () => {

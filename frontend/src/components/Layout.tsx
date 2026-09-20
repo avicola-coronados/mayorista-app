@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, NavLink } from "react-router-dom";
+import { OPERARIO_NAV_ITEMS } from "../lib/operarioNav";
 import { getHomeForRole, resolveAuthRole } from "../lib/authRouting";
 import { useAuthStore } from "../store/authStore";
 
@@ -11,12 +12,7 @@ type LayoutProps = {
   children: ReactNode;
 };
 
-const navItems = [
-  { to: "/", label: "Inicio" },
-  { to: "/pesada/nueva", label: "Pesadas" },
-  { to: "/clientes", label: "Clientes" },
-  { to: "/cierre", label: "Historial" },
-];
+const navItems = OPERARIO_NAV_ITEMS;
 
 function formatRole(role?: string) {
   if (!role) {
@@ -108,13 +104,14 @@ export function Layout({ title, subtitle, statusBadge, statusTone = "open", chil
       </div>
 
       <nav className="fixed inset-x-0 bottom-2 z-20 mx-auto w-[calc(100%-1rem)] max-w-7xl overflow-hidden rounded-b-[16px] bg-white px-4 py-2 shadow-2xl shadow-slate-900/10">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 rounded-[8px] px-3 py-1 text-center text-[12px] font-semibold transition ${
+                `flex flex-col items-center justify-center gap-1 rounded-[8px] px-2 py-1 text-center text-[11px] font-semibold transition sm:text-[12px] ${
                   isActive
                     ? "text-coronados-orange"
                     : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600"

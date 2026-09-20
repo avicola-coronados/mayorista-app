@@ -139,7 +139,7 @@ export function Clientes() {
         </div>
 
         <Link to="/pesada/nueva" className="secondary-button">
-          Registrar nueva pesada
+          Registrar ingreso
         </Link>
       </div>
 

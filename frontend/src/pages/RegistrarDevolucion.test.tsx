@@ -92,7 +92,8 @@ describe("RegistrarDevolucion", () => {
     expect(screen.getByRole("button", { name: /Muerto/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Vivo/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Inicio/i })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: /Pesadas/i })).toHaveAttribute("href", "/pesada/nueva");
+    expect(screen.getByRole("link", { name: /Ingreso/i })).toHaveAttribute("href", "/pesada/nueva");
+    expect(screen.getByRole("link", { name: /Piso/i })).toHaveAttribute("href", "/pesada/piso");
     expect(screen.getByRole("link", { name: /Clientes/i })).toHaveAttribute("href", "/clientes");
     expect(screen.getByRole("link", { name: /Historial/i })).toHaveAttribute("href", "/cierre");
   });

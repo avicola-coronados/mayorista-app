@@ -57,11 +57,11 @@ export type JornadaDetalle = {
   }>;
   desglose_merma: {
     entrada_total: number;
-    menos_vendido: number;
-    mas_devoluciones: number;
-    menos_desperdicio: number;
-    menos_muertero: number;
-    resultado_piso: number;
+    neto: number;
+    diferencia_entrada_neto: number;
+    desperdicio: number;
+    muertero: number;
+    resultado_merma: number;
   };
 };
 
@@ -138,6 +138,8 @@ export type MetricasJornada = {
   vendido_total_kg: number;
   vendido_neto_kg?: number;
   piso_disponible_kg: number;
+  merma_kg?: number;
+  merma_porcentaje?: number;
   devoluciones_total_kg: number;
   sobrante_total_kg: number;
   clientes_atendidos: number;
