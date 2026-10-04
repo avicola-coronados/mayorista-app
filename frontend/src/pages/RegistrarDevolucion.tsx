@@ -1,4 +1,4 @@
-import { FormEvent, forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, forwardRef, useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,8 +16,6 @@ import { OPERARIO_NAV_ITEMS } from "../lib/operarioNav";
 import { apiClient, type Devolucion, type TipoDevolucion } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 
-const DEFAULT_TARA_POR_JABA = 5.8;
-
 type FormState = {
   cliente_id: number;
   tipo: TipoDevolucion;
@@ -30,7 +28,7 @@ const initialForm: FormState = {
   cliente_id: 0,
   tipo: "pelado",
   jabas: "",
-  tara_por_jaba: String(DEFAULT_TARA_POR_JABA),
+  tara_por_jaba: "",
   peso_bruto: "",
 };
 
@@ -71,8 +69,8 @@ export function RegistrarDevolucion() {
   const jabas = Number(form.jabas) || 0;
   const taraPorJaba = Number(form.tara_por_jaba) || 0;
   const pesoBruto = Number(form.peso_bruto) || 0;
-  const tara = useMemo(() => round1(jabas > 0 ? jabas * taraPorJaba : 0), [jabas, taraPorJaba]);
-  const pesoNeto = useMemo(() => round1(pesoBruto - tara), [pesoBruto, tara]);
+  const tara = round1(jabas > 0 ? jabas * taraPorJaba : 0);
+  const pesoNeto = round1(pesoBruto - tara);
   const hasChanges =
     form.cliente_id !== initialForm.cliente_id ||
     form.tipo !== initialForm.tipo ||
@@ -153,7 +151,7 @@ export function RegistrarDevolucion() {
       return;
     }
 
-    if (!Number.isInteger(jabas) || jabas <= 0 || taraPorJaba <= 0 || pesoBruto <= 0) {
+    if (!Number.isInteger(jabas) || jabas < 0 || taraPorJaba < 0 || pesoBruto <= 0) {
       toast.error("Ingresa valores válidos para jabas, tara y peso bruto");
       return;
     }
@@ -274,7 +272,7 @@ export function RegistrarDevolucion() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <NumberField
-                    label="Jabas"
+                    label="Jabas (opcional)"
                     value={form.jabas}
                     onChange={(jabas) => setForm((current) => ({ ...current, jabas }))}
                     disabled={disabled}
@@ -283,13 +281,13 @@ export function RegistrarDevolucion() {
                     placeholder="0"
                   />
                   <NumberField
-                    label="Tara por jaba (kg)"
+                    label="Tara por jaba (kg, opcional)"
                     value={form.tara_por_jaba}
                     onChange={(tara_por_jaba) => setForm((current) => ({ ...current, tara_por_jaba }))}
                     disabled={disabled}
-                    min="0.1"
+                    min="0"
                     step="0.1"
-                    placeholder="5.8"
+                    placeholder="0.0"
                     muted
                   />
                 </div>

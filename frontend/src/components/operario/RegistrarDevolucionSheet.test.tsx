@@ -69,7 +69,8 @@ describe("RegistrarDevolucionSheet", () => {
     );
 
     await user.type(screen.getByLabelText("Peso bruto (kg)"), "36.6");
-    await user.type(screen.getByLabelText("Jabas"), "2");
+    await user.type(screen.getByLabelText("Jabas (opcional)"), "2");
+    await user.type(screen.getByLabelText("Tara por jaba (kg, opcional)"), "5.8");
     expect(screen.getByText("Tara total: 11.60 kg")).toBeInTheDocument();
     expect(screen.getByText("25.00 kg neto")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Seleccionar" }));
@@ -87,5 +88,51 @@ describe("RegistrarDevolucionSheet", () => {
       }),
     );
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+  });
+
+  it("permite guardar sin jabas ni tara y usa el peso completo como neto", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.createDevolucionCliente).mockResolvedValue({
+      id: 2,
+      jornada_id: 10,
+      cliente_id: 20,
+      cliente_nombre: "Cliente Uno",
+      linea_venta_id: null,
+      tipo: "pelado",
+      jabas: 0,
+      peso_bruto: 25,
+      tara: 0,
+      peso_neto: 25,
+      created_at: "2026-10-04T12:00:00.000Z",
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RegistrarDevolucionSheet
+          cliente={cliente}
+          devoluciones={[]}
+          jornadaId={10}
+          open
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText("Peso bruto (kg)"), "25");
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    await user.click(screen.getByRole("button", { name: "Pelado" }));
+    await user.click(screen.getByRole("button", { name: "Guardar devolución" }));
+
+    await waitFor(() =>
+      expect(apiClient.createDevolucionCliente).toHaveBeenCalledWith({
+        jornada_id: 10,
+        cliente_id: 20,
+        tipo: "pelado",
+        jabas: 0,
+        tara_por_jaba: 0,
+        peso_bruto: 25,
+      }),
+    );
   });
 });

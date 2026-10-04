@@ -95,4 +95,25 @@ describe("createDevolucion", () => {
     });
     expect(mocks.syncDevolucion).toHaveBeenCalledWith(10, 20);
   });
+
+  it("crea la pesada viva sin jabas ni tara cuando no se registran", async () => {
+    await createDevolucion({
+      jornada_id: 10,
+      cliente_id: 20,
+      tipo: "vivo",
+      jabas: 0,
+      tara_por_jaba: 0,
+      peso_bruto: 25,
+    });
+
+    expect(mocks.transaction.lineaVenta.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jabas: 0,
+        peso_bruto: 25,
+        tara: 0,
+        tara_por_jaba: 0,
+        peso_neto: 25,
+      }),
+    });
+  });
 });

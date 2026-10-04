@@ -1,5 +1,5 @@
 import { AppError } from "../../errors/AppError";
-import { calcularTara, DEFAULT_TARA_POR_JABA, roundKg } from "../../domain/pesadas/calculos";
+import { calcularTara, roundKg } from "../../domain/pesadas/calculos";
 import { prisma } from "../../lib/prisma";
 import { syncDevolucionKgForCliente } from "../guias/guias-sync.service";
 import type { z } from "zod";
@@ -71,8 +71,7 @@ async function createDevolucionLegacy(data: CreateDevolucionLegacyInput) {
     jabas: data.jabas,
     peso_bruto: data.peso_bruto,
     tara: data.tara,
-    tara_por_jaba:
-      data.tara > 0 ? roundKg(data.tara / data.jabas) : DEFAULT_TARA_POR_JABA,
+    tara_por_jaba: data.jabas > 0 && data.tara > 0 ? roundKg(data.tara / data.jabas) : 0,
     peso_neto: data.peso_neto,
   });
 

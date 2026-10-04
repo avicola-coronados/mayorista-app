@@ -364,8 +364,8 @@ export type DevolucionClientePayload = {
   jornada_id: number;
   cliente_id: number;
   tipo: TipoDevolucion;
-  jabas: number;
-  tara_por_jaba: number;
+  jabas?: number;
+  tara_por_jaba?: number;
   peso_bruto: number;
 };
 
@@ -379,9 +379,9 @@ export type DevolucionPayload = {
   jornada_id: number;
   cliente_id: number;
   tipo: TipoDevolucion;
-  jabas: number;
+  jabas?: number;
   peso_bruto: number;
-  tara: number;
+  tara?: number;
   peso_neto: number;
 };
 

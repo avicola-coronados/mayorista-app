@@ -107,6 +107,7 @@ describe("RegistrarDevolucion", () => {
     await user.selectOptions(screen.getByLabelText(/Cliente/i), "1");
     await user.click(screen.getByRole("button", { name: /Vivo/i }));
     await user.type(screen.getByLabelText(/Jabas/i), "2");
+    await user.type(screen.getByLabelText(/Tara por jaba/i), "5.8");
     await user.type(screen.getByLabelText(/Peso Bruto/i), "15.8");
     await user.click(screen.getByRole("button", { name: /Registrar Devolución/i }));
 
@@ -125,5 +126,27 @@ describe("RegistrarDevolucion", () => {
     expect(screen.getByLabelText(/Cliente/i)).toHaveValue("0");
     expect(screen.getByLabelText(/Jabas/i)).toHaveValue(null);
     expect(screen.getByLabelText(/Peso Bruto/i)).toHaveValue(null);
+  });
+
+  it("registra una devolución sin jabas ni tara", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Nueva Devolución");
+    await user.selectOptions(screen.getByLabelText(/Cliente/i), "1");
+    await user.type(screen.getByLabelText(/Peso Bruto/i), "15.8");
+    await user.click(screen.getByRole("button", { name: /Registrar Devolución/i }));
+
+    await waitFor(() => {
+      expect(mockedApi.createDevolucion).toHaveBeenCalledWith({
+        jornada_id: 1,
+        cliente_id: 1,
+        tipo: "pelado",
+        jabas: 0,
+        peso_bruto: 15.8,
+        tara: 0,
+        peso_neto: 15.8,
+      });
+    });
   });
 });

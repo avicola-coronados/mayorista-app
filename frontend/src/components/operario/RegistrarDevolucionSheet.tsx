@@ -15,8 +15,6 @@ const ESTADOS: Array<{
   { value: "vivo", label: "Vivo", dotClass: "bg-coronados-green" },
 ];
 
-const DEFAULT_TARA_POR_JABA = 5.8;
-
 function formatFechaHoy() {
   return new Date().toLocaleDateString("es-PE", {
     day: "numeric",
@@ -50,7 +48,7 @@ export function RegistrarDevolucionSheet({
 }) {
   const [pesoBrutoInput, setPesoBrutoInput] = useState("");
   const [jabasInput, setJabasInput] = useState("");
-  const [taraPorJabaInput, setTaraPorJabaInput] = useState(String(DEFAULT_TARA_POR_JABA));
+  const [taraPorJabaInput, setTaraPorJabaInput] = useState("");
   const [estado, setEstado] = useState<TipoDevolucion | null>(null);
   const [estadoOpen, setEstadoOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -87,8 +85,8 @@ export function RegistrarDevolucionSheet({
     pesoNeto > 0 &&
     !excedeDisponible &&
     Number.isInteger(jabas) &&
-    jabas > 0 &&
-    taraPorJaba > 0 &&
+    jabas >= 0 &&
+    taraPorJaba >= 0 &&
     estado !== null;
 
   const mutation = useMutation({
@@ -118,7 +116,7 @@ export function RegistrarDevolucionSheet({
 
     setPesoBrutoInput("");
     setJabasInput("");
-    setTaraPorJabaInput(String(DEFAULT_TARA_POR_JABA));
+    setTaraPorJabaInput("");
     setEstado(null);
     setEstadoOpen(false);
     mutation.reset();
@@ -201,12 +199,12 @@ export function RegistrarDevolucionSheet({
 
             <div>
               <label htmlFor="jabas-devolucion" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
-                Jabas
+                Jabas (opcional)
               </label>
               <input
                 id="jabas-devolucion"
                 type="number"
-                min={1}
+                min={0}
                 step={1}
                 inputMode="numeric"
                 placeholder="0"
@@ -223,14 +221,15 @@ export function RegistrarDevolucionSheet({
           <div className="grid grid-cols-2 gap-[10px]">
             <div>
               <label htmlFor="tara-devolucion" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
-                Tara por jaba (kg)
+                Tara por jaba (kg, opcional)
               </label>
               <input
                 id="tara-devolucion"
                 type="number"
-                min={0.1}
+                min={0}
                 step={0.1}
                 inputMode="decimal"
+                placeholder="0.0"
                 value={taraPorJabaInput}
                 onChange={(event) => setTaraPorJabaInput(event.target.value)}
                 className="w-full rounded-[8px] border border-neutral-200 px-3 py-2.5 text-[15px] font-medium text-neutral-900 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
