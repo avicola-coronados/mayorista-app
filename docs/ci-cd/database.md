@@ -519,14 +519,16 @@ En producción aplicar con `prisma migrate deploy` (automático en Railway al ar
 ### Entrada Total
 
 ```text
-entrada_total_kg = SUM(entrada_granja.peso_neto)
+entrada_total_kg = SUM(linea_venta.peso_neto WHERE origen = 'piso' AND deleted_at IS NULL)
+                 + SUM(linea_venta.peso_neto WHERE origen = 'partida'
+                                                     AND granja <> 'Piso'
+                                                     AND deleted_at IS NULL)
                  + SUM(sobrante.peso_neto)
-                 + SUM(linea_venta.peso_neto WHERE origen = 'piso' AND deleted_at IS NULL)
 ```
 
-Las líneas de `linea_venta` con `origen = 'piso'` representan ingreso operativo a piso. Por negocio, ese piso cuenta como entrada incluso cuando ya viene asignado a un cliente.
+Las líneas con `origen = 'partida'` representan ingresos directos asignados a un cliente, por lo que cuentan simultáneamente como entrada y venta. Las partidas cuya granja es `Piso` son ventas de mercadería que ya había ingresado previamente y no se vuelven a sumar como entrada.
 
-Cuando una entrada de piso se asigna a un cliente en la misma operación, esa misma línea también se considera venta porque tiene `cliente_id IS NOT NULL`. En ese caso suma a entrada y vendido a la vez, dejando el piso disponible en cero si no hay diferencia.
+Las líneas con `origen = 'piso'` representan mercadería ingresada sin cliente y cuentan como entrada, pero no como venta. Para jornadas antiguas que no contienen entradas en `linea_venta`, se conserva `entrada_granja` como fuente de respaldo; nunca se suman ambas fuentes para evitar duplicados.
 
 ### Vendido Total
 

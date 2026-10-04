@@ -7,10 +7,33 @@ import {
 } from "../../domain/pesadas/calculos";
 import { cerrarGuiasPorJornada } from "../guias/guias-sync.service";
 import ExcelJS from "exceljs";
+import { Prisma } from "@prisma/client";
 import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { getCurrentJornadaCode } from "../../utils/date";
+import { PISO_GRANJA_NOMBRE } from "../lineas-venta/piso-disponible.service";
 import { CierreJornadaInput, JornadasListQuery } from "./jornadas.schemas";
+
+function buildEntradaOperativaWhere(jornadaId: number): Prisma.LineaVentaWhereInput {
+  return {
+    jornada_id: jornadaId,
+    deleted_at: null,
+    OR: [
+      // Mercadería ingresada sin cliente para mantenerla disponible en piso.
+      { origen: "piso" },
+      // Ingreso directo y venta al cliente. Una salida desde la granja virtual
+      // "Piso" no vuelve a contar como entrada física.
+      {
+        origen: "partida",
+        NOT: {
+          granja: {
+            nombre: { equals: PISO_GRANJA_NOMBRE, mode: "insensitive" },
+          },
+        },
+      },
+    ],
+  };
+}
 
 type JornadaSummary = {
   id: number;
@@ -61,9 +84,9 @@ type JornadaDetalle = {
 export async function calculateJornadaMetrics(jornadaId: number) {
   const [
     jornada,
-    entradaAggregate,
+    entradaGranjaLegacyAggregate,
     sobranteAggregate,
-    pisoEntradaAggregate,
+    entradaOperativaAggregate,
     ventaAggregate,
     devolucionAggregate,
     counts,
@@ -80,7 +103,7 @@ export async function calculateJornadaMetrics(jornadaId: number) {
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
-        where: { jornada_id: jornadaId, origen: "piso", deleted_at: null },
+        where: buildEntradaOperativaWhere(jornadaId),
         _sum: { peso_neto: true },
       }),
       prisma.lineaVenta.aggregate({
@@ -105,10 +128,13 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     throw new AppError("Jornada no encontrada", 404);
   }
 
-  const entradaGranjaTotal = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const entradaGranjaLegacyTotal = entradaGranjaLegacyAggregate._sum.peso_neto?.toNumber() ?? 0;
   const sobranteTotal = sobranteAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const pisoEntradaTotal = pisoEntradaAggregate._sum.peso_neto?.toNumber() ?? 0;
-  const entradaRegistrada = Number((entradaGranjaTotal + sobranteTotal + pisoEntradaTotal).toFixed(2));
+  const entradaOperativaTotal = entradaOperativaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  // `entrada_granja` pertenece al flujo anterior. Solo se usa cuando la jornada
+  // no tiene entradas creadas por las pantallas actuales, para evitar duplicarlas.
+  const entradaBase = entradaOperativaTotal > 0 ? entradaOperativaTotal : entradaGranjaLegacyTotal;
+  const entradaRegistrada = Number((entradaBase + sobranteTotal).toFixed(2));
   const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
   const vendidoNeto = calcularVendidoNeto(vendidoTotal, devolucionesTotal);
@@ -543,22 +569,12 @@ async function buildJornadaDetalle(jornada: {
 }): Promise<JornadaDetalle> {
   const [
     summary,
-    entradaJabasAggregate,
-    pisoEntradaJabasAggregate,
-    entradasGrouped,
-    pisoEntradasGrouped,
+    entradasLegacyGrouped,
+    entradasOperativasGrouped,
     ventasGrouped,
     notasGrouped,
   ] = await Promise.all([
     buildJornadaSummary(jornada),
-    prisma.entradaGranja.aggregate({
-      where: { jornada_id: jornada.id },
-      _sum: { jabas_total: true },
-    }),
-    prisma.lineaVenta.aggregate({
-      where: { jornada_id: jornada.id, origen: "piso", deleted_at: null },
-      _sum: { jabas: true },
-    }),
     prisma.entradaGranja.groupBy({
       by: ["granja_id"],
       where: { jornada_id: jornada.id },
@@ -570,7 +586,7 @@ async function buildJornadaDetalle(jornada: {
     }),
     prisma.lineaVenta.groupBy({
       by: ["granja_id"],
-      where: { jornada_id: jornada.id, origen: "piso", deleted_at: null },
+      where: buildEntradaOperativaWhere(jornada.id),
       _sum: {
         peso_neto: true,
         jabas: true,
@@ -600,22 +616,23 @@ async function buildJornadaDetalle(jornada: {
     }),
   ]);
   const entradasByGranja = new Map<number, { peso_neto_kg: number; jabas: number }>();
+  const usaEntradasOperativas = entradasOperativasGrouped.length > 0;
 
-  entradasGrouped.forEach((entrada) => {
-    entradasByGranja.set(entrada.granja_id, {
-      peso_neto_kg: entrada._sum.peso_neto?.toNumber() ?? 0,
-      jabas: entrada._sum.jabas_total ?? 0,
+  if (usaEntradasOperativas) {
+    entradasOperativasGrouped.forEach((entrada) => {
+      entradasByGranja.set(entrada.granja_id, {
+        peso_neto_kg: entrada._sum.peso_neto?.toNumber() ?? 0,
+        jabas: entrada._sum.jabas ?? 0,
+      });
     });
-  });
-
-  pisoEntradasGrouped.forEach((entrada) => {
-    const current = entradasByGranja.get(entrada.granja_id) ?? { peso_neto_kg: 0, jabas: 0 };
-
-    entradasByGranja.set(entrada.granja_id, {
-      peso_neto_kg: Number((current.peso_neto_kg + (entrada._sum.peso_neto?.toNumber() ?? 0)).toFixed(2)),
-      jabas: current.jabas + (entrada._sum.jabas ?? 0),
+  } else {
+    entradasLegacyGrouped.forEach((entrada) => {
+      entradasByGranja.set(entrada.granja_id, {
+        peso_neto_kg: entrada._sum.peso_neto?.toNumber() ?? 0,
+        jabas: entrada._sum.jabas_total ?? 0,
+      });
     });
-  });
+  }
 
   const [granjas, clientes] = await Promise.all([
     prisma.granja.findMany({
@@ -635,7 +652,10 @@ async function buildJornadaDetalle(jornada: {
   return {
     jornada: {
       ...summary,
-      entrada_total_jabas: (entradaJabasAggregate._sum.jabas_total ?? 0) + (pisoEntradaJabasAggregate._sum.jabas ?? 0),
+      entrada_total_jabas: Array.from(entradasByGranja.values()).reduce(
+        (total, entrada) => total + entrada.jabas,
+        0,
+      ),
     },
     entradas_granjas: Array.from(entradasByGranja.entries()).map(([granjaId, entrada]) => ({
       granja_id: granjaId,
