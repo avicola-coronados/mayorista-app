@@ -33,11 +33,18 @@ export const peladoDisponibleQuerySchema = z.object({
   jornada_id: z.coerce.number().int().positive("Jornada inválida"),
 });
 
-export const distribuirPeladoSchema = z.object({
-  jornada_id: z.coerce.number().int().positive("Jornada inválida"),
-  cliente_id: z.coerce.number().int().positive("Cliente inválido"),
-  peso_neto: z.coerce.number().positive("El peso debe ser mayor a cero"),
-});
+export const distribuirPeladoSchema = z
+  .object({
+    jornada_id: z.coerce.number().int().positive("Jornada inválida"),
+    cliente_id: z.coerce.number().int().positive("Cliente inválido"),
+    peso_neto: z.coerce.number().positive("El peso debe ser mayor a cero"),
+    jabas: z.coerce.number().int().min(0, "Las jabas no pueden ser negativas").default(0),
+    tara_por_jaba: z.coerce.number().min(0, "La tara por jaba no puede ser negativa").default(0),
+  })
+  .refine((data) => data.jabas > 0 || data.tara_por_jaba === 0, {
+    message: "Debes registrar al menos una jaba para aplicar tara",
+    path: ["jabas"],
+  });
 
 export type CreateDevolucionInput =
   | z.infer<typeof devolucionClienteSchema>

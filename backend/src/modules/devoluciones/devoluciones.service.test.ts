@@ -133,9 +133,15 @@ describe("createDevolucion", () => {
     });
   });
 
-  it("distribuye pelado como una pesada neta con cero jabas y tara", async () => {
+  it("distribuye pelado conservando el neto y sumando la tara al peso bruto", async () => {
     await distribuirDevolucionPelado(
-      { jornada_id: 10, cliente_id: 20, peso_neto: 10 },
+      {
+        jornada_id: 10,
+        cliente_id: 20,
+        peso_neto: 10,
+        jabas: 2,
+        tara_por_jaba: 1.5,
+      },
       1,
     );
 
@@ -145,10 +151,10 @@ describe("createDevolucion", () => {
         cliente_id: 20,
         granja_id: 40,
         origen: "partida",
-        jabas: 0,
-        peso_bruto: 10,
-        tara: 0,
-        tara_por_jaba: 0,
+        jabas: 2,
+        peso_bruto: 13,
+        tara: 3,
+        tara_por_jaba: 1.5,
         peso_neto: 10,
         es_distribucion_pelado: true,
       }),

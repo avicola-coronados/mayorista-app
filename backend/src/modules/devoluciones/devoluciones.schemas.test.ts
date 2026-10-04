@@ -88,6 +88,41 @@ describe("distribuirPeladoSchema", () => {
   it("acepta cliente y peso neto sin datos de jabas o tara", () => {
     expect(
       distribuirPeladoSchema.parse({ jornada_id: "10", cliente_id: "20", peso_neto: "12.5" }),
-    ).toEqual({ jornada_id: 10, cliente_id: 20, peso_neto: 12.5 });
+    ).toEqual({
+      jornada_id: 10,
+      cliente_id: 20,
+      peso_neto: 12.5,
+      jabas: 0,
+      tara_por_jaba: 0,
+    });
+  });
+
+  it("acepta jabas y tara opcionales para distribuir pelado", () => {
+    expect(
+      distribuirPeladoSchema.parse({
+        jornada_id: 10,
+        cliente_id: 20,
+        peso_neto: 12.5,
+        jabas: 2,
+        tara_por_jaba: 1.5,
+      }),
+    ).toEqual({
+      jornada_id: 10,
+      cliente_id: 20,
+      peso_neto: 12.5,
+      jabas: 2,
+      tara_por_jaba: 1.5,
+    });
+  });
+
+  it("rechaza tara sin jabas", () => {
+    expect(
+      distribuirPeladoSchema.safeParse({
+        jornada_id: 10,
+        cliente_id: 20,
+        peso_neto: 12.5,
+        tara_por_jaba: 1.5,
+      }).success,
+    ).toBe(false);
   });
 });

@@ -16,6 +16,8 @@ export function DistribuirPeladoSection({
   const queryClient = useQueryClient();
   const [clienteId, setClienteId] = useState(0);
   const [pesoInput, setPesoInput] = useState("");
+  const [jabasInput, setJabasInput] = useState("");
+  const [taraPorJabaInput, setTaraPorJabaInput] = useState("");
 
   const peladoQuery = useQuery({
     queryKey: ["pelado-disponible", jornadaId],
@@ -23,6 +25,15 @@ export function DistribuirPeladoSection({
   });
   const disponible = peladoQuery.data?.disponible_kg ?? 0;
   const pesoNeto = Number(pesoInput) || 0;
+  const jabas = Number(jabasInput) || 0;
+  const taraPorJaba = Number(taraPorJabaInput) || 0;
+  const taraTotal = Math.round(jabas * taraPorJaba * 100) / 100;
+  const pesoBruto = Math.round((pesoNeto + taraTotal) * 100) / 100;
+  const datosJabasValidos =
+    Number.isInteger(jabas) &&
+    jabas >= 0 &&
+    taraPorJaba >= 0 &&
+    (jabas > 0 || taraPorJaba === 0);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -30,11 +41,15 @@ export function DistribuirPeladoSection({
         jornada_id: jornadaId,
         cliente_id: clienteId,
         peso_neto: pesoNeto,
+        jabas,
+        tara_por_jaba: taraPorJaba,
       }),
     onSuccess: async (response) => {
       toast.success(response.mensaje);
       setClienteId(0);
       setPesoInput("");
+      setJabasInput("");
+      setTaraPorJabaInput("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["pelado-disponible", jornadaId] }),
         queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornadaId] }),
@@ -59,6 +74,12 @@ export function DistribuirPeladoSection({
       toast.error(`El peso supera los ${disponible.toFixed(2)} kg disponibles`);
       return;
     }
+    if (!datosJabasValidos) {
+      toast.error(
+        "Las jabas deben ser enteras y mayores a cero si registras tara",
+      );
+      return;
+    }
 
     mutation.mutate();
   }
@@ -69,7 +90,7 @@ export function DistribuirPeladoSection({
         <div>
           <h2 className="text-lg font-bold text-slate-900">Distribuir devoluciones de pelado</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Asigna el peso neto devuelto a otro cliente. Se registra con 0 jabas y 0 kg de tara.
+            Asigna el peso neto devuelto a otro cliente. Las jabas y la tara son opcionales.
           </p>
         </div>
         <div className="rounded-2xl bg-orange-50 px-5 py-3 text-right">
@@ -92,7 +113,7 @@ export function DistribuirPeladoSection({
             <Resumen label="Saldo disponible" value={disponible} highlight />
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-5 grid gap-4 md:grid-cols-[1fr_220px_auto] md:items-end">
+          <form onSubmit={handleSubmit} className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_190px_150px_170px_auto] xl:items-end">
             <label className="block">
               <span className="field-label">Cliente destino</span>
               <select
@@ -123,17 +144,63 @@ export function DistribuirPeladoSection({
               />
             </label>
 
+            <div className="block">
+              <label htmlFor="jabas-pelado" className="field-label">Jabas (opcional)</label>
+              <input
+                id="jabas-pelado"
+                type="number"
+                min="0"
+                step="1"
+                className="field-input"
+                value={jabasInput}
+                onChange={(event) => setJabasInput(event.target.value)}
+                placeholder="0"
+                disabled={mutation.isPending || jornadaCerrada || disponible <= 0}
+              />
+              <span className="mt-1 block text-xs text-slate-500">Sin límite por la devolución original</span>
+            </div>
+
+            <div className="block">
+              <label htmlFor="tara-pelado" className="field-label">Tara por jaba (kg, opcional)</label>
+              <input
+                id="tara-pelado"
+                type="number"
+                min="0"
+                step="0.01"
+                className="field-input"
+                value={taraPorJabaInput}
+                onChange={(event) => setTaraPorJabaInput(event.target.value)}
+                placeholder="0.00"
+                disabled={mutation.isPending || jornadaCerrada || disponible <= 0}
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                Tara total: {taraTotal.toFixed(2)} kg
+              </span>
+            </div>
+
             <button
               type="submit"
               disabled={
-                mutation.isPending || jornadaCerrada || disponible <= 0 || !clienteId || pesoNeto <= 0
+                mutation.isPending ||
+                jornadaCerrada ||
+                disponible <= 0 ||
+                !clienteId ||
+                pesoNeto <= 0 ||
+                !datosJabasValidos
               }
-              className="primary-button flex items-center justify-center gap-2 md:mb-0 md:h-[50px]"
+              className="primary-button flex items-center justify-center gap-2 xl:mb-[21px] xl:h-[50px]"
             >
               {mutation.isPending ? <IconLoader2 size={18} className="animate-spin" /> : <IconArrowRight size={18} />}
               Asignar
             </button>
           </form>
+
+          {pesoNeto > 0 ? (
+            <p className="mt-3 text-sm text-slate-500">
+              Se registrará {pesoNeto.toFixed(2)} kg neto + {taraTotal.toFixed(2)} kg de tara ={" "}
+              <strong className="text-slate-700">{pesoBruto.toFixed(2)} kg bruto</strong>.
+            </p>
+          ) : null}
 
           {(peladoQuery.data?.distribuciones.length ?? 0) > 0 ? (
             <div className="mt-6 border-t border-slate-100 pt-4">
@@ -141,7 +208,12 @@ export function DistribuirPeladoSection({
               <div className="mt-3 space-y-2">
                 {peladoQuery.data?.distribuciones.map((distribucion) => (
                   <div key={distribucion.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
-                    <span className="font-medium text-slate-700">{distribucion.cliente_nombre}</span>
+                    <span className="font-medium text-slate-700">
+                      {distribucion.cliente_nombre}
+                      <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                        {distribucion.jabas} jabas · {distribucion.tara.toFixed(2)} kg tara
+                      </span>
+                    </span>
                     <span className="font-bold text-coronados-green">{distribucion.peso_neto.toFixed(2)} kg neto</span>
                   </div>
                 ))}

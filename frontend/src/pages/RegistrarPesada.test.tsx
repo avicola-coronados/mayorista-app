@@ -161,6 +161,30 @@ describe("RegistrarPesada", () => {
         jornada_id: 10,
         cliente_id: 20,
         peso_neto: 10,
+        jabas: 0,
+        tara_por_jaba: 0,
+      }),
+    );
+  });
+
+  it("distribuye pelado con jabas y tara opcionales", async () => {
+    const user = userEvent.setup();
+    renderPage("partida");
+
+    await user.selectOptions(await screen.findByLabelText("Cliente destino"), "20");
+    await user.type(screen.getByLabelText("Peso neto a distribuir (kg)"), "10");
+    await user.type(screen.getByLabelText("Jabas (opcional)"), "2");
+    await user.type(screen.getByLabelText("Tara por jaba (kg, opcional)"), "1.5");
+    expect(screen.getByText(/10.00 kg neto \+ 3.00 kg de tara/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Asignar" }));
+
+    await waitFor(() =>
+      expect(mockedApi.distribuirPelado).toHaveBeenCalledWith({
+        jornada_id: 10,
+        cliente_id: 20,
+        peso_neto: 10,
+        jabas: 2,
+        tara_por_jaba: 1.5,
       }),
     );
   });

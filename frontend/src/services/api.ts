@@ -1375,7 +1375,13 @@ export const apiClient = {
       throw new Error(getErrorMessage(error));
     }
   },
-  async distribuirPelado(payload: { jornada_id: number; cliente_id: number; peso_neto: number }) {
+  async distribuirPelado(payload: {
+    jornada_id: number;
+    cliente_id: number;
+    peso_neto: number;
+    jabas?: number;
+    tara_por_jaba?: number;
+  }) {
     try {
       const response = await api.post<{ mensaje: string; distribucion: PeladoDisponible["distribuciones"][number] }>(
         "/devoluciones/pelado-distribuciones",

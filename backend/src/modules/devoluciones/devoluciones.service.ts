@@ -286,13 +286,12 @@ export async function deleteDevolucion(id: number) {
         _sum: { peso_neto: true },
       }),
     ]);
-    const restante = roundKg(
+    const pesoRestante = roundKg(
       Number(peladoTotal._sum.peso_neto ?? 0) -
         devolucion.peso_neto.toNumber() -
         Number(distribuido._sum.peso_neto ?? 0),
     );
-
-    if (restante < -0.001) {
+    if (pesoRestante < -0.001) {
       throw new AppError(
         "No se puede eliminar: parte de esta devolución pelada ya fue distribuida",
         400,
@@ -329,7 +328,6 @@ export async function getPeladoDisponible(jornadaId: number) {
 
   const totalDevuelto = roundKg(Number(devuelto._sum.peso_neto ?? 0));
   const totalDistribuido = roundKg(Number(distribuido._sum.peso_neto ?? 0));
-
   return {
     total_devuelto_kg: totalDevuelto,
     total_distribuido_kg: totalDistribuido,
@@ -351,6 +349,8 @@ export async function distribuirDevolucionPelado(
   actorUserId: number,
 ) {
   const pesoNeto = roundKg(data.peso_neto);
+  const tara = calcularTara(data.jabas, data.tara_por_jaba);
+  const pesoBruto = roundKg(pesoNeto + tara);
 
   const linea = await prisma.$transaction(async (transaction) => {
     const [jornada, cliente, granjaPiso, devuelto, distribuido] = await Promise.all([
@@ -397,17 +397,16 @@ export async function distribuirDevolucionPelado(
         "EXCEDE_PELADO_DISPONIBLE",
       );
     }
-
     return transaction.lineaVenta.create({
       data: {
         jornada_id: data.jornada_id,
         cliente_id: data.cliente_id,
         granja_id: granjaPiso.id,
         origen: "partida",
-        jabas: 0,
-        peso_bruto: pesoNeto,
-        tara: 0,
-        tara_por_jaba: 0,
+        jabas: data.jabas,
+        peso_bruto: pesoBruto,
+        tara,
+        tara_por_jaba: data.tara_por_jaba,
         peso_neto: pesoNeto,
         nota: "Distribución de devolución pelada",
         es_distribucion_pelado: true,
