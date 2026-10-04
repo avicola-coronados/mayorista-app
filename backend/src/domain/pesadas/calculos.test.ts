@@ -21,28 +21,22 @@ describe("calculos de pesadas", () => {
     expect(
       calcularPisoTrasEditarLinea({
         disponibleKg: 20,
-        disponiblesJabas: 2,
         pesoAnteriorKg: 100,
-        jabasAnteriores: 5,
         factorAnterior: 1,
         pesoNuevoKg: 90,
-        jabasNuevas: 4,
         factorNuevo: 1,
       }),
-    ).toEqual({ peso_neto: 10, jabas: 1 });
+    ).toEqual({ peso_neto: 10 });
 
     expect(
       calcularPisoTrasEditarLinea({
         disponibleKg: 20,
-        disponiblesJabas: 2,
         pesoAnteriorKg: 50,
-        jabasAnteriores: 1,
         factorAnterior: -1,
         pesoNuevoKg: 75,
-        jabasNuevas: 3,
         factorNuevo: -1,
       }),
-    ).toEqual({ peso_neto: -5, jabas: 0 });
+    ).toEqual({ peso_neto: -5 });
   });
 
   it("calcula piso disponible sin devoluciones ni desperdicio", () => {

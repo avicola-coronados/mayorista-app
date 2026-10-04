@@ -183,7 +183,7 @@ export function Dashboard() {
         <span className="h-[10px] w-[10px] shrink-0 rounded-full bg-coronados-green" />
         {primerSobrante ? (
           <span>
-            Piso disponible: {formatKg(primerSobrante.peso_neto)} kg · {primerSobrante.jabas} jabas estimadas sin asignar
+            Piso disponible: {formatKg(primerSobrante.peso_neto)} kg netos
           </span>
         ) : (
           <span>Sin piso disponible · Esperando entrada de granja</span>

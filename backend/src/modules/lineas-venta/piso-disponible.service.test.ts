@@ -23,12 +23,11 @@ describe("getPisoDisponible", () => {
 
   it("incluye en el piso las pesadas creadas por devoluciones vivas", async () => {
     mocks.lineaVentaAggregate
-      .mockResolvedValueOnce({ _sum: { peso_neto: decimal(115), jabas: 7 } })
-      .mockResolvedValueOnce({ _sum: { peso_neto: decimal(70), jabas: 3 } });
+      .mockResolvedValueOnce({ _sum: { peso_neto: decimal(115) } })
+      .mockResolvedValueOnce({ _sum: { peso_neto: decimal(70) } });
 
     await expect(getPisoDisponible(10)).resolves.toEqual({
       peso_neto: 45,
-      jabas: 4,
     });
   });
 });

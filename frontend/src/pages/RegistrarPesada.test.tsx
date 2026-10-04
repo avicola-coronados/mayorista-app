@@ -69,7 +69,7 @@ describe("RegistrarPesada", () => {
       { id: 30, nombre: "Granja Norte", activo: true },
       { id: 40, nombre: "Piso", activo: true },
     ]);
-    mockedApi.getSobrante.mockResolvedValue([{ id: 0, peso_neto: 500, jabas: 10 }]);
+    mockedApi.getSobrante.mockResolvedValue([{ id: 0, peso_neto: 500, jabas: 0 }]);
     mockedApi.getPeladoDisponible.mockResolvedValue({
       total_devuelto_kg: 30,
       total_distribuido_kg: 5,
@@ -100,7 +100,7 @@ describe("RegistrarPesada", () => {
     const user = userEvent.setup();
     renderPage("partida");
 
-    await screen.findByText(/Disponible en piso: 500.00 kg/i);
+    await screen.findByText(/Disponible en piso: 500.00 kg netos/i);
     await user.selectOptions(screen.getByLabelText("Cliente"), "20");
     await user.clear(screen.getByLabelText("Peso bruto (kg)"));
     await user.type(screen.getByLabelText("Peso bruto (kg)"), "100");

@@ -250,7 +250,7 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
             </p>
           ) : esPartida && pisoDisponible ? (
             <p className="rounded-2xl bg-green-50 px-4 py-3 text-[13px] font-medium text-green-800">
-              Disponible en piso: {pisoDisponible.peso_neto.toFixed(2)} kg · {pisoDisponible.jabas} jabas estimadas
+              Disponible en piso: {pisoDisponible.peso_neto.toFixed(2)} kg netos
             </p>
           ) : esPartida ? (
             <p className="rounded-2xl bg-amber-50 px-4 py-3 text-[13px] font-medium text-amber-900">
@@ -454,7 +454,8 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
             <p className="font-semibold text-slate-800">Regla crítica</p>
             <p className="mt-2">
               La tara por jaba es editable. Si cambias jabas o tara por jaba, el sistema recalcula
-              la tara total y el peso neto antes de guardar.
+              la tara total y el peso neto antes de guardar. En partidas, solo se valida el peso
+              neto disponible; las jabas pueden reutilizarse.
             </p>
           </div>
         </section>

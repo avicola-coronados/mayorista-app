@@ -14,29 +14,21 @@ export function calcularPesoNeto(pesoBruto: number, tara: number) {
 
 export function calcularPisoTrasEditarLinea({
   disponibleKg,
-  disponiblesJabas,
   pesoAnteriorKg,
-  jabasAnteriores,
   factorAnterior,
   pesoNuevoKg,
-  jabasNuevas,
   factorNuevo,
 }: {
   disponibleKg: number;
-  disponiblesJabas: number;
   pesoAnteriorKg: number;
-  jabasAnteriores: number;
   factorAnterior: -1 | 0 | 1;
   pesoNuevoKg: number;
-  jabasNuevas: number;
   factorNuevo: -1 | 0 | 1;
 }) {
   return {
     peso_neto: roundKg(
       disponibleKg - factorAnterior * pesoAnteriorKg + factorNuevo * pesoNuevoKg,
     ),
-    jabas:
-      disponiblesJabas - factorAnterior * jabasAnteriores + factorNuevo * jabasNuevas,
   };
 }
 

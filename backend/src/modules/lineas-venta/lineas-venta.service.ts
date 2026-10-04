@@ -108,9 +108,9 @@ export async function createLineaVenta(data: CreateLineaVentaInput, actorUserId:
   if (data.origen === "partida" && granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase()) {
     const pisoDisponible = await getPisoDisponible(data.jornada_id);
 
-    if (pesoNeto > pisoDisponible.peso_neto || data.jabas > pisoDisponible.jabas) {
+    if (pesoNeto > pisoDisponible.peso_neto) {
       throw new AppError(
-        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg y ${pisoDisponible.jabas} jabas.`,
+        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg netos.`,
         400,
       );
     }
@@ -287,9 +287,9 @@ export async function updateLineaVentaGranja(
     const pisoDisponible = await getPisoDisponible(lineaVenta.jornada_id);
     const pesoNeto = lineaVenta.peso_neto.toNumber();
 
-    if (pesoNeto > pisoDisponible.peso_neto || lineaVenta.jabas > pisoDisponible.jabas) {
+    if (pesoNeto > pisoDisponible.peso_neto) {
       throw new AppError(
-        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg y ${pisoDisponible.jabas} jabas.`,
+        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg netos.`,
         400,
       );
     }
@@ -382,18 +382,15 @@ export async function updateLineaVentaDetalle(
     const factorNuevo = esEntradaPiso ? 1 : consumiraPiso ? -1 : 0;
     const pisoProyectado = calcularPisoTrasEditarLinea({
       disponibleKg: pisoDisponible.peso_neto,
-      disponiblesJabas: pisoDisponible.jabas,
       pesoAnteriorKg: pesoNetoAnterior,
-      jabasAnteriores: lineaVenta.jabas,
       factorAnterior,
       pesoNuevoKg: pesoNeto,
-      jabasNuevas: data.jabas,
       factorNuevo,
     });
 
-    if (pisoProyectado.peso_neto < 0 || pisoProyectado.jabas < 0) {
+    if (pisoProyectado.peso_neto < 0) {
       throw new AppError(
-        `El cambio supera la disponibilidad de piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg y ${pisoDisponible.jabas} jabas.`,
+        `El cambio supera la disponibilidad de piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg netos.`,
         400,
       );
     }
