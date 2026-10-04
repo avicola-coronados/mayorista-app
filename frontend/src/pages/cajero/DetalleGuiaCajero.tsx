@@ -107,22 +107,14 @@ export function DetalleGuiaCajero() {
               <ActionButton
                 icon={<IconPrinter size={18} />}
                 label="Imprimir guía"
-                disabled={isAbierta}
                 onClick={() => window.print()}
               />
               <ActionButton
                 icon={<IconFileTypePdf size={18} />}
                 label="Exportar PDF"
-                disabled={isAbierta}
                 onClick={() => window.print()}
               />
             </div>
-
-            {isAbierta ? (
-              <p className="mt-3 text-[12px] font-medium text-neutral-500 print:hidden">
-                La guía debe estar cerrada para imprimir o exportar.
-              </p>
-            ) : null}
           </div>
         )}
       </div>
@@ -177,20 +169,17 @@ function ResumenCard({
 function ActionButton({
   icon,
   label,
-  disabled,
   onClick,
 }: {
   icon: ReactNode;
   label: string;
-  disabled: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-neutral-200 bg-white px-5 text-[14px] font-bold text-neutral-700 transition enabled:hover:border-coronados-orange enabled:hover:text-coronados-orange disabled:cursor-not-allowed disabled:border-neutral-100 disabled:bg-neutral-50 disabled:text-neutral-300"
+      className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-neutral-200 bg-white px-5 text-[14px] font-bold text-neutral-700 transition hover:border-coronados-orange hover:text-coronados-orange"
     >
       {icon}
       {label}
