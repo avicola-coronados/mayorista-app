@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { IconSearch, IconX } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import { ClienteCard } from "../components/ClienteCard";
 import { Layout } from "../components/Layout";
@@ -14,6 +15,7 @@ import { apiClient } from "../services/api";
 
 export function Clientes() {
   const queryClient = useQueryClient();
+  const [busqueda, setBusqueda] = useState("");
   const [editingNota, setEditingNota] = useState<number | null>(null);
   const [notaTexto, setNotaTexto] = useState("");
   const [devolucionCliente, setDevolucionCliente] = useState<ClienteDelDia | null>(null);
@@ -31,6 +33,9 @@ export function Clientes() {
   });
 
   const jornadaId = jornadaQuery.data?.id;
+  const clientesDelDia = clientesDelDiaQuery.data ?? [];
+  const busquedaNormalizada = normalizarBusqueda(busqueda);
+  const clientesFiltrados = filtrarClientesPorNombre(clientesDelDia, busquedaNormalizada);
 
   const devolucionesQuery = useQuery({
     queryKey: ["devoluciones", jornadaId],
@@ -168,13 +173,40 @@ export function Clientes() {
     >
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="text-sm text-slate-500">
-          {clientesDelDiaQuery.data?.length ?? 0} cliente
-          {(clientesDelDiaQuery.data?.length ?? 0) === 1 ? "" : "s"} con ventas registradas
+          {busquedaNormalizada ? `${clientesFiltrados.length} de ` : ""}
+          {clientesDelDia.length} cliente
+          {clientesDelDia.length === 1 ? "" : "s"} con ventas registradas
         </div>
 
         <Link to="/pesada/nueva" className="secondary-button">
           Registrar ingreso
         </Link>
+      </div>
+
+      <div className="relative mb-5">
+        <IconSearch
+          size={20}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          value={busqueda}
+          onChange={(event) => setBusqueda(event.target.value)}
+          placeholder="Buscar cliente por nombre..."
+          aria-label="Buscar cliente por nombre"
+          className="field-input w-full pl-12 pr-12"
+        />
+        {busqueda ? (
+          <button
+            type="button"
+            onClick={() => setBusqueda("")}
+            aria-label="Limpiar búsqueda"
+            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <IconX size={18} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
       {clientesDelDiaQuery.isLoading ? (
@@ -194,9 +226,16 @@ export function Clientes() {
             Registra la primera pesada del día para ver aquí el consolidado por cliente.
           </p>
         </div>
+      ) : clientesFiltrados.length === 0 ? (
+        <div className="panel px-5 py-8 text-center">
+          <p className="text-lg font-semibold text-slate-900">No se encontraron clientes</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Prueba con otro nombre o limpia la búsqueda.
+          </p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {clientesDelDiaQuery.data?.map((cliente) => (
+          {clientesFiltrados.map((cliente) => (
             <ClienteCard
               key={cliente.cliente.id ?? "piso"}
               cliente={cliente}
@@ -242,5 +281,25 @@ export function Clientes() {
         />
       ) : null}
     </Layout>
+  );
+}
+
+export function normalizarBusqueda(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("es-PE");
+}
+
+export function filtrarClientesPorNombre(clientes: ClienteDelDia[], busqueda: string) {
+  const termino = normalizarBusqueda(busqueda);
+
+  if (!termino) {
+    return clientes;
+  }
+
+  return clientes.filter((cliente) =>
+    normalizarBusqueda(cliente.cliente.nombre).includes(termino),
   );
 }
