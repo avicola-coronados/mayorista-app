@@ -33,7 +33,7 @@ describe("jornadaMetricas", () => {
     ).toBe(70);
   });
 
-  it("no permite merma negativa si una pesada vende más que la entrada", () => {
+  it("mantiene el piso en cero si una pesada vende más que la entrada", () => {
     expect(
       calcularPisoJornada({
         entradaRegistradaKg: 250.4,
@@ -55,5 +55,17 @@ describe("jornadaMetricas", () => {
         muerteroKg: 8,
       }),
     ).toBe(73);
+  });
+
+  it("muestra merma negativa cuando el neto supera la entrada", () => {
+    expect(
+      calcularMermaJornada({
+        entradaRegistradaKg: 13291.5,
+        vendidoBrutoKg: 23427.8,
+        devolucionesKg: 300,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(-9836.3);
   });
 });

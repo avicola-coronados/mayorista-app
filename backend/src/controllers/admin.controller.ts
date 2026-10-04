@@ -55,9 +55,9 @@ async function calculateAdminMetrics(jornadaId: number) {
   const devolucionesTotal = metrics.devoluciones_total_kg;
   const mermaKg = metrics.merma_kg;
   const mermaPorcentaje =
-    entradaTotal > 0 ? Math.min(100, Math.max(0, Number(((mermaKg / entradaTotal) * 100).toFixed(2)))) : 0;
+    entradaTotal > 0 ? Number(((mermaKg / entradaTotal) * 100).toFixed(2)) : 0;
   const mermaEstado =
-    mermaPorcentaje < 1 ? "normal" : mermaPorcentaje < 2 ? "alta" : "critica";
+    mermaPorcentaje < 0 || mermaPorcentaje >= 2 ? "critica" : mermaPorcentaje >= 1 ? "alta" : "normal";
 
   return {
     entrada_total_kg: entradaTotal,

@@ -39,7 +39,7 @@ export function calcularMerma({
   desperdicioKg: number;
   muerteroKg: number;
 }) {
-  const diferencia = Math.max(0, roundKg(entradaKg - vendidoNetoKg));
+  const diferencia = roundKg(entradaKg - vendidoNetoKg);
   return roundKg(muerteroKg + desperdicioKg + diferencia);
 }
 
@@ -112,5 +112,5 @@ export function calcularPorcentajeMerma(mermaKg: number, entradaKg: number) {
     return 0;
   }
 
-  return Math.min(100, Math.max(0, roundKg((mermaKg / entradaKg) * 100)));
+  return roundKg((mermaKg / entradaKg) * 100);
 }

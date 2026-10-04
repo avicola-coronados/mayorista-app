@@ -1220,7 +1220,12 @@ function DesgloseMerma({ detalle }: { detalle: JornadaDetalle }) {
   const rows = [
     { label: "Muertero", value: desglose.muertero, symbol: "+", positive: true },
     { label: "Desperdicio", value: desglose.desperdicio, symbol: "+", positive: true },
-    { label: "Entrada − neto", value: desglose.diferencia_entrada_neto, symbol: "+", positive: true },
+    {
+      label: "Entrada − neto",
+      value: desglose.diferencia_entrada_neto,
+      symbol: desglose.diferencia_entrada_neto < 0 ? "−" : "+",
+      positive: desglose.diferencia_entrada_neto >= 0,
+    },
   ];
 
   return (
@@ -1260,7 +1265,7 @@ function DesgloseMerma({ detalle }: { detalle: JornadaDetalle }) {
 
 function MermaBadge({ jornada, value }: { jornada?: JornadaResumen; value: number }) {
   const color =
-    value > 2
+    value < 0 || value > 2
       ? "bg-[#FCEBEB] text-[#C62828]"
       : value >= 1
         ? "bg-[#FFF3E0] text-[#BA7517]"
@@ -1617,7 +1622,7 @@ function calculatePercent(value: number, total: number) {
 }
 
 function getMermaTextClass(value: number) {
-  if (value > 2) {
+  if (value < 0 || value > 2) {
     return "text-[#C62828]";
   }
 

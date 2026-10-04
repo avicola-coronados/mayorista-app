@@ -120,7 +120,7 @@ describe("calculos de pesadas", () => {
     ).toBe(15);
   });
 
-  it("no permite merma negativa si se vendió más que la entrada", () => {
+  it("mantiene el piso en cero si se vendió más que la entrada", () => {
     expect(
       calcularPisoJornada({
         entradaRegistradaKg: 1000,
@@ -140,22 +140,34 @@ describe("calculos de pesadas", () => {
         muerteroKg: 0,
       }),
     ).toBe(0);
-
-    expect(
-      calcularMerma({
-        entradaKg: 250.4,
-        vendidoNetoKg: 280.1,
-        desperdicioKg: 2,
-        muerteroKg: 3,
-      }),
-    ).toBe(5);
-
-    expect(calcularPorcentajeMerma(0, 1000)).toBe(0);
   });
 
-  it("evita division por cero y limita porcentaje entre 0 y 100", () => {
+  it("deja ver el descuadre cuando el neto supera la entrada", () => {
+    expect(
+      calcularMerma({
+        entradaKg: 13291.5,
+        vendidoNetoKg: 23127.8,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(-9836.3);
+
+    expect(
+      calcularMermaJornada({
+        entradaRegistradaKg: 13291.5,
+        vendidoBrutoKg: 23427.8,
+        devolucionesKg: 300,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(-9836.3);
+
+    expect(calcularPorcentajeMerma(-9836.3, 13291.5)).toBe(-74.0);
+  });
+
+  it("evita division por cero y reporta el porcentaje con signo", () => {
     expect(calcularPorcentajeMerma(0, 0)).toBe(0);
-    expect(calcularPorcentajeMerma(-10, 1000)).toBe(0);
-    expect(calcularPorcentajeMerma(1500, 1000)).toBe(100);
+    expect(calcularPorcentajeMerma(-10, 1000)).toBe(-1);
+    expect(calcularPorcentajeMerma(1500, 1000)).toBe(150);
   });
 });
