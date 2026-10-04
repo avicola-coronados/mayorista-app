@@ -3,7 +3,7 @@ import { prisma } from "../../lib/prisma";
 export const PISO_GRANJA_NOMBRE = "Piso";
 
 export async function getPisoDisponible(jornadaId: number) {
-  const [entradaAggregate, salidaAggregate] = await Promise.all([
+  const [entradaAggregate, salidaAggregate, devolucionVivaAggregate] = await Promise.all([
     prisma.lineaVenta.aggregate({
       where: { jornada_id: jornadaId, origen: "piso", deleted_at: null },
       _sum: {
@@ -29,15 +29,24 @@ export async function getPisoDisponible(jornadaId: number) {
         peso_neto: true,
       },
     }),
+    prisma.devolucion.aggregate({
+      where: { jornada_id: jornadaId, tipo: "vivo" },
+      _sum: {
+        jabas: true,
+        peso_neto: true,
+      },
+    }),
   ]);
 
   const entradaKg = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const salidaKg = salidaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const entradaJabas = entradaAggregate._sum.jabas ?? 0;
   const salidaJabas = salidaAggregate._sum.jabas ?? 0;
+  const devolucionVivaKg = devolucionVivaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const devolucionVivaJabas = devolucionVivaAggregate._sum.jabas ?? 0;
 
   return {
-    peso_neto: Math.max(0, Number((entradaKg - salidaKg).toFixed(2))),
-    jabas: Math.max(0, entradaJabas - salidaJabas),
+    peso_neto: Math.max(0, Number((entradaKg - salidaKg + devolucionVivaKg).toFixed(2))),
+    jabas: Math.max(0, entradaJabas - salidaJabas + devolucionVivaJabas),
   };
 }

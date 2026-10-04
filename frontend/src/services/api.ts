@@ -141,6 +141,7 @@ export type MetricasJornada = {
   merma_kg?: number;
   merma_porcentaje?: number;
   devoluciones_total_kg: number;
+  devoluciones_vivas_kg?: number;
   sobrante_total_kg: number;
   clientes_atendidos: number;
   pesadas_realizadas: number;
@@ -360,6 +361,8 @@ export type DevolucionClientePayload = {
   jornada_id: number;
   cliente_id: number;
   tipo: TipoDevolucion;
+  jabas: number;
+  tara_por_jaba: number;
   peso_neto: number;
 };
 

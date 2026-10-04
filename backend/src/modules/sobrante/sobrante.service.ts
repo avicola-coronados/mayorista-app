@@ -1,18 +1,22 @@
 import { calculateJornadaMetrics } from "../jornadas/jornadas.service";
+import { getPisoDisponible } from "../lineas-venta/piso-disponible.service";
 
 export async function getSobranteByJornadaId(jornadaId: number) {
-  const metrics = await calculateJornadaMetrics(jornadaId);
+  const [metrics, pisoOperativo] = await Promise.all([
+    calculateJornadaMetrics(jornadaId),
+    getPisoDisponible(jornadaId),
+  ]);
   const pesoNeto = Math.max(0, metrics.piso_disponible_kg);
-  const jabasEstimadas = Math.round(pesoNeto / 50);
+  const jabasDisponibles = pisoOperativo.jabas;
 
-  if (pesoNeto <= 0 && jabasEstimadas <= 0) {
+  if (pesoNeto <= 0 && jabasDisponibles <= 0) {
     return [];
   }
 
   return [
     {
       id: 0,
-      jabas: jabasEstimadas,
+      jabas: jabasDisponibles,
       peso_neto: pesoNeto,
     },
   ];

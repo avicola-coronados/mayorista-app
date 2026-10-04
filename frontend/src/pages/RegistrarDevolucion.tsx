@@ -97,6 +97,7 @@ export function RegistrarDevolucion() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["devoluciones", jornada?.id] }),
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["sobrante", jornada?.id] }),
       ]);
       tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       window.setTimeout(() => pesoBrutoRef.current?.focus(), 100);
@@ -113,6 +114,7 @@ export function RegistrarDevolucion() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["devoluciones", jornada?.id] }),
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["sobrante", jornada?.id] }),
       ]);
     },
     onError: (error: Error) => toast.error(error.message),

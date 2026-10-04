@@ -15,6 +15,8 @@ const ESTADOS: Array<{
   { value: "vivo", label: "Vivo", dotClass: "bg-coronados-green" },
 ];
 
+const DEFAULT_TARA_POR_JABA = 5.8;
+
 function formatFechaHoy() {
   return new Date().toLocaleDateString("es-PE", {
     day: "numeric",
@@ -25,6 +27,10 @@ function formatFechaHoy() {
 
 function round1(value: number) {
   return Math.round(value * 10) / 10;
+}
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 export function RegistrarDevolucionSheet({
@@ -41,16 +47,27 @@ export function RegistrarDevolucionSheet({
   onSuccess: (data: DevolucionSuccessData) => void;
 }) {
   const [kgInput, setKgInput] = useState("");
+  const [jabasInput, setJabasInput] = useState("");
+  const [taraPorJabaInput, setTaraPorJabaInput] = useState(String(DEFAULT_TARA_POR_JABA));
   const [estado, setEstado] = useState<TipoDevolucion | null>(null);
   const [estadoOpen, setEstadoOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const netoCliente = cliente.total_kg;
   const kg = Number(kgInput) || 0;
+  const jabas = Number(jabasInput) || 0;
+  const taraPorJaba = Number(taraPorJabaInput) || 0;
+  const taraTotal = round2(jabas * taraPorJaba);
   const excedeNeto = kg > netoCliente + 0.001;
   const netoAjustado = round1(Math.max(netoCliente - kg, 0));
   const estadoLabel = ESTADOS.find((item) => item.value === estado)?.label ?? "";
-  const canSave = kg > 0 && !excedeNeto && estado !== null;
+  const canSave =
+    kg > 0 &&
+    !excedeNeto &&
+    Number.isInteger(jabas) &&
+    jabas > 0 &&
+    taraPorJaba > 0 &&
+    estado !== null;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -58,6 +75,8 @@ export function RegistrarDevolucionSheet({
         jornada_id: jornadaId,
         cliente_id: cliente.cliente.id!,
         tipo: estado!,
+        jabas,
+        tara_por_jaba: taraPorJaba,
         peso_neto: kg,
       }),
     onSuccess: (devolucion) => {
@@ -76,6 +95,8 @@ export function RegistrarDevolucionSheet({
     }
 
     setKgInput("");
+    setJabasInput("");
+    setTaraPorJabaInput(String(DEFAULT_TARA_POR_JABA));
     setEstado(null);
     setEstadoOpen(false);
     mutation.reset();
@@ -153,6 +174,44 @@ export function RegistrarDevolucionSheet({
                 {excedeNeto
                   ? `Supera el neto del cliente (${netoCliente.toFixed(1)} kg)`
                   : `Máx. ${netoCliente.toFixed(1)} kg`}
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="jabas-devolucion" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
+                Jabas
+              </label>
+              <input
+                id="jabas-devolucion"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                placeholder="0"
+                value={jabasInput}
+                onChange={(event) => setJabasInput(event.target.value)}
+                className="w-full rounded-[8px] border border-neutral-200 px-3 py-2.5 text-[15px] font-medium text-neutral-900 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-[10px]">
+            <div>
+              <label htmlFor="tara-devolucion" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
+                Tara por jaba (kg)
+              </label>
+              <input
+                id="tara-devolucion"
+                type="number"
+                min={0.1}
+                step={0.1}
+                inputMode="decimal"
+                value={taraPorJabaInput}
+                onChange={(event) => setTaraPorJabaInput(event.target.value)}
+                className="w-full rounded-[8px] border border-neutral-200 px-3 py-2.5 text-[15px] font-medium text-neutral-900 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
+              />
+              <p className="mt-1.5 text-[12px] font-medium text-neutral-400">
+                Tara total: {taraTotal.toFixed(2)} kg
               </p>
             </div>
 

@@ -24,6 +24,8 @@ export const devolucionClienteSchema = z.object({
   jornada_id: z.coerce.number().int().positive("Jornada inválida"),
   cliente_id: z.coerce.number().int().positive("Cliente inválido"),
   tipo: z.enum(["pelado", "muerto", "vivo"]),
+  jabas: z.coerce.number().int().positive("Las jabas deben ser mayores a cero"),
+  tara_por_jaba: z.coerce.number().positive("La tara por jaba debe ser mayor a cero"),
   peso_neto: z.coerce.number().positive("Los kg a devolver deben ser mayores a cero"),
 });
 

@@ -356,7 +356,14 @@ export function ClienteCard({
                             })}
                           </span>
                         </div>
-                        <span className="text-[13px] font-bold text-neutral-950">{devol.peso_neto.toFixed(2)} kg</span>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[13px] font-bold text-neutral-950">{devol.peso_neto.toFixed(2)} kg</p>
+                          <p className="mt-0.5 text-[11px] font-medium text-neutral-400">
+                            {devol.jabas == null
+                              ? "Jabas —"
+                              : `${devol.jabas} jaba${devol.jabas === 1 ? "" : "s"}`} · Tara {devol.tara.toFixed(2)} kg
+                          </p>
+                        </div>
                       </div>
                     );
                   })}

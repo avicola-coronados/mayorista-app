@@ -1,4 +1,5 @@
 import { AppError } from "../../errors/AppError";
+import { calcularTara, roundKg } from "../../domain/pesadas/calculos";
 import { prisma } from "../../lib/prisma";
 import { syncDevolucionKgForCliente } from "../guias/guias-sync.service";
 import type { z } from "zod";
@@ -136,14 +137,17 @@ async function createDevolucionCliente(data: CreateDevolucionClienteInput) {
     );
   }
 
+  const tara = calcularTara(data.jabas, data.tara_por_jaba);
+  const pesoBruto = roundKg(data.peso_neto + tara);
+
   const devolucion = await prisma.devolucion.create({
     data: {
       jornada_id: data.jornada_id,
       cliente_id: data.cliente_id,
       tipo: data.tipo,
-      jabas: null,
-      peso_bruto: data.peso_neto,
-      tara: 0,
+      jabas: data.jabas,
+      peso_bruto: pesoBruto,
+      tara,
       peso_neto: data.peso_neto,
     },
     include: {

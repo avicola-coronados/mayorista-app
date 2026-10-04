@@ -120,6 +120,7 @@ export function Clientes() {
       void queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornadaId] });
       void queryClient.invalidateQueries({ queryKey: ["devoluciones", jornadaId] });
       void queryClient.invalidateQueries({ queryKey: ["metricas", jornadaId] });
+      void queryClient.invalidateQueries({ queryKey: ["sobrante", jornadaId] });
     }
   }
 
