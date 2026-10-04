@@ -117,5 +117,7 @@ describe("RegistrarPesada", () => {
         tara_por_jaba: 5.8,
       }),
     );
+    await waitFor(() => expect(clienteSelect).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Piso" })).toHaveAttribute("aria-pressed", "false");
   });
 });

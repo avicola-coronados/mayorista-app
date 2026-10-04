@@ -90,6 +90,9 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
     onSuccess: async () => {
       toast.success(esPartida ? "Partida guardada correctamente" : "Ingreso guardado correctamente");
       setForm(initialState);
+      if (!esPartida) {
+        setDestinoIngreso("cliente");
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
         queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornada?.id] }),
