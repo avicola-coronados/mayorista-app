@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from "react";
-import { IconNote } from "@tabler/icons-react";
+import { IconNote, IconPencil } from "@tabler/icons-react";
 import { RegistrarDevolucionButton } from "./operario/RegistrarDevolucionSheet";
-import type { ClienteDelDia, Devolucion, TipoDevolucion } from "../services/api";
+import type { ClienteDelDia, Devolucion, Granja, TipoDevolucion } from "../services/api";
 
 type ClienteCardProps = {
   cliente: ClienteDelDia;
@@ -13,6 +13,9 @@ type ClienteCardProps = {
   onNotaTextoChange: (value: string) => void;
   onOpenNota: (linea: ClienteDelDia["lineas"][number]) => void;
   onSaveNota: (linea: ClienteDelDia["lineas"][number]) => void;
+  granjas: Granja[];
+  isSavingGranja: boolean;
+  onSaveGranja: (linea: ClienteDelDia["lineas"][number], granjaId: number) => Promise<void>;
   onRegistrarDevolucion?: () => void;
 };
 
@@ -26,9 +29,14 @@ export function ClienteCard({
   onNotaTextoChange,
   onOpenNota,
   onSaveNota,
+  granjas,
+  isSavingGranja,
+  onSaveGranja,
   onRegistrarDevolucion,
 }: ClienteCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [editingGranja, setEditingGranja] = useState<number | null>(null);
+  const [granjaSeleccionada, setGranjaSeleccionada] = useState(0);
   const puedeRegistrarDevolucion = cliente.cliente.id != null && cliente.pesadas > 0 && onRegistrarDevolucion;
   const totalDevolucionesKg = devoluciones.reduce((acc, devolucion) => acc + devolucion.peso_neto, 0);
   const totalClienteAjustado = Math.max(cliente.total_kg - totalDevolucionesKg, 0);
@@ -94,6 +102,12 @@ export function ClienteCard({
           <div className="space-y-3">
             {cliente.lineas.map((linea) => {
               const isEditing = editingNota === linea.id;
+              const isEditingGranja = editingGranja === linea.id;
+              const granjasDisponibles = granjas.filter(
+                (granja) =>
+                  granja.activo &&
+                  (linea.origen !== "piso" || granja.nombre.trim().toLowerCase() !== "piso"),
+              );
 
               return (
               <div
@@ -117,6 +131,26 @@ export function ClienteCard({
                     <p className="text-lg font-bold text-slate-900">{linea.peso_neto.toFixed(2)} kg</p>
                     <button
                       type="button"
+                      onClick={() => {
+                        if (isEditingGranja) {
+                          setEditingGranja(null);
+                          return;
+                        }
+                        setEditingGranja(linea.id);
+                        setGranjaSeleccionada(linea.granja.id);
+                      }}
+                      className={`flex h-9 w-9 items-center justify-center rounded-[6px] border transition ${
+                        isEditingGranja
+                          ? "border-coronados-green bg-coronados-green text-white"
+                          : "border-slate-200 bg-transparent text-slate-400 hover:bg-slate-100"
+                      }`}
+                      title="Editar granja"
+                      aria-label="Editar granja"
+                    >
+                      <IconPencil size={18} stroke={2.2} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => onOpenNota(linea)}
                       className={`flex h-9 w-9 items-center justify-center rounded-[6px] border transition ${
                         linea.tiene_nota
@@ -129,6 +163,52 @@ export function ClienteCard({
                     </button>
                   </div>
                 </div>
+
+                {isEditingGranja ? (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <label htmlFor={`granja-${linea.id}`} className="mb-2 block text-[13px] font-semibold text-slate-700">
+                      Granja
+                    </label>
+                    <select
+                      id={`granja-${linea.id}`}
+                      className="field-input"
+                      value={granjaSeleccionada}
+                      disabled={isSavingGranja}
+                      onChange={(event) => setGranjaSeleccionada(Number(event.target.value))}
+                    >
+                      {granjasDisponibles.map((granja) => (
+                        <option key={granja.id} value={granja.id}>
+                          {granja.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-2 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-[6px] border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+                        disabled={isSavingGranja}
+                        onClick={() => setEditingGranja(null)}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-[6px] bg-coronados-green px-4 py-2 text-[13px] font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                        disabled={isSavingGranja || granjaSeleccionada === linea.granja.id}
+                        onClick={async () => {
+                          try {
+                            await onSaveGranja(linea, granjaSeleccionada);
+                            setEditingGranja(null);
+                          } catch {
+                            // La mutación muestra el error y mantiene abierto el editor.
+                          }
+                        }}
+                      >
+                        {isSavingGranja ? "Guardando..." : "Guardar granja"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-600">
                   <p>Jabas: {linea.jabas}</p>

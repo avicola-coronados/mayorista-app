@@ -18,5 +18,10 @@ export const updateNotaLineaVentaSchema = z.object({
   nota: z.string().trim().nullable(),
 });
 
+export const updateGranjaLineaVentaSchema = z.object({
+  granja_id: z.coerce.number().int().positive("Granja inválida"),
+});
+
 export type CreateLineaVentaInput = z.infer<typeof createLineaVentaSchema>;
 export type UpdateNotaLineaVentaInput = z.infer<typeof updateNotaLineaVentaSchema>;
+export type UpdateGranjaLineaVentaInput = z.infer<typeof updateGranjaLineaVentaSchema>;

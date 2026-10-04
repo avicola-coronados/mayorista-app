@@ -244,6 +244,15 @@ export type UpdateLineaVentaNotaResponse = {
   };
 };
 
+export type UpdateLineaVentaGranjaResponse = {
+  mensaje: string;
+  linea_venta: {
+    id: number;
+    granja_id: number;
+    granja: Granja;
+  };
+};
+
 export type AdminPesadasConNotas = {
   total: number;
   pesadas_con_notas: Array<{
@@ -1294,6 +1303,16 @@ export const apiClient = {
   async updateLineaVentaNota(id: number, nota: string | null) {
     try {
       const response = await api.patch<UpdateLineaVentaNotaResponse>(`/lineas-venta/${id}/nota`, { nota });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateLineaVentaGranja(id: number, granjaId: number) {
+    try {
+      const response = await api.patch<UpdateLineaVentaGranjaResponse>(`/lineas-venta/${id}/granja`, {
+        granja_id: granjaId,
+      });
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

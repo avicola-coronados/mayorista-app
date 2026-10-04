@@ -7,7 +7,11 @@ import { AppError } from "../../errors/AppError";
 import { prisma } from "../../lib/prisma";
 import { getPisoDisponible, PISO_GRANJA_NOMBRE } from "./piso-disponible.service";
 import { syncGuiaFromLineaVenta } from "../guias/guias-sync.service";
-import { CreateLineaVentaInput, UpdateNotaLineaVentaInput } from "./lineas-venta.schemas";
+import {
+  CreateLineaVentaInput,
+  UpdateGranjaLineaVentaInput,
+  UpdateNotaLineaVentaInput,
+} from "./lineas-venta.schemas";
 
 type LineaVentaDetalle = {
   id: number;
@@ -223,6 +227,70 @@ export async function updateLineaVentaNota(id: number, data: UpdateNotaLineaVent
 
   return {
     mensaje: nota ? "Nota guardada correctamente" : "Nota eliminada",
+    linea_venta: updated,
+  };
+}
+
+export async function updateLineaVentaGranja(
+  id: number,
+  data: UpdateGranjaLineaVentaInput,
+  actorUserId: number,
+) {
+  const [lineaVenta, granja] = await Promise.all([
+    prisma.lineaVenta.findUnique({
+      where: { id },
+      include: {
+        jornada: { select: { estado: true } },
+        granja: { select: { nombre: true } },
+      },
+    }),
+    prisma.granja.findFirst({
+      where: { id: data.granja_id, activo: true },
+      select: { id: true, nombre: true },
+    }),
+  ]);
+
+  if (!lineaVenta || lineaVenta.deleted_at) {
+    throw new AppError("Pesada no encontrada", 404);
+  }
+
+  if (lineaVenta.jornada.estado === "cerrada") {
+    throw new AppError("No se puede editar una pesada de una jornada cerrada", 400, "JORNADA_CLOSED");
+  }
+
+  if (!granja) {
+    throw new AppError("Granja no encontrada o inactiva", 404);
+  }
+
+  const esPiso = granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase();
+  const yaEraPiso = lineaVenta.granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase();
+
+  if (lineaVenta.origen === "piso" && esPiso) {
+    throw new AppError("Un ingreso a piso debe conservar una granja de origen", 400);
+  }
+
+  if (lineaVenta.origen === "partida" && esPiso && !yaEraPiso) {
+    const pisoDisponible = await getPisoDisponible(lineaVenta.jornada_id);
+    const pesoNeto = lineaVenta.peso_neto.toNumber();
+
+    if (pesoNeto > pisoDisponible.peso_neto) {
+      throw new AppError(
+        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg.`,
+        400,
+      );
+    }
+  }
+
+  const updated = await prisma.lineaVenta.update({
+    where: { id },
+    data: { granja_id: granja.id },
+    include: { granja: true },
+  });
+
+  await syncGuiaFromLineaVenta(updated.id, actorUserId);
+
+  return {
+    mensaje: "Granja actualizada correctamente",
     linea_venta: updated,
   };
 }

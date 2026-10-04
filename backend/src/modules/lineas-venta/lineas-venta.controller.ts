@@ -3,11 +3,13 @@ import { serializePrisma } from "../../utils/serializers";
 import {
   createLineaVentaSchema,
   lineasVentaQuerySchema,
+  updateGranjaLineaVentaSchema,
   updateNotaLineaVentaSchema,
 } from "./lineas-venta.schemas";
 import {
   createLineaVenta,
   getLineasVentaGrouped,
+  updateLineaVentaGranja,
   updateLineaVentaNota,
 } from "./lineas-venta.service";
 import { AppError } from "../../errors/AppError";
@@ -41,6 +43,24 @@ export async function updateLineaVentaNotaController(request: Request, response:
 
   const data = updateNotaLineaVentaSchema.parse(request.body);
   const result = await updateLineaVentaNota(id, data);
+
+  return response.json(serializePrisma(result));
+}
+
+export async function updateLineaVentaGranjaController(request: Request, response: Response) {
+  const id = Number(request.params.id);
+  const actorUserId = request.user?.id;
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError("Pesada inválida", 400);
+  }
+
+  if (!actorUserId) {
+    throw new AppError("Usuario no autenticado", 401);
+  }
+
+  const data = updateGranjaLineaVentaSchema.parse(request.body);
+  const result = await updateLineaVentaGranja(id, data, actorUserId);
 
   return response.json(serializePrisma(result));
 }

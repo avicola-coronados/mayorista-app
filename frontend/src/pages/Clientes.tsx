@@ -38,6 +38,11 @@ export function Clientes() {
     enabled: Boolean(jornadaId),
   });
 
+  const granjasQuery = useQuery({
+    queryKey: ["granjas"],
+    queryFn: apiClient.getGranjas,
+  });
+
   const notaMutation = useMutation({
     mutationFn: ({ id, nota }: { id: number; nota: string | null }) => apiClient.updateLineaVentaNota(id, nota),
     onSuccess: async (response) => {
@@ -49,6 +54,20 @@ export function Clientes() {
       } else {
         await queryClient.invalidateQueries({ queryKey: ["lineas-venta"] });
       }
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const granjaMutation = useMutation({
+    mutationFn: ({ id, granjaId }: { id: number; granjaId: number }) =>
+      apiClient.updateLineaVentaGranja(id, granjaId),
+    onSuccess: async (response) => {
+      toast.success(response.mensaje);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["lineas-venta", jornadaId] }),
+        queryClient.invalidateQueries({ queryKey: ["metricas", jornadaId] }),
+        queryClient.invalidateQueries({ queryKey: ["sobrante", jornadaId] }),
+      ]);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -173,6 +192,11 @@ export function Clientes() {
               onNotaTextoChange={setNotaTexto}
               onOpenNota={openNota}
               onSaveNota={saveNota}
+              granjas={granjasQuery.data ?? []}
+              isSavingGranja={granjaMutation.isPending}
+              onSaveGranja={async (linea, granjaId) => {
+                await granjaMutation.mutateAsync({ id: linea.id, granjaId });
+              }}
               devoluciones={
                 cliente.cliente.id != null
                   ? (devolucionesQuery.data?.devoluciones ?? []).filter(
