@@ -171,6 +171,11 @@ export function CierreJornada() {
               label="Total devoluciones"
               value={`${(metricas?.devoluciones_total_kg ?? 0).toFixed(2)} kg`}
             />
+            <div className="grid grid-cols-3 gap-2 pl-3">
+              <DevolucionTipo label="Vivo" value={metricas.devoluciones_vivas_kg ?? 0} />
+              <DevolucionTipo label="Pelado" value={metricas.devoluciones_peladas_kg ?? 0} />
+              <DevolucionTipo label="Muerto" value={metricas.devoluciones_muertas_kg ?? 0} />
+            </div>
             <SummaryRow label="Piso disponible (previo al cierre)" value={`${(metricas?.piso_disponible_kg ?? 0).toFixed(2)} kg`} />
           </div>
 
@@ -261,6 +266,15 @@ export function CierreJornada() {
         </section>
       </form>
     </Layout>
+  );
+}
+
+function DevolucionTipo({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-3 py-2">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-bold text-slate-900">{value.toFixed(2)} kg</p>
+    </div>
   );
 }
 

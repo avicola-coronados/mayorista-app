@@ -142,6 +142,8 @@ export type MetricasJornada = {
   merma_porcentaje?: number;
   devoluciones_total_kg: number;
   devoluciones_vivas_kg?: number;
+  devoluciones_peladas_kg?: number;
+  devoluciones_muertas_kg?: number;
   sobrante_total_kg: number;
   clientes_atendidos: number;
   pesadas_realizadas: number;

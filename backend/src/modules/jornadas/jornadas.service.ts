@@ -90,6 +90,8 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     ventaAggregate,
     devolucionAggregate,
     devolucionVivaAggregate,
+    devolucionPeladaAggregate,
+    devolucionMuertaAggregate,
     counts,
     pesadasRealizadas,
   ] =
@@ -119,6 +121,14 @@ export async function calculateJornadaMetrics(jornadaId: number) {
         where: { jornada_id: jornadaId, tipo: "vivo" },
         _sum: { peso_neto: true },
       }),
+      prisma.devolucion.aggregate({
+        where: { jornada_id: jornadaId, tipo: "pelado" },
+        _sum: { peso_neto: true },
+      }),
+      prisma.devolucion.aggregate({
+        where: { jornada_id: jornadaId, tipo: "muerto" },
+        _sum: { peso_neto: true },
+      }),
       prisma.lineaVenta.groupBy({
         by: ["cliente_id"],
         where: { jornada_id: jornadaId, cliente_id: { not: null }, deleted_at: null },
@@ -143,6 +153,8 @@ export async function calculateJornadaMetrics(jornadaId: number) {
   const vendidoTotal = ventaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesTotal = devolucionAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesVivasTotal = devolucionVivaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const devolucionesPeladasTotal = devolucionPeladaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const devolucionesMuertasTotal = devolucionMuertaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const vendidoNeto = calcularVendidoNeto(vendidoTotal, devolucionesTotal);
   const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
   const muertero = jornada.muertero_kg?.toNumber() ?? 0;
@@ -176,6 +188,8 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     merma_porcentaje: mermaPorcentaje,
     devoluciones_total_kg: devolucionesTotal,
     devoluciones_vivas_kg: devolucionesVivasTotal,
+    devoluciones_peladas_kg: devolucionesPeladasTotal,
+    devoluciones_muertas_kg: devolucionesMuertasTotal,
     sobrante_total_kg: sobranteTotal,
     desperdicio_kg: desperdicio,
     muertero_kg: muertero,
