@@ -127,7 +127,11 @@ async function buildLineaGuiaDataFromLineaVenta(
     precioKg = Number(existing.precio_kg);
     precioId = existing.precio_id;
   } else {
-    const precioVigente = await obtenerPrecioVigente(productoId);
+    const precioVigente = await obtenerPrecioVigente(
+      productoId,
+      undefined,
+      lineaVenta.cliente_id,
+    );
     precioKg = precioVigente.precio_kg;
     precioId = precioVigente.precio_id;
   }

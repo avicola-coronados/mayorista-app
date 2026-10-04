@@ -10,6 +10,7 @@ import { AdminGranjas } from "./pages/admin/AdminGranjas";
 import { AdminJornadaDetalle, AdminJornadas } from "./pages/admin/AdminJornadas";
 import { AdminClientes } from "./pages/admin/AdminClientes";
 import { AdminUsuarios } from "./pages/admin/AdminUsuarios";
+import { AdminPrecios } from "./pages/admin/AdminPrecios";
 import { ClientesCajero } from "./pages/cajero/ClientesCajero";
 import { DetalleClienteCajero } from "./pages/cajero/DetalleClienteCajero";
 import { DetalleGuiaCajero } from "./pages/cajero/DetalleGuiaCajero";
@@ -130,6 +131,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute>
             <AdminClientes />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/precios"
+        element={
+          <ProtectedAdminRoute>
+            <AdminPrecios />
           </ProtectedAdminRoute>
         }
       />

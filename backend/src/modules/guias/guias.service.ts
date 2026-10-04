@@ -142,9 +142,10 @@ async function buildLineaData(
   orden: number,
   input: LineaGuiaBodyInput,
   productoId: number,
+  clienteId: number,
 ) {
   try {
-    const precioVigente = await obtenerPrecioVigente(productoId);
+    const precioVigente = await obtenerPrecioVigente(productoId, undefined, clienteId);
     const calculado = calcularLineaGuia(input, precioVigente.precio_kg);
 
     return {
@@ -218,7 +219,13 @@ export async function addLineaGuia(guiaId: number, input: LineaGuiaBodyInput) {
   const guia = await getGuiaEditable(guiaId);
   const nextOrden = guia.lineas.length > 0 ? Math.max(...guia.lineas.map((l) => l.orden)) + 1 : 1;
 
-  const lineaData = await buildLineaData(guia.id, nextOrden, input, guia.producto_id);
+  const lineaData = await buildLineaData(
+    guia.id,
+    nextOrden,
+    input,
+    guia.producto_id,
+    guia.cliente_id,
+  );
 
   const linea = await prisma.lineaGuia.create({
     data: lineaData,
@@ -245,7 +252,13 @@ export async function updateLineaGuia(guiaId: number, lineaId: number, input: Li
     throw new AppError("Línea de guía no encontrada", 404);
   }
 
-  const lineaData = await buildLineaData(guia.id, linea.orden, input, guia.producto_id);
+  const lineaData = await buildLineaData(
+    guia.id,
+    linea.orden,
+    input,
+    guia.producto_id,
+    guia.cliente_id,
+  );
 
   await prisma.lineaGuia.update({
     where: { id: lineaId },
@@ -288,7 +301,11 @@ export async function cerrarGuia(guiaId: number, usuarioId: number) {
     throw new AppError("No se puede cerrar una guía sin líneas", 400);
   }
 
-  const precioVigente = await obtenerPrecioVigente(guia.producto_id);
+  const precioVigente = await obtenerPrecioVigente(
+    guia.producto_id,
+    undefined,
+    guia.cliente_id,
+  );
 
   await recalcularTotalesGuia(guia.id);
 

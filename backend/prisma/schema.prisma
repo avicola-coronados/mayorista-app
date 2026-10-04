@@ -135,6 +135,7 @@ model Cliente {
   facturas       Factura[]
   pagos          Pago[]
   guias          GuiaEntrega[]
+  precios        Precio[]
 
   @@index([activo])
   @@index([tipo, activo])
@@ -204,6 +205,7 @@ model Producto {
 model Precio {
   id          String      @id @default(uuid())
   producto_id Int
+  cliente_id  Int?
   precio      Decimal     @db.Decimal(10, 4)
   fecha_desde DateTime    @db.Date
   fecha_hasta DateTime?   @db.Date
@@ -211,11 +213,14 @@ model Precio {
   creado_por  Int
   creado_en   DateTime    @default(now()) @map("creado_en")
   producto    Producto    @relation(fields: [producto_id], references: [id])
+  cliente     Cliente?    @relation(fields: [cliente_id], references: [id], onDelete: SetNull)
   creador     Usuario     @relation("PrecioCreadoPor", fields: [creado_por], references: [id])
   lineas_guia LineaGuia[]
 
   @@index([producto_id, fecha_desde])
   @@index([producto_id, vigente])
+  @@index([producto_id, cliente_id, fecha_desde])
+  @@index([producto_id, cliente_id, vigente])
   @@map("precios")
 }
 

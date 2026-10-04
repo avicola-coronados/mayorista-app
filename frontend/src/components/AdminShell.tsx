@@ -14,6 +14,7 @@ const navItems = [
   { to: "/admin", label: "Dashboard" },
   { to: "/admin/jornadas", label: "Jornadas" },
   { to: "/admin/clientes", label: "Clientes" },
+  { to: "/admin/precios", label: "Precios" },
   { to: "/admin/granjas", label: "Granjas" },
   { to: "/admin/usuarios", label: "Usuarios" },
   { to: "/admin/config", label: "Config." },

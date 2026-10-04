@@ -607,8 +607,29 @@ export type PrecioVigente = {
   precio_kg: number;
   fecha_desde: string;
   producto_id: number;
+  cliente_id: number | null;
   precio_id: string | null;
-  origen: "rango" | "ultimo_disponible" | "default";
+  origen: "cliente" | "rango" | "ultimo_disponible" | "default";
+};
+
+export type PrecioHistorial = {
+  id: string;
+  producto_id: number;
+  cliente_id: number | null;
+  cliente: { id: number; nombre: string } | null;
+  precio: number;
+  fecha_desde: string;
+  fecha_hasta: string | null;
+  vigente: boolean;
+  creado_por: { id: number; nombre: string | null; username: string };
+  creado_en: string;
+};
+
+export type PrecioPayload = {
+  precio: number;
+  fecha_desde: string;
+  cliente_id?: number | null;
+  producto_id?: number;
 };
 
 export type LineaGuiaPayload = {
@@ -1120,9 +1141,29 @@ export const apiClient = {
       throw new Error(getErrorMessage(error));
     }
   },
-  async getPrecioVigente() {
+  async getPrecioVigente(clienteId?: number) {
     try {
-      const response = await api.get<PrecioVigente>("/precios/vigente");
+      const response = await api.get<PrecioVigente>("/precios/vigente", {
+        params: { cliente_id: clienteId },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getHistorialPrecios(clienteId?: number) {
+    try {
+      const response = await api.get<PrecioHistorial[]>("/precios/historial", {
+        params: { cliente_id: clienteId },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async createPrecio(payload: PrecioPayload) {
+    try {
+      const response = await api.post<PrecioHistorial>("/precios", payload);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
