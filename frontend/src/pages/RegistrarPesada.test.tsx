@@ -17,6 +17,7 @@ vi.mock("react-hot-toast", () => ({
 vi.mock("../services/api", () => ({
   apiClient: {
     createCliente: vi.fn(),
+    createGranja: vi.fn(),
     createLineaVenta: vi.fn(),
     getClientes: vi.fn(),
     getGranjas: vi.fn(),
@@ -68,6 +69,11 @@ describe("RegistrarPesada", () => {
     ]);
     mockedApi.getSobrante.mockResolvedValue([{ id: 0, peso_neto: 500, jabas: 10 }]);
     mockedApi.createLineaVenta.mockResolvedValue({} as never);
+    mockedApi.createGranja.mockResolvedValue({
+      id: 50,
+      nombre: "Granja Nueva",
+      activo: true,
+    });
   });
 
   it("registra una partida para un cliente usando Piso como origen", async () => {
@@ -119,5 +125,29 @@ describe("RegistrarPesada", () => {
     );
     await waitFor(() => expect(clienteSelect).toBeEnabled());
     expect(screen.getByRole("button", { name: "Piso" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("crea una granja desde ingreso y la selecciona", async () => {
+    const user = userEvent.setup();
+    mockedApi.createGranja.mockImplementation(async () => {
+      const granja = { id: 50, nombre: "Granja Nueva", activo: true };
+      mockedApi.getGranjas.mockResolvedValue([
+        { id: 30, nombre: "Granja Norte", activo: true },
+        { id: 40, nombre: "Piso", activo: true },
+        granja,
+      ]);
+      return granja;
+    });
+    renderPage("ingreso");
+
+    await screen.findByLabelText("Granja de origen");
+    await user.click(screen.getByRole("button", { name: "Nueva granja" }));
+    await user.type(screen.getByLabelText("Nombre de la granja"), "Granja Nueva");
+    await user.click(screen.getByRole("button", { name: "Crear granja" }));
+
+    await waitFor(() =>
+      expect(mockedApi.createGranja).toHaveBeenCalledWith({ nombre: "Granja Nueva" }),
+    );
+    await waitFor(() => expect(screen.getByLabelText("Granja de origen")).toHaveValue("50"));
   });
 });

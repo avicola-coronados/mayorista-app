@@ -31,6 +31,8 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
   const [destinoIngreso, setDestinoIngreso] = useState<DestinoIngreso>("cliente");
   const [newClienteName, setNewClienteName] = useState("");
   const [showNewCliente, setShowNewCliente] = useState(false);
+  const [newGranjaName, setNewGranjaName] = useState("");
+  const [showNewGranja, setShowNewGranja] = useState(false);
   const esPartida = modo === "partida";
   const requiereCliente = esPartida || destinoIngreso === "cliente";
 
@@ -122,6 +124,18 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const createGranjaMutation = useMutation({
+    mutationFn: () => apiClient.createGranja({ nombre: newGranjaName.trim() }),
+    onSuccess: async (granja) => {
+      toast.success(`Granja '${granja.nombre}' creada`);
+      setShowNewGranja(false);
+      setNewGranjaName("");
+      setForm((current) => ({ ...current, granja_id: granja.id }));
+      await queryClient.invalidateQueries({ queryKey: ["granjas"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   if (jornadaQuery.isLoading || granjasQuery.isLoading || clientesQuery.isLoading) {
     return (
       <Layout title={esPartida ? "Registrar partida" : "Registrar ingreso"} subtitle="Cargando catálogos del día">
@@ -201,6 +215,17 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
     }
 
     createClienteMutation.mutate();
+  }
+
+  function handleCreateGranja(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (newGranjaName.trim().length < 2) {
+      toast.error("El nombre de la granja debe tener al menos 2 caracteres");
+      return;
+    }
+
+    createGranjaMutation.mutate();
   }
 
   return (
@@ -297,9 +322,18 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
               </div>
             ) : (
               <div>
-                <label htmlFor="granja" className="field-label">
-                  Granja de origen
-                </label>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label htmlFor="granja" className="field-label mb-0">
+                    Granja de origen
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewGranja(true)}
+                    className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
+                  >
+                    Nueva granja
+                  </button>
+                </div>
                 <select
                   id="granja"
                   className="field-input"
@@ -476,6 +510,65 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
                   disabled={createClienteMutation.isPending}
                 >
                   {createClienteMutation.isPending ? "Creando..." : "Crear cliente"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {showNewGranja ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-[420px] rounded-[12px] bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-[18px] font-bold text-slate-950">Nueva granja</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!createGranjaMutation.isPending) {
+                    setShowNewGranja(false);
+                    setNewGranjaName("");
+                  }
+                }}
+                aria-label="Cerrar nueva granja"
+                className="rounded-[8px] px-2 py-1 text-[20px] font-bold text-slate-500 transition hover:bg-slate-100"
+                disabled={createGranjaMutation.isPending}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCreateGranja}>
+              <label htmlFor="nueva-granja" className="field-label">
+                Nombre de la granja
+              </label>
+              <input
+                id="nueva-granja"
+                className="field-input"
+                autoFocus
+                disabled={createGranjaMutation.isPending}
+                maxLength={50}
+                placeholder="Ej: Granja Santa Rosa"
+                value={newGranjaName}
+                onChange={(event) => setNewGranjaName(event.target.value)}
+              />
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewGranja(false);
+                    setNewGranjaName("");
+                  }}
+                  className="rounded-[8px] border border-slate-200 bg-white px-4 py-2 text-[14px] font-bold text-slate-600 transition hover:bg-slate-50"
+                  disabled={createGranjaMutation.isPending}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-[8px] bg-coronados-orange px-4 py-2 text-[14px] font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={createGranjaMutation.isPending}
+                >
+                  {createGranjaMutation.isPending ? "Creando..." : "Crear granja"}
                 </button>
               </div>
             </form>
