@@ -28,21 +28,6 @@ export function calcularPisoDisponible({
   return Math.max(0, roundKg(entradaKg - vendidoKg + devolucionesKg - desperdicioKg - muerteroKg));
 }
 
-export function calcularMerma({
-  entradaKg,
-  vendidoNetoKg,
-  desperdicioKg,
-  muerteroKg,
-}: {
-  entradaKg: number;
-  vendidoNetoKg: number;
-  desperdicioKg: number;
-  muerteroKg: number;
-}) {
-  const diferencia = roundKg(entradaKg - vendidoNetoKg);
-  return roundKg(muerteroKg + desperdicioKg + diferencia);
-}
-
 export function calcularVendidoNeto(vendidoBrutoKg: number, devolucionesKg: number) {
   return roundKg(vendidoBrutoKg - devolucionesKg);
 }
@@ -96,12 +81,10 @@ export function calcularMermaJornada({
   desperdicioKg: number;
   muerteroKg: number;
 }) {
-  const vendidoNeto = calcularVendidoNeto(vendidoBrutoKg, devolucionesKg);
-  const entradaKg = entradaRegistradaKg > 0 ? entradaRegistradaKg : 0;
-
-  return calcularMerma({
-    entradaKg,
-    vendidoNetoKg: vendidoNeto,
+  return calcularPisoJornada({
+    entradaRegistradaKg,
+    vendidoBrutoKg,
+    devolucionesKg,
     desperdicioKg,
     muerteroKg,
   });

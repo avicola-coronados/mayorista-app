@@ -42,7 +42,8 @@ mayorista-app/
 
 **Operario**
 
-- `/pesada/nueva` — Ingreso de pesadas en guía (cliente → guía borrador → líneas → cerrar)
+- `/pesada/nueva` — Registro de ingreso directo a cliente o envío de mercadería a piso
+- `/pesada/partida` — Asignación a cliente de mercadería previamente registrada en piso
 - `/operario/guias` — Listado de guías de la jornada activa
 - `/operario/devolucion` — Registro de devoluciones
 - `/clientes` — Listado de clientes del día

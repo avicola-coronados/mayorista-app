@@ -45,7 +45,7 @@ describe("jornadaMetricas", () => {
     ).toBe(0);
   });
 
-  it("calcula merma como muertero + desperdicio + (entrada - neto)", () => {
+  it("calcula merma como el piso restante después de pérdidas conocidas", () => {
     expect(
       calcularMermaJornada({
         entradaRegistradaKg: 1000,
@@ -54,10 +54,10 @@ describe("jornadaMetricas", () => {
         desperdicioKg: 5,
         muerteroKg: 8,
       }),
-    ).toBe(73);
+    ).toBe(47);
   });
 
-  it("muestra merma negativa cuando el neto supera la entrada", () => {
+  it("evita merma negativa cuando el neto supera la entrada", () => {
     expect(
       calcularMermaJornada({
         entradaRegistradaKg: 13291.5,
@@ -66,6 +66,6 @@ describe("jornadaMetricas", () => {
         desperdicioKg: 0,
         muerteroKg: 0,
       }),
-    ).toBe(-9836.3);
+    ).toBe(0);
   });
 });

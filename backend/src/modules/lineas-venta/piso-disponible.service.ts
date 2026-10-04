@@ -20,7 +20,7 @@ export async function getPisoDisponible(jornadaId: number) {
           { origen: "piso" },
           {
             origen: "partida",
-            granja: { nombre: PISO_GRANJA_NOMBRE },
+            granja: { nombre: { equals: PISO_GRANJA_NOMBRE, mode: "insensitive" } },
           },
         ],
       },
@@ -37,7 +37,7 @@ export async function getPisoDisponible(jornadaId: number) {
   const salidaJabas = salidaAggregate._sum.jabas ?? 0;
 
   return {
-    peso_neto: Number((entradaKg - salidaKg).toFixed(2)),
-    jabas: entradaJabas - salidaJabas,
+    peso_neto: Math.max(0, Number((entradaKg - salidaKg).toFixed(2))),
+    jabas: Math.max(0, entradaJabas - salidaJabas),
   };
 }

@@ -60,6 +60,10 @@ export async function createLineaVenta(data: CreateLineaVentaInput, actorUserId:
 
   const clienteId = data.cliente_id ?? null;
 
+  if (data.origen === "piso" && clienteId) {
+    throw new AppError("Los ingresos enviados a piso no deben tener un cliente asignado", 400);
+  }
+
   const [cliente, granja] = await Promise.all([
     clienteId
       ? prisma.cliente.findFirst({

@@ -7,7 +7,7 @@ export type OperarioNavItem = {
 export const OPERARIO_NAV_ITEMS: OperarioNavItem[] = [
   { to: "/", label: "Inicio", end: true },
   { to: "/pesada/nueva", label: "Ingreso" },
-  { to: "/pesada/piso", label: "Piso" },
+  { to: "/pesada/partida", label: "Partida" },
   { to: "/clientes", label: "Clientes" },
   { to: "/cierre", label: "Historial" },
 ];

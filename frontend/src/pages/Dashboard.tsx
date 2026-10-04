@@ -152,8 +152,8 @@ export function Dashboard() {
         <div className="mt-3 overflow-hidden rounded-[9px] border border-neutral-200 bg-white">
           <ActionRow
             to="/pesada/nueva"
-            title="Registrar pesada"
-            description="Partida o piso"
+            title="Registrar ingreso"
+            description="Asignar a cliente o enviar a piso"
             disabled={isClosed}
           />
           <ActionRow

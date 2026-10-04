@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularEntradaDiaMostrada,
-  calcularMerma,
   calcularMermaJornada,
   calcularPesoNeto,
   calcularPisoDisponible,
@@ -42,16 +41,17 @@ describe("calculos de pesadas", () => {
     ).toBe(70);
   });
 
-  it("suma desperdicio y muertero a la merma junto con entrada menos neto", () => {
-    const merma = calcularMerma({
-      entradaKg: 1000,
-      vendidoNetoKg: 940,
+  it("descuenta desperdicio y muertero del piso disponible y la merma", () => {
+    const merma = calcularMermaJornada({
+      entradaRegistradaKg: 1000,
+      vendidoBrutoKg: 950,
+      devolucionesKg: 10,
       desperdicioKg: 5,
       muerteroKg: 8,
     });
 
-    expect(merma).toBe(73);
-    expect(calcularPorcentajeMerma(merma, 1000)).toBe(7.3);
+    expect(merma).toBe(47);
+    expect(calcularPorcentajeMerma(merma, 1000)).toBe(4.7);
     expect(
       calcularMermaJornada({
         entradaRegistradaKg: 1000,
@@ -60,7 +60,7 @@ describe("calculos de pesadas", () => {
         desperdicioKg: 5,
         muerteroKg: 8,
       }),
-    ).toBe(73);
+    ).toBe(47);
   });
 
   it("considera sobrante dentro de la entrada total", () => {
@@ -89,6 +89,32 @@ describe("calculos de pesadas", () => {
 
     expect(piso).toBe(0);
     expect(calcularPorcentajeMerma(piso, entradaTotal)).toBe(0);
+  });
+
+  it("mantiene en piso lo no asignado y lo descuenta al registrar la partida", () => {
+    const ingresoDirectoKg = 450.1;
+    const ingresoPisoKg = 200;
+    const entradaTotal = ingresoDirectoKg + ingresoPisoKg;
+
+    expect(
+      calcularPisoJornada({
+        entradaRegistradaKg: entradaTotal,
+        vendidoBrutoKg: ingresoDirectoKg,
+        devolucionesKg: 0,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(200);
+
+    expect(
+      calcularPisoJornada({
+        entradaRegistradaKg: entradaTotal,
+        vendidoBrutoKg: entradaTotal,
+        devolucionesKg: 0,
+        desperdicioKg: 0,
+        muerteroKg: 0,
+      }),
+    ).toBe(0);
   });
 
   it("permite que una entrada de piso asignada a cliente cuente como entrada y venta", () => {
@@ -142,16 +168,7 @@ describe("calculos de pesadas", () => {
     ).toBe(0);
   });
 
-  it("deja ver el descuadre cuando el neto supera la entrada", () => {
-    expect(
-      calcularMerma({
-        entradaKg: 13291.5,
-        vendidoNetoKg: 23127.8,
-        desperdicioKg: 0,
-        muerteroKg: 0,
-      }),
-    ).toBe(-9836.3);
-
+  it("evita merma negativa cuando el neto supera la entrada", () => {
     expect(
       calcularMermaJornada({
         entradaRegistradaKg: 13291.5,
@@ -160,14 +177,11 @@ describe("calculos de pesadas", () => {
         desperdicioKg: 0,
         muerteroKg: 0,
       }),
-    ).toBe(-9836.3);
-
-    expect(calcularPorcentajeMerma(-9836.3, 13291.5)).toBe(-74.0);
+    ).toBe(0);
   });
 
-  it("evita division por cero y reporta el porcentaje con signo", () => {
+  it("evita division por cero y calcula el porcentaje", () => {
     expect(calcularPorcentajeMerma(0, 0)).toBe(0);
-    expect(calcularPorcentajeMerma(-10, 1000)).toBe(-1);
     expect(calcularPorcentajeMerma(1500, 1000)).toBe(150);
   });
 });

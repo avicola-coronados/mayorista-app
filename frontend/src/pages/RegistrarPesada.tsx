@@ -6,7 +6,8 @@ import { apiClient } from "../services/api";
 
 const DEFAULT_TARA_POR_JABA = 5.8;
 
-type OrigenPesada = "partida" | "piso";
+type ModoPesada = "ingreso" | "partida";
+type DestinoIngreso = "cliente" | "piso";
 
 type FormState = {
   cliente_id: number;
@@ -24,11 +25,14 @@ const initialState: FormState = {
   peso_bruto: "",
 };
 
-export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
+export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(initialState);
+  const [destinoIngreso, setDestinoIngreso] = useState<DestinoIngreso>("cliente");
   const [newClienteName, setNewClienteName] = useState("");
   const [showNewCliente, setShowNewCliente] = useState(false);
+  const esPartida = modo === "partida";
+  const requiereCliente = esPartida || destinoIngreso === "cliente";
 
   const jornadaQuery = useQuery({
     queryKey: ["jornada-activa"],
@@ -38,7 +42,6 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
   const clientesQuery = useQuery({
     queryKey: ["clientes"],
     queryFn: apiClient.getClientes,
-    enabled: origen === "partida",
   });
 
   const granjasQuery = useQuery({
@@ -47,13 +50,15 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
   });
 
   const selectedCliente = clientesQuery.data?.find((cliente) => cliente.id === form.cliente_id);
-  const isPiso = origen === "piso";
+  const pisoGranja = granjasQuery.data?.find(
+    (granja) => granja.activo && granja.nombre.trim().toLowerCase() === "piso",
+  );
   const granjasDisponibles = useMemo(
     () =>
       granjasQuery.data
         ?.filter((granja) => granja.activo)
-        .filter((granja) => !isPiso || granja.nombre.trim().toLowerCase() !== "piso") ?? [],
-    [granjasQuery.data, isPiso],
+        .filter((granja) => granja.nombre.trim().toLowerCase() !== "piso") ?? [],
+    [granjasQuery.data],
   );
   const jabas = Number(form.jabas) || 0;
   const taraPorJaba = Number(form.tara_por_jaba) || 0;
@@ -61,20 +66,29 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
   const taraTotal = useMemo(() => Number((jabas * taraPorJaba).toFixed(2)), [jabas, taraPorJaba]);
   const pesoNeto = useMemo(() => Number((pesoBruto - taraTotal).toFixed(2)), [pesoBruto, taraTotal]);
   const jornada = jornadaQuery.data;
+  const pisoQuery = useQuery({
+    queryKey: ["sobrante", jornada?.id],
+    queryFn: () => apiClient.getSobrante(jornada!.id),
+    enabled: esPartida && Boolean(jornada?.id),
+  });
+  const pisoDisponible = pisoQuery.data?.[0];
+  const origen = !esPartida && destinoIngreso === "piso" ? "piso" : "partida";
+  const granjaId = esPartida ? (pisoGranja?.id ?? 0) : form.granja_id;
+  const clienteId = requiereCliente ? form.cliente_id || null : null;
 
   const mutation = useMutation({
     mutationFn: () =>
       apiClient.createLineaVenta({
         jornada_id: jornada!.id,
-        cliente_id: form.cliente_id || null,
-        granja_id: form.granja_id,
+        cliente_id: clienteId,
+        granja_id: granjaId,
         origen,
         jabas,
         peso_bruto: pesoBruto,
         tara_por_jaba: taraPorJaba,
       }),
     onSuccess: async () => {
-      toast.success(isPiso ? "Piso guardado correctamente" : "Ingreso guardado correctamente");
+      toast.success(esPartida ? "Partida guardada correctamente" : "Ingreso guardado correctamente");
       setForm(initialState);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["metricas", jornada?.id] }),
@@ -105,9 +119,9 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  if (jornadaQuery.isLoading || granjasQuery.isLoading || (!isPiso && clientesQuery.isLoading)) {
+  if (jornadaQuery.isLoading || granjasQuery.isLoading || clientesQuery.isLoading) {
     return (
-      <Layout title={isPiso ? "Registrar piso" : "Registrar ingreso"} subtitle="Cargando catálogos del día">
+      <Layout title={esPartida ? "Registrar partida" : "Registrar ingreso"} subtitle="Cargando catálogos del día">
         <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="panel h-[26rem] animate-pulse bg-slate-100" />
           <div className="panel h-[26rem] animate-pulse bg-slate-100" />
@@ -116,9 +130,9 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
     );
   }
 
-  if (jornadaQuery.isError || granjasQuery.isError || (!isPiso && clientesQuery.isError)) {
+  if (jornadaQuery.isError || granjasQuery.isError || clientesQuery.isError) {
     return (
-      <Layout title={isPiso ? "Registrar piso" : "Registrar ingreso"} subtitle="No se pudo preparar el formulario">
+      <Layout title={esPartida ? "Registrar partida" : "Registrar ingreso"} subtitle="No se pudo preparar el formulario">
         <div className="panel border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-800">
           {(jornadaQuery.error as Error)?.message ||
             (clientesQuery.error as Error)?.message ||
@@ -142,12 +156,17 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
       return;
     }
 
-    if (!isPiso && !form.cliente_id) {
+    if (requiereCliente && !form.cliente_id) {
       toast.error("Selecciona un cliente válido");
       return;
     }
 
-    if (!form.granja_id) {
+    if (esPartida && !pisoGranja) {
+      toast.error("No se encontró la granja Piso");
+      return;
+    }
+
+    if (!esPartida && !form.granja_id) {
       toast.error("Selecciona una granja");
       return;
     }
@@ -159,6 +178,11 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
 
     if (pesoNeto <= 0) {
       toast.error("El peso neto debe ser mayor a cero");
+      return;
+    }
+
+    if (esPartida && pesoNeto > (pisoDisponible?.peso_neto ?? 0)) {
+      toast.error(`No hay suficiente mercadería en piso. Disponible: ${(pisoDisponible?.peso_neto ?? 0).toFixed(2)} kg`);
       return;
     }
 
@@ -178,72 +202,118 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
 
   return (
     <Layout
-      title={isPiso ? "Registrar piso" : "Registrar ingreso"}
+      title={esPartida ? "Registrar partida" : "Registrar ingreso"}
       subtitle={
-        isPiso
-          ? "Registra ingreso a piso"
+        esPartida
+          ? "Asigna mercadería disponible en piso a un cliente"
           : selectedCliente
             ? `Cliente seleccionado: ${selectedCliente.nombre}`
-            : "Registra una venta del día"
+            : destinoIngreso === "piso"
+              ? "Registra mercadería sin cliente en piso"
+              : "Registra un ingreso directo para un cliente"
       }
     >
       <form onSubmit={handleSubmit} className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="panel p-5 sm:p-6">
-          {!isPiso ? (
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label htmlFor="cliente" className="field-label mb-0">
-                  Cliente
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowNewCliente(true)}
-                  className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700"
-                >
-                  Nuevo cliente
-                </button>
-              </div>
-              <select
-                id="cliente"
-                className="field-input"
-                value={form.cliente_id}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
-                }
-              >
-                <option value={0}>Selecciona un cliente existente</option>
-                {clientesQuery.data?.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
+          {esPartida && pisoQuery.isLoading ? (
             <p className="rounded-2xl bg-slate-50 px-4 py-3 text-[13px] font-medium text-slate-600">
-              El registro de piso no requiere cliente. Elige la granja de origen y los pesos.
+              Consultando mercadería disponible en piso…
             </p>
-          )}
+          ) : esPartida && pisoDisponible ? (
+            <p className="rounded-2xl bg-green-50 px-4 py-3 text-[13px] font-medium text-green-800">
+              Disponible en piso: {pisoDisponible.peso_neto.toFixed(2)} kg · {pisoDisponible.jabas} jabas estimadas
+            </p>
+          ) : esPartida ? (
+            <p className="rounded-2xl bg-amber-50 px-4 py-3 text-[13px] font-medium text-amber-900">
+              No hay mercadería disponible en piso.
+            </p>
+          ) : null}
 
-          <div className="mt-5">
-            <label htmlFor="granja" className="field-label">
-              Granja
-            </label>
+          <div>
+            <div className="mb-2 mt-5 flex items-center justify-between gap-3">
+              <label htmlFor="cliente" className="field-label mb-0">
+                Cliente
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowNewCliente(true)}
+                className="rounded-[8px] bg-coronados-green px-3 py-2 text-[12px] font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!esPartida && destinoIngreso === "piso"}
+              >
+                Nuevo cliente
+              </button>
+            </div>
             <select
-              id="granja"
+              id="cliente"
               className="field-input"
-              value={form.granja_id}
+              value={form.cliente_id}
+              disabled={!esPartida && destinoIngreso === "piso"}
               onChange={(event) =>
-                setForm((current) => ({ ...current, granja_id: Number(event.target.value) }))
+                setForm((current) => ({ ...current, cliente_id: Number(event.target.value) }))
               }
             >
-              <option value={0}>Selecciona una granja</option>
-              {granjasDisponibles.map((granja) => (
-                <option key={granja.id} value={granja.id}>
-                  {granja.nombre}
+              <option value={0}>Selecciona un cliente existente</option>
+              {clientesQuery.data?.map((cliente) => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.nombre}
                 </option>
               ))}
             </select>
+
+            {!esPartida ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className={`w-full rounded-[8px] border px-4 py-3 text-[14px] font-bold transition ${
+                    destinoIngreso === "piso"
+                      ? "border-coronados-green bg-green-50 text-coronados-green"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                  aria-pressed={destinoIngreso === "piso"}
+                  onClick={() => {
+                    setDestinoIngreso((current) => (current === "piso" ? "cliente" : "piso"));
+                    setForm((current) => ({ ...current, cliente_id: 0 }));
+                  }}
+                >
+                  Piso
+                </button>
+                {destinoIngreso === "piso" ? (
+                  <p className="mt-2 text-[12px] font-medium text-coronados-green">
+                    El ingreso se guardará en piso sin cliente asignado.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-5">
+            {esPartida ? (
+              <div>
+                <p className="field-label">Origen</p>
+                <div className="field-input flex items-center bg-slate-50 font-semibold text-slate-700">Piso</div>
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="granja" className="field-label">
+                  Granja de origen
+                </label>
+                <select
+                  id="granja"
+                  className="field-input"
+                  value={form.granja_id}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, granja_id: Number(event.target.value) }))
+                  }
+                >
+                  <option value={0}>Selecciona una granja</option>
+                  {granjasDisponibles.map((granja) => (
+                    <option key={granja.id} value={granja.id}>
+                      {granja.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
@@ -332,9 +402,13 @@ export function RegistrarPesada({ origen }: { origen: OrigenPesada }) {
             <button
               type="submit"
               className="primary-button mt-5 w-full"
-              disabled={mutation.isPending || jornada?.estado === "cerrada"}
+              disabled={
+                mutation.isPending ||
+                jornada?.estado === "cerrada" ||
+                (esPartida && (!pisoDisponible || pisoDisponible.peso_neto <= 0))
+              }
             >
-              {mutation.isPending ? "Guardando..." : isPiso ? "Guardar piso" : "Guardar ingreso"}
+              {mutation.isPending ? "Guardando..." : esPartida ? "Guardar partida" : "Guardar ingreso"}
             </button>
           </div>
 

@@ -182,18 +182,19 @@ export default function App() {
         path="/pesada/nueva"
         element={
           <ProtectedOperarioRoute>
-            <RegistrarPesada origen="partida" />
+            <RegistrarPesada modo="ingreso" />
           </ProtectedOperarioRoute>
         }
       />
       <Route
-        path="/pesada/piso"
+        path="/pesada/partida"
         element={
           <ProtectedOperarioRoute>
-            <RegistrarPesada origen="piso" />
+            <RegistrarPesada modo="partida" />
           </ProtectedOperarioRoute>
         }
       />
+      <Route path="/pesada/piso" element={<Navigate to="/pesada/partida" replace />} />
       <Route
         path="/operario/devolucion"
         element={

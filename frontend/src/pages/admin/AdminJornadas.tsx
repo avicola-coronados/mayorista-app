@@ -845,7 +845,7 @@ function ModalEditarPesada({
                 <option value="piso">Piso</option>
               </select>
               <span className="mt-1 block text-[11px] font-medium text-neutral-400">
-                El origen Piso puede quedar sin cliente o asignarse a un cliente; en ambos casos cuenta como entrada.
+                Piso registra entrada sin cliente; una partida con granja Piso consume ese stock para un cliente.
               </span>
             </label>
 

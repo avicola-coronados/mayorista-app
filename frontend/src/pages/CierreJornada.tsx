@@ -243,8 +243,7 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Merma = muertero + desperdicio + (entrada − neto). El piso disponible se calcula aparte
-              como entrada − neto − desperdicio − muertero.
+              Merma y piso disponible = entrada − vendido neto − desperdicio − muertero.
             </p>
 
             <button
