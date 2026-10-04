@@ -212,6 +212,7 @@ export type ClienteDelDia = {
     tiene_nota: boolean;
     created_at: string;
     usa_tara_personalizada: boolean;
+    es_devolucion_viva: boolean;
     granja: {
       id: number;
       nombre: string;
@@ -363,7 +364,7 @@ export type DevolucionClientePayload = {
   tipo: TipoDevolucion;
   jabas: number;
   tara_por_jaba: number;
-  peso_neto: number;
+  peso_bruto: number;
 };
 
 export type DevolucionesResponse = {
@@ -376,7 +377,7 @@ export type DevolucionPayload = {
   jornada_id: number;
   cliente_id: number;
   tipo: TipoDevolucion;
-  jabas: number | null;
+  jabas: number;
   peso_bruto: number;
   tara: number;
   peso_neto: number;

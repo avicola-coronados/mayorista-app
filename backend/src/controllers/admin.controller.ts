@@ -316,6 +316,13 @@ export async function updateAdminLineaVenta(request: Request, response: Response
     });
   }
 
+  if (lineaVenta.devolucion_origen_id) {
+    return response.status(400).json({
+      message: "Esta pesada se gestiona desde su devolución de origen",
+      code: "DEVOLUCION_PISO_LINE",
+    });
+  }
+
   if (pesoBruto <= tara) {
     return response.status(400).json({ message: "Peso bruto debe ser mayor que tara" });
   }
@@ -407,6 +414,13 @@ export async function deleteAdminLineaVenta(request: Request, response: Response
     return response.status(400).json({
       message: "No se puede eliminar una pesada de una jornada cerrada",
       code: "JORNADA_CLOSED",
+    });
+  }
+
+  if (lineaVenta.devolucion_origen_id) {
+    return response.status(400).json({
+      message: "Esta pesada se gestiona desde su devolución de origen",
+      code: "DEVOLUCION_PISO_LINE",
     });
   }
 

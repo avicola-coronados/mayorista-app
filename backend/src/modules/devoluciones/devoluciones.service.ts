@@ -1,5 +1,5 @@
 import { AppError } from "../../errors/AppError";
-import { calcularTara, roundKg } from "../../domain/pesadas/calculos";
+import { calcularTara, DEFAULT_TARA_POR_JABA, roundKg } from "../../domain/pesadas/calculos";
 import { prisma } from "../../lib/prisma";
 import { syncDevolucionKgForCliente } from "../guias/guias-sync.service";
 import type { z } from "zod";
@@ -12,7 +12,7 @@ import {
 type CreateDevolucionLegacyInput = z.infer<typeof devolucionLegacySchema>;
 
 function isClienteInput(data: CreateDevolucionInput): data is CreateDevolucionClienteInput {
-  return "jornada_id" in data && "cliente_id" in data && !("peso_bruto" in data);
+  return "tara_por_jaba" in data;
 }
 
 export async function createDevolucion(data: CreateDevolucionInput) {
@@ -57,19 +57,23 @@ async function createDevolucionLegacy(data: CreateDevolucionLegacyInput) {
     );
   }
 
-  const devolucion = await prisma.devolucion.create({
-    data: {
-      jornada_id: data.jornada_id,
-      cliente_id: data.cliente_id,
-      tipo: data.tipo,
-      jabas: data.jabas ?? null,
-      peso_bruto: data.peso_bruto,
-      tara: data.tara,
-      peso_neto: data.peso_neto,
-    },
-    include: {
-      cliente: true,
-    },
+  await validateDevolucionDisponible(data.jornada_id, data.cliente_id, {
+    jabas: data.jabas,
+    peso_bruto: data.peso_bruto,
+    peso_neto: data.peso_neto,
+  });
+
+  const devolucion = await createDevolucionConPesadaPiso({
+    jornada_id: data.jornada_id,
+    cliente_id: data.cliente_id,
+    cliente_nombre: cliente.nombre,
+    tipo: data.tipo,
+    jabas: data.jabas,
+    peso_bruto: data.peso_bruto,
+    tara: data.tara,
+    tara_por_jaba:
+      data.tara > 0 ? roundKg(data.tara / data.jabas) : DEFAULT_TARA_POR_JABA,
+    peso_neto: data.peso_neto,
   });
 
   await syncDevolucionKgForCliente(data.jornada_id, data.cliente_id);
@@ -103,61 +107,146 @@ async function createDevolucionCliente(data: CreateDevolucionClienteInput) {
     );
   }
 
-  const lineasVenta = await prisma.lineaVenta.findMany({
-    where: {
-      jornada_id: data.jornada_id,
-      cliente_id: data.cliente_id,
-      deleted_at: null,
-    },
-    select: { peso_neto: true },
-  });
-
-  if (lineasVenta.length === 0) {
-    throw new AppError("El cliente no tiene pesadas registradas en esta jornada", 400);
-  }
-
-  const netoTotalCliente = lineasVenta.reduce((sum, linea) => sum + Number(linea.peso_neto), 0);
-
-  const devueltoPrevio = await prisma.devolucion.aggregate({
-    where: {
-      jornada_id: data.jornada_id,
-      cliente_id: data.cliente_id,
-    },
-    _sum: { peso_neto: true },
-  });
-
-  const yaDevuelto = Number(devueltoPrevio._sum.peso_neto ?? 0);
-  const disponible = Number((netoTotalCliente - yaDevuelto).toFixed(2));
-
-  if (data.peso_neto > disponible + 0.001) {
-    throw new AppError(
-      `Los kg a devolver no pueden superar el neto disponible (${disponible.toFixed(1)} kg)`,
-      400,
-      "EXCEDE_NETO_CLIENTE",
-    );
-  }
-
   const tara = calcularTara(data.jabas, data.tara_por_jaba);
-  const pesoBruto = roundKg(data.peso_neto + tara);
+  const pesoNeto = roundKg(data.peso_bruto - tara);
 
-  const devolucion = await prisma.devolucion.create({
-    data: {
-      jornada_id: data.jornada_id,
-      cliente_id: data.cliente_id,
-      tipo: data.tipo,
-      jabas: data.jabas,
-      peso_bruto: pesoBruto,
-      tara,
-      peso_neto: data.peso_neto,
-    },
-    include: {
-      cliente: true,
-    },
+  if (pesoNeto <= 0) {
+    throw new AppError("El peso bruto debe ser mayor que la tara total", 400, "INVALID_PESO_NETO");
+  }
+
+  await validateDevolucionDisponible(data.jornada_id, data.cliente_id, {
+    jabas: data.jabas,
+    peso_bruto: data.peso_bruto,
+    peso_neto: pesoNeto,
+  });
+
+  const devolucion = await createDevolucionConPesadaPiso({
+    jornada_id: data.jornada_id,
+    cliente_id: data.cliente_id,
+    cliente_nombre: cliente.nombre,
+    tipo: data.tipo,
+    jabas: data.jabas,
+    peso_bruto: data.peso_bruto,
+    tara,
+    tara_por_jaba: data.tara_por_jaba,
+    peso_neto: pesoNeto,
   });
 
   await syncDevolucionKgForCliente(data.jornada_id, data.cliente_id);
 
   return serializeDevolucion(devolucion);
+}
+
+async function createDevolucionConPesadaPiso(data: {
+  jornada_id: number;
+  cliente_id: number;
+  cliente_nombre: string;
+  tipo: "pelado" | "muerto" | "vivo";
+  jabas: number;
+  peso_bruto: number;
+  tara: number;
+  tara_por_jaba: number;
+  peso_neto: number;
+}) {
+  return prisma.$transaction(async (transaction) => {
+    const devolucion = await transaction.devolucion.create({
+      data: {
+        jornada_id: data.jornada_id,
+        cliente_id: data.cliente_id,
+        tipo: data.tipo,
+        jabas: data.jabas,
+        peso_bruto: data.peso_bruto,
+        tara: data.tara,
+        peso_neto: data.peso_neto,
+      },
+      include: { cliente: true },
+    });
+
+    if (data.tipo === "vivo") {
+      const granjaPiso = await transaction.granja.findFirst({
+        where: { nombre: { equals: "Piso", mode: "insensitive" } },
+        select: { id: true },
+      });
+
+      if (!granjaPiso) {
+        throw new AppError("No se encontró la granja Piso para reincorporar la devolución", 500);
+      }
+
+      await transaction.lineaVenta.create({
+        data: {
+          jornada_id: data.jornada_id,
+          cliente_id: null,
+          granja_id: granjaPiso.id,
+          origen: "piso",
+          jabas: data.jabas,
+          peso_bruto: data.peso_bruto,
+          tara: data.tara,
+          tara_por_jaba: data.tara_por_jaba,
+          peso_neto: data.peso_neto,
+          nota: `Devolución viva de ${data.cliente_nombre}`,
+          devolucion_origen_id: devolucion.id,
+        },
+      });
+    }
+
+    return devolucion;
+  });
+}
+
+async function validateDevolucionDisponible(
+  jornadaId: number,
+  clienteId: number,
+  devolucion: { jabas: number; peso_bruto: number; peso_neto: number },
+) {
+  const [ventas, devueltoPrevio] = await Promise.all([
+    prisma.lineaVenta.aggregate({
+      where: { jornada_id: jornadaId, cliente_id: clienteId, deleted_at: null },
+      _count: { _all: true },
+      _sum: { jabas: true, peso_bruto: true, peso_neto: true },
+    }),
+    prisma.devolucion.aggregate({
+      where: { jornada_id: jornadaId, cliente_id: clienteId },
+      _sum: { jabas: true, peso_bruto: true, peso_neto: true },
+    }),
+  ]);
+
+  if (ventas._count._all === 0) {
+    throw new AppError("El cliente no tiene pesadas registradas en esta jornada", 400);
+  }
+
+  const disponible = {
+    jabas: (ventas._sum.jabas ?? 0) - (devueltoPrevio._sum.jabas ?? 0),
+    peso_bruto: roundKg(
+      Number(ventas._sum.peso_bruto ?? 0) - Number(devueltoPrevio._sum.peso_bruto ?? 0),
+    ),
+    peso_neto: roundKg(
+      Number(ventas._sum.peso_neto ?? 0) - Number(devueltoPrevio._sum.peso_neto ?? 0),
+    ),
+  };
+
+  if (devolucion.jabas > disponible.jabas) {
+    throw new AppError(
+      `Las jabas a devolver no pueden superar las disponibles (${disponible.jabas})`,
+      400,
+      "EXCEDE_JABAS_CLIENTE",
+    );
+  }
+
+  if (devolucion.peso_bruto > disponible.peso_bruto + 0.001) {
+    throw new AppError(
+      `El peso bruto a devolver no puede superar el disponible (${disponible.peso_bruto.toFixed(2)} kg)`,
+      400,
+      "EXCEDE_BRUTO_CLIENTE",
+    );
+  }
+
+  if (devolucion.peso_neto > disponible.peso_neto + 0.001) {
+    throw new AppError(
+      `El peso neto a devolver no puede superar el disponible (${disponible.peso_neto.toFixed(2)} kg)`,
+      400,
+      "EXCEDE_NETO_CLIENTE",
+    );
+  }
 }
 
 export async function deleteDevolucion(id: number) {

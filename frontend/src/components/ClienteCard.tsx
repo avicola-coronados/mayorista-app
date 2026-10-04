@@ -42,8 +42,17 @@ export function ClienteCard({
   const [detalleForm, setDetalleForm] = useState({ granjaId: 0, jabas: "", taraPorJaba: "" });
   const puedeRegistrarDevolucion = cliente.cliente.id != null && cliente.pesadas > 0 && onRegistrarDevolucion;
   const totalDevolucionesKg = devoluciones.reduce((acc, devolucion) => acc + devolucion.peso_neto, 0);
+  const totalDevolucionesJabas = devoluciones.reduce((acc, devolucion) => acc + (devolucion.jabas ?? 0), 0);
+  const totalDevolucionesBruto = devoluciones.reduce((acc, devolucion) => acc + devolucion.peso_bruto, 0);
   const totalClienteAjustado = Math.max(cliente.total_kg - totalDevolucionesKg, 0);
-  const totalJabas = cliente.lineas.reduce((total, linea) => total + linea.jabas, 0);
+  const totalJabas = Math.max(
+    cliente.lineas.reduce((total, linea) => total + linea.jabas, 0) - totalDevolucionesJabas,
+    0,
+  );
+  const totalBrutoAjustado = Math.max(
+    cliente.lineas.reduce((total, linea) => total + linea.peso_bruto, 0) - totalDevolucionesBruto,
+    0,
+  );
 
   function getTipoMeta(tipo: TipoDevolucion) {
     switch (tipo) {
@@ -86,7 +95,7 @@ export function ClienteCard({
             </p>
             {devoluciones.length > 0 ? (
               <p className="mt-1 text-[12px] font-medium text-neutral-500">
-                {cliente.total_kg.toFixed(2)} - {totalDevolucionesKg.toFixed(2)} = {totalClienteAjustado.toFixed(2)} kg
+                Bruto: {totalBrutoAjustado.toFixed(2)} kg · Neto: {totalClienteAjustado.toFixed(2)} kg
               </p>
             ) : null}
           </div>
@@ -136,7 +145,9 @@ export function ClienteCard({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-slate-800">
-                      {linea.origen === "partida" ? "Partida" : "Piso"} · {linea.granja.nombre}
+                      {linea.es_devolucion_viva
+                        ? "Devolución viva · Piso"
+                        : `${linea.origen === "partida" ? "Partida" : "Piso"} · ${linea.granja.nombre}`}
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
                       {new Date(linea.created_at).toLocaleTimeString("es-PE", {
@@ -148,7 +159,7 @@ export function ClienteCard({
 
                   <div className="flex items-center gap-3">
                     <p className="text-lg font-bold text-slate-900">{linea.peso_neto.toFixed(2)} kg</p>
-                    <button
+                    {!linea.es_devolucion_viva ? <button
                       type="button"
                       onClick={() => {
                         if (isEditingDetalle) {
@@ -171,7 +182,7 @@ export function ClienteCard({
                       aria-label="Editar pesada"
                     >
                       <IconPencil size={18} stroke={2.2} />
-                    </button>
+                    </button> : null}
                     <button
                       type="button"
                       onClick={() => onOpenNota(linea)}
@@ -335,9 +346,12 @@ export function ClienteCard({
               <div className="mt-1 rounded-[12px] border border-neutral-200 bg-white px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-[13px] font-semibold text-neutral-800">Devoluciones</p>
-                  <p className="text-[13px] font-bold text-neutral-950">
-                    {totalDevolucionesKg.toFixed(2)} kg
-                  </p>
+                  <div className="text-right">
+                    <p className="text-[13px] font-bold text-neutral-950">{totalDevolucionesKg.toFixed(2)} kg neto</p>
+                    <p className="text-[11px] font-medium text-neutral-400">
+                      {totalDevolucionesJabas} jabas · {totalDevolucionesBruto.toFixed(2)} kg bruto
+                    </p>
+                  </div>
                 </div>
 
                 <div className="mt-3 space-y-2">

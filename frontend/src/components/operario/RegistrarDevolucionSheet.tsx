@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { IconArrowBackUp, IconChevronDown, IconX } from "@tabler/icons-react";
-import type { ClienteDelDia, TipoDevolucion } from "../../services/api";
+import type { ClienteDelDia, Devolucion, TipoDevolucion } from "../../services/api";
 import { apiClient } from "../../services/api";
 import type { DevolucionSuccessData } from "./DevolucionRegistradaSuccess";
 
@@ -35,35 +35,57 @@ function round2(value: number) {
 
 export function RegistrarDevolucionSheet({
   cliente,
+  devoluciones,
   jornadaId,
   open,
   onClose,
   onSuccess,
 }: {
   cliente: ClienteDelDia;
+  devoluciones: Devolucion[];
   jornadaId: number;
   open: boolean;
   onClose: () => void;
   onSuccess: (data: DevolucionSuccessData) => void;
 }) {
-  const [kgInput, setKgInput] = useState("");
+  const [pesoBrutoInput, setPesoBrutoInput] = useState("");
   const [jabasInput, setJabasInput] = useState("");
   const [taraPorJabaInput, setTaraPorJabaInput] = useState(String(DEFAULT_TARA_POR_JABA));
   const [estado, setEstado] = useState<TipoDevolucion | null>(null);
   const [estadoOpen, setEstadoOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const netoCliente = cliente.total_kg;
-  const kg = Number(kgInput) || 0;
+  const totalDevuelto = devoluciones.reduce(
+    (total, devolucion) => ({
+      jabas: total.jabas + (devolucion.jabas ?? 0),
+      pesoBruto: total.pesoBruto + devolucion.peso_bruto,
+      pesoNeto: total.pesoNeto + devolucion.peso_neto,
+    }),
+    { jabas: 0, pesoBruto: 0, pesoNeto: 0 },
+  );
+  const disponible = {
+    jabas: Math.max(cliente.lineas.reduce((total, linea) => total + linea.jabas, 0) - totalDevuelto.jabas, 0),
+    pesoBruto: Math.max(
+      round2(cliente.lineas.reduce((total, linea) => total + linea.peso_bruto, 0) - totalDevuelto.pesoBruto),
+      0,
+    ),
+    pesoNeto: Math.max(round2(cliente.total_kg - totalDevuelto.pesoNeto), 0),
+  };
+  const pesoBruto = Number(pesoBrutoInput) || 0;
   const jabas = Number(jabasInput) || 0;
   const taraPorJaba = Number(taraPorJabaInput) || 0;
   const taraTotal = round2(jabas * taraPorJaba);
-  const excedeNeto = kg > netoCliente + 0.001;
-  const netoAjustado = round1(Math.max(netoCliente - kg, 0));
+  const pesoNeto = round2(pesoBruto - taraTotal);
+  const excedeDisponible =
+    jabas > disponible.jabas ||
+    pesoBruto > disponible.pesoBruto + 0.001 ||
+    pesoNeto > disponible.pesoNeto + 0.001;
+  const netoAjustado = round1(Math.max(disponible.pesoNeto - pesoNeto, 0));
   const estadoLabel = ESTADOS.find((item) => item.value === estado)?.label ?? "";
   const canSave =
-    kg > 0 &&
-    !excedeNeto &&
+    pesoBruto > 0 &&
+    pesoNeto > 0 &&
+    !excedeDisponible &&
     Number.isInteger(jabas) &&
     jabas > 0 &&
     taraPorJaba > 0 &&
@@ -77,7 +99,7 @@ export function RegistrarDevolucionSheet({
         tipo: estado!,
         jabas,
         tara_por_jaba: taraPorJaba,
-        peso_neto: kg,
+        peso_bruto: pesoBruto,
       }),
     onSuccess: (devolucion) => {
       onSuccess({
@@ -94,7 +116,7 @@ export function RegistrarDevolucionSheet({
       return;
     }
 
-    setKgInput("");
+    setPesoBrutoInput("");
     setJabasInput("");
     setTaraPorJabaInput(String(DEFAULT_TARA_POR_JABA));
     setEstado(null);
@@ -156,24 +178,24 @@ export function RegistrarDevolucionSheet({
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-[10px]">
             <div>
-              <label htmlFor="kg-devolver" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
-                Kg a devolver
+              <label htmlFor="peso-bruto-devolver" className="mb-1.5 block text-[13px] font-medium text-neutral-700">
+                Peso bruto (kg)
               </label>
               <input
-                id="kg-devolver"
+                id="peso-bruto-devolver"
                 type="number"
                 min={0}
                 step={0.1}
                 inputMode="decimal"
                 placeholder="0.0"
-                value={kgInput}
-                onChange={(event) => setKgInput(event.target.value)}
+                value={pesoBrutoInput}
+                onChange={(event) => setPesoBrutoInput(event.target.value)}
                 className="w-full rounded-[8px] border border-neutral-200 px-3 py-2.5 text-[15px] font-medium text-neutral-900 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
               />
-              <p className={`mt-1.5 text-[12px] font-medium ${excedeNeto ? "text-coronados-orange" : "text-neutral-400"}`}>
-                {excedeNeto
-                  ? `Supera el neto del cliente (${netoCliente.toFixed(1)} kg)`
-                  : `Máx. ${netoCliente.toFixed(1)} kg`}
+              <p className={`mt-1.5 text-[12px] font-medium ${excedeDisponible ? "text-coronados-orange" : "text-neutral-400"}`}>
+                {excedeDisponible
+                  ? "Supera lo disponible del cliente"
+                  : `Máx. ${disponible.pesoBruto.toFixed(2)} kg bruto`}
               </p>
             </div>
 
@@ -192,6 +214,9 @@ export function RegistrarDevolucionSheet({
                 onChange={(event) => setJabasInput(event.target.value)}
                 className="w-full rounded-[8px] border border-neutral-200 px-3 py-2.5 text-[15px] font-medium text-neutral-900 outline-none transition focus:border-coronados-orange focus:ring-1 focus:ring-coronados-orange"
               />
+              <p className="mt-1.5 text-[12px] font-medium text-neutral-400">
+                Máx. {disponible.jabas} jabas
+              </p>
             </div>
           </div>
 
@@ -269,13 +294,13 @@ export function RegistrarDevolucionSheet({
             <div className="rounded-[8px] bg-[#FFF0ED] px-3 py-3">
               <p className="text-[11px] font-medium text-neutral-600">A descontar</p>
               <p className="mt-1 text-[17px] font-bold text-coronados-orange">
-                {kg > 0 ? `${kg.toFixed(1)} kg` : "— kg"}
+                {pesoNeto > 0 ? `${pesoNeto.toFixed(2)} kg neto` : "— kg"}
               </p>
             </div>
             <div className="rounded-[8px] bg-[#F0FAF1] px-3 py-3">
               <p className="text-[11px] font-medium text-neutral-600">Neto ajustado</p>
               <p className="mt-1 text-[17px] font-bold text-coronados-green">
-                {kg > 0 ? `${netoAjustado.toFixed(1)} kg` : `${netoCliente.toFixed(1)} kg`}
+                {pesoNeto > 0 ? `${netoAjustado.toFixed(2)} kg` : `${disponible.pesoNeto.toFixed(2)} kg`}
               </p>
             </div>
           </div>

@@ -86,7 +86,7 @@ export function RegistrarDevolucion() {
         jornada_id: jornada!.id,
         cliente_id: form.cliente_id,
         tipo: form.tipo,
-        jabas: form.jabas.trim() ? jabas : null,
+        jabas,
         peso_bruto: pesoBruto,
         tara,
         peso_neto: pesoNeto,
@@ -153,7 +153,7 @@ export function RegistrarDevolucion() {
       return;
     }
 
-    if (jabas < 0 || taraPorJaba <= 0 || pesoBruto <= 0) {
+    if (!Number.isInteger(jabas) || jabas <= 0 || taraPorJaba <= 0 || pesoBruto <= 0) {
       toast.error("Ingresa valores válidos para jabas, tara y peso bruto");
       return;
     }
@@ -274,7 +274,7 @@ export function RegistrarDevolucion() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <NumberField
-                    label="Jabas (opcional)"
+                    label="Jabas"
                     value={form.jabas}
                     onChange={(jabas) => setForm((current) => ({ ...current, jabas }))}
                     disabled={disabled}

@@ -22,6 +22,7 @@ const cliente: ClienteDelDia = {
       tiene_nota: false,
       created_at: "2026-10-04T12:00:00.000Z",
       usa_tara_personalizada: false,
+      es_devolucion_viva: false,
       granja: { id: 2, nombre: "Granja Norte" },
     },
   ],
@@ -72,5 +73,42 @@ describe("ClienteCard", () => {
       jabas: 4,
       taraPorJaba: 6,
     });
+  });
+
+  it("descuenta peso bruto, peso neto y jabas de las devoluciones", () => {
+    render(
+      <ClienteCard
+        cliente={cliente}
+        devoluciones={[
+          {
+            id: 30,
+            jornada_id: 10,
+            cliente_id: 1,
+            cliente_nombre: "Cliente Uno",
+            linea_venta_id: null,
+            tipo: "vivo",
+            jabas: 2,
+            peso_bruto: 20,
+            tara: 11.6,
+            peso_neto: 8.4,
+            created_at: "2026-10-04T13:00:00.000Z",
+          },
+        ]}
+        editingNota={null}
+        isSavingNota={false}
+        notaTexto=""
+        onCancelNota={vi.fn()}
+        onNotaTextoChange={vi.fn()}
+        onOpenNota={vi.fn()}
+        onSaveNota={vi.fn()}
+        granjas={[{ id: 2, nombre: "Granja Norte", activo: true }]}
+        isSavingDetalle={false}
+        onSaveDetalle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1 pesada registrada · 3 jabas")).toBeInTheDocument();
+    expect(screen.getByText("62.60 kg")).toBeInTheDocument();
+    expect(screen.getByText("Bruto: 80.00 kg · Neto: 62.60 kg")).toBeInTheDocument();
   });
 });

@@ -10,7 +10,7 @@ describe("devolucionClienteSchema", () => {
         tipo: "vivo",
         jabas: "2",
         tara_por_jaba: "5.8",
-        peso_neto: "25.5",
+        peso_bruto: "37.1",
       }),
     ).toEqual({
       jornada_id: 10,
@@ -18,7 +18,7 @@ describe("devolucionClienteSchema", () => {
       tipo: "vivo",
       jabas: 2,
       tara_por_jaba: 5.8,
-      peso_neto: 25.5,
+      peso_bruto: 37.1,
     });
   });
 
@@ -34,7 +34,7 @@ describe("devolucionClienteSchema", () => {
         tipo: "vivo",
         jabas,
         tara_por_jaba,
-        peso_neto: 25.5,
+        peso_bruto: 37.1,
       }).success,
     ).toBe(false);
   });

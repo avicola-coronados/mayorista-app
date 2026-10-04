@@ -17,7 +17,23 @@ const cliente: ClienteDelDia = {
   total_kg: 100,
   pesadas: 1,
   tiene_notas: false,
-  lineas: [],
+  lineas: [
+    {
+      id: 1,
+      origen: "partida",
+      jabas: 5,
+      peso_bruto: 129,
+      tara: 29,
+      tara_por_jaba: 5.8,
+      peso_neto: 100,
+      nota: null,
+      tiene_nota: false,
+      created_at: "2026-10-04T10:00:00.000Z",
+      usa_tara_personalizada: false,
+      es_devolucion_viva: false,
+      granja: { id: 1, nombre: "Granja Norte" },
+    },
+  ],
 };
 
 describe("RegistrarDevolucionSheet", () => {
@@ -43,6 +59,7 @@ describe("RegistrarDevolucionSheet", () => {
       <QueryClientProvider client={new QueryClient()}>
         <RegistrarDevolucionSheet
           cliente={cliente}
+          devoluciones={[]}
           jornadaId={10}
           open
           onClose={vi.fn()}
@@ -51,9 +68,10 @@ describe("RegistrarDevolucionSheet", () => {
       </QueryClientProvider>,
     );
 
-    await user.type(screen.getByLabelText("Kg a devolver"), "25");
+    await user.type(screen.getByLabelText("Peso bruto (kg)"), "36.6");
     await user.type(screen.getByLabelText("Jabas"), "2");
     expect(screen.getByText("Tara total: 11.60 kg")).toBeInTheDocument();
+    expect(screen.getByText("25.00 kg neto")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Seleccionar" }));
     await user.click(screen.getByRole("button", { name: "Vivo" }));
     await user.click(screen.getByRole("button", { name: "Guardar devolución" }));
@@ -65,7 +83,7 @@ describe("RegistrarDevolucionSheet", () => {
         tipo: "vivo",
         jabas: 2,
         tara_por_jaba: 5.8,
-        peso_neto: 25,
+        peso_bruto: 36.6,
       }),
     );
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());

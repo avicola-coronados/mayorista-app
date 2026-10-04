@@ -10,7 +10,7 @@ export const devolucionLegacySchema = z
     jornada_id: z.coerce.number().int().positive("Jornada inválida"),
     cliente_id: z.coerce.number().int().positive("Cliente inválido"),
     tipo: z.enum(["pelado", "muerto", "vivo"]),
-    jabas: z.coerce.number().int().min(0).nullable().optional(),
+    jabas: z.coerce.number().int().positive("Las jabas deben ser mayores a cero"),
     peso_bruto: z.coerce.number().positive("El peso bruto debe ser mayor a cero"),
     tara: z.coerce.number().min(0, "La tara debe ser mayor o igual a cero"),
     peso_neto: z.coerce.number().positive("El peso neto debe ser mayor a cero"),
@@ -26,7 +26,7 @@ export const devolucionClienteSchema = z.object({
   tipo: z.enum(["pelado", "muerto", "vivo"]),
   jabas: z.coerce.number().int().positive("Las jabas deben ser mayores a cero"),
   tara_por_jaba: z.coerce.number().positive("La tara por jaba debe ser mayor a cero"),
-  peso_neto: z.coerce.number().positive("Los kg a devolver deben ser mayores a cero"),
+  peso_bruto: z.coerce.number().positive("El peso bruto debe ser mayor a cero"),
 });
 
 export type CreateDevolucionInput =

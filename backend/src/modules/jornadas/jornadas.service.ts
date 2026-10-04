@@ -20,7 +20,7 @@ function buildEntradaOperativaWhere(jornadaId: number): Prisma.LineaVentaWhereIn
     deleted_at: null,
     OR: [
       // Mercadería ingresada sin cliente para mantenerla disponible en piso.
-      { origen: "piso" },
+      { origen: "piso", devolucion_origen_id: null },
       // Ingreso directo y venta al cliente. Una salida desde la granja virtual
       // "Piso" no vuelve a contar como entrada física.
       {
@@ -584,6 +584,7 @@ async function buildJornadaDetalle(jornada: {
     entradasLegacyGrouped,
     entradasOperativasGrouped,
     ventasGrouped,
+    devolucionesGrouped,
     notasGrouped,
   ] = await Promise.all([
     buildJornadaSummary(jornada),
@@ -619,6 +620,16 @@ async function buildJornadaDetalle(jornada: {
         _sum: {
           peso_neto: "desc",
         },
+      },
+    }),
+    prisma.devolucion.groupBy({
+      by: ["cliente_id"],
+      where: { jornada_id: jornada.id },
+      _sum: {
+        jabas: true,
+        peso_bruto: true,
+        tara: true,
+        peso_neto: true,
       },
     }),
     prisma.lineaVenta.groupBy({
@@ -659,6 +670,9 @@ async function buildJornadaDetalle(jornada: {
 
   const granjaNames = new Map(granjas.map((granja) => [granja.id, granja.nombre]));
   const clienteNames = new Map(clientes.map((cliente) => [cliente.id, cliente.nombre]));
+  const devolucionesByCliente = new Map(
+    devolucionesGrouped.map((devolucion) => [devolucion.cliente_id, devolucion._sum]),
+  );
   const clientesConNotas = new Set(notasGrouped.map((nota) => nota.cliente_id).filter((clienteId): clienteId is number => Boolean(clienteId)));
 
   return {
@@ -676,7 +690,20 @@ async function buildJornadaDetalle(jornada: {
       jabas: entrada.jabas,
     })),
     consolidado_clientes: ventasGrouped.map((venta) => {
-      const pesoNeto = venta._sum.peso_neto?.toNumber() ?? 0;
+      const devolucion = devolucionesByCliente.get(venta.cliente_id ?? 0);
+      const pesoNeto = Math.max(
+        0,
+        Number(
+          (
+            (venta._sum.peso_neto?.toNumber() ?? 0) -
+            (devolucion?.peso_neto?.toNumber() ?? 0)
+          ).toFixed(2),
+        ),
+      );
+      const vendidoNetoTotal = Math.max(
+        0,
+        summary.vendido_total_kg - summary.devoluciones_total_kg,
+      );
 
       return {
         cliente_id: venta.cliente_id ?? 0,
@@ -684,13 +711,29 @@ async function buildJornadaDetalle(jornada: {
           ? clienteNames.get(venta.cliente_id) ?? "Cliente sin nombre"
           : "Piso / Pesadas sin cliente",
         total_pesadas: venta._count._all,
-        total_jabas: venta._sum.jabas ?? 0,
-        peso_bruto_kg: venta._sum.peso_bruto?.toNumber() ?? 0,
-        tara_kg: venta._sum.tara?.toNumber() ?? 0,
+        total_jabas: Math.max(0, (venta._sum.jabas ?? 0) - (devolucion?.jabas ?? 0)),
+        peso_bruto_kg: Math.max(
+          0,
+          Number(
+            (
+              (venta._sum.peso_bruto?.toNumber() ?? 0) -
+              (devolucion?.peso_bruto?.toNumber() ?? 0)
+            ).toFixed(2),
+          ),
+        ),
+        tara_kg: Math.max(
+          0,
+          Number(
+            (
+              (venta._sum.tara?.toNumber() ?? 0) -
+              (devolucion?.tara?.toNumber() ?? 0)
+            ).toFixed(2),
+          ),
+        ),
         peso_neto_kg: pesoNeto,
         porcentaje_total:
-          summary.vendido_total_kg > 0
-            ? Number(((pesoNeto / summary.vendido_total_kg) * 100).toFixed(2))
+          vendidoNetoTotal > 0
+            ? Number(((pesoNeto / vendidoNetoTotal) * 100).toFixed(2))
             : 0,
         tiene_notas: venta.cliente_id ? clientesConNotas.has(venta.cliente_id) : false,
       };

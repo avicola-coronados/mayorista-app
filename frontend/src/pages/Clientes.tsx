@@ -232,6 +232,9 @@ export function Clientes() {
       {devolucionCliente && jornadaQuery.data?.id ? (
         <RegistrarDevolucionSheet
           cliente={devolucionCliente}
+          devoluciones={(devolucionesQuery.data?.devoluciones ?? []).filter(
+            (devolucion) => devolucion.cliente_id === devolucionCliente.cliente.id,
+          )}
           jornadaId={jornadaQuery.data.id}
           open
           onClose={() => setDevolucionCliente(null)}

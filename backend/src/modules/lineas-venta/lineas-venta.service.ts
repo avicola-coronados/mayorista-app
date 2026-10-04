@@ -31,6 +31,7 @@ type LineaVentaDetalle = {
     nombre: string;
   };
   usa_tara_personalizada: boolean;
+  es_devolucion_viva: boolean;
 };
 
 type LineasVentaGrouped = Record<
@@ -169,6 +170,7 @@ export async function getLineasVentaGrouped(jornadaId: number) {
         nombre: linea.granja.nombre,
       },
       usa_tara_personalizada: Math.abs(taraPorJaba - DEFAULT_TARA_POR_JABA) > 0.001,
+      es_devolucion_viva: linea.devolucion_origen_id != null,
     };
 
     if (!existing) {
@@ -260,6 +262,10 @@ export async function updateLineaVentaGranja(
     throw new AppError("No se puede editar una pesada de una jornada cerrada", 400, "JORNADA_CLOSED");
   }
 
+  if (lineaVenta.devolucion_origen_id) {
+    throw new AppError("Esta pesada se gestiona desde su devolución de origen", 400);
+  }
+
   if (!granja) {
     throw new AppError("Granja no encontrada o inactiva", 404);
   }
@@ -322,6 +328,10 @@ export async function updateLineaVentaDetalle(
 
   if (lineaVenta.jornada.estado === "cerrada") {
     throw new AppError("No se puede editar una pesada de una jornada cerrada", 400, "JORNADA_CLOSED");
+  }
+
+  if (lineaVenta.devolucion_origen_id) {
+    throw new AppError("Esta pesada se gestiona desde su devolución de origen", 400);
   }
 
   if (!granja) {

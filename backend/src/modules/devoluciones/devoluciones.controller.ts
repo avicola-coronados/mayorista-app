@@ -10,9 +10,9 @@ import {
 export async function postDevolucion(request: Request, response: Response) {
   const body = request.body as Record<string, unknown>;
   const data =
-    body?.peso_bruto != null
-      ? devolucionLegacySchema.parse(body)
-      : devolucionClienteSchema.parse(body);
+    body?.tara_por_jaba != null
+      ? devolucionClienteSchema.parse(body)
+      : devolucionLegacySchema.parse(body);
   const devolucion = await createDevolucion(data);
 
   return response.status(201).json(serializePrisma(devolucion));
