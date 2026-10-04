@@ -1,5 +1,6 @@
 import {
   calcularPesoNeto,
+  calcularPisoTrasEditarLinea,
   calcularTara,
   DEFAULT_TARA_POR_JABA,
 } from "../../domain/pesadas/calculos";
@@ -9,6 +10,7 @@ import { getPisoDisponible, PISO_GRANJA_NOMBRE } from "./piso-disponible.service
 import { syncGuiaFromLineaVenta } from "../guias/guias-sync.service";
 import {
   CreateLineaVentaInput,
+  UpdateDetalleLineaVentaInput,
   UpdateGranjaLineaVentaInput,
   UpdateNotaLineaVentaInput,
 } from "./lineas-venta.schemas";
@@ -104,9 +106,9 @@ export async function createLineaVenta(data: CreateLineaVentaInput, actorUserId:
   if (data.origen === "partida" && granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase()) {
     const pisoDisponible = await getPisoDisponible(data.jornada_id);
 
-    if (pesoNeto > pisoDisponible.peso_neto) {
+    if (pesoNeto > pisoDisponible.peso_neto || data.jabas > pisoDisponible.jabas) {
       throw new AppError(
-        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg.`,
+        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg y ${pisoDisponible.jabas} jabas.`,
         400,
       );
     }
@@ -273,9 +275,9 @@ export async function updateLineaVentaGranja(
     const pisoDisponible = await getPisoDisponible(lineaVenta.jornada_id);
     const pesoNeto = lineaVenta.peso_neto.toNumber();
 
-    if (pesoNeto > pisoDisponible.peso_neto) {
+    if (pesoNeto > pisoDisponible.peso_neto || lineaVenta.jabas > pisoDisponible.jabas) {
       throw new AppError(
-        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg.`,
+        `No se tiene disponibilidad suficiente en piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg y ${pisoDisponible.jabas} jabas.`,
         400,
       );
     }
@@ -291,6 +293,108 @@ export async function updateLineaVentaGranja(
 
   return {
     mensaje: "Granja actualizada correctamente",
+    linea_venta: updated,
+  };
+}
+
+export async function updateLineaVentaDetalle(
+  id: number,
+  data: UpdateDetalleLineaVentaInput,
+  actorUserId: number,
+) {
+  const [lineaVenta, granja] = await Promise.all([
+    prisma.lineaVenta.findUnique({
+      where: { id },
+      include: {
+        jornada: { select: { estado: true } },
+        granja: { select: { nombre: true } },
+      },
+    }),
+    prisma.granja.findFirst({
+      where: { id: data.granja_id, activo: true },
+      select: { id: true, nombre: true },
+    }),
+  ]);
+
+  if (!lineaVenta || lineaVenta.deleted_at) {
+    throw new AppError("Pesada no encontrada", 404);
+  }
+
+  if (lineaVenta.jornada.estado === "cerrada") {
+    throw new AppError("No se puede editar una pesada de una jornada cerrada", 400, "JORNADA_CLOSED");
+  }
+
+  if (!granja) {
+    throw new AppError("Granja no encontrada o inactiva", 404);
+  }
+
+  const esPiso = granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase();
+
+  if (lineaVenta.origen === "piso" && esPiso) {
+    throw new AppError("Un ingreso a piso debe conservar una granja de origen", 400);
+  }
+
+  const tara = calcularTara(data.jabas, data.tara_por_jaba);
+  const pesoNeto = calcularPesoNeto(lineaVenta.peso_bruto.toNumber(), tara);
+
+  if (pesoNeto <= 0) {
+    throw new AppError(
+      "El peso neto debe ser mayor a cero. Revisa jabas o tara por jaba.",
+      400,
+    );
+  }
+
+  const granjaAnteriorEsPiso =
+    lineaVenta.granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase();
+  const esEntradaPiso = lineaVenta.origen === "piso" && !lineaVenta.cliente_id;
+  const consumiaPiso =
+    Boolean(lineaVenta.cliente_id) &&
+    (lineaVenta.origen === "piso" ||
+      (lineaVenta.origen === "partida" && granjaAnteriorEsPiso));
+  const consumiraPiso =
+    Boolean(lineaVenta.cliente_id) &&
+    (lineaVenta.origen === "piso" || (lineaVenta.origen === "partida" && esPiso));
+
+  if (esEntradaPiso || consumiaPiso || consumiraPiso) {
+    const pisoDisponible = await getPisoDisponible(lineaVenta.jornada_id);
+    const pesoNetoAnterior = lineaVenta.peso_neto.toNumber();
+    const factorAnterior = esEntradaPiso ? 1 : consumiaPiso ? -1 : 0;
+    const factorNuevo = esEntradaPiso ? 1 : consumiraPiso ? -1 : 0;
+    const pisoProyectado = calcularPisoTrasEditarLinea({
+      disponibleKg: pisoDisponible.peso_neto,
+      disponiblesJabas: pisoDisponible.jabas,
+      pesoAnteriorKg: pesoNetoAnterior,
+      jabasAnteriores: lineaVenta.jabas,
+      factorAnterior,
+      pesoNuevoKg: pesoNeto,
+      jabasNuevas: data.jabas,
+      factorNuevo,
+    });
+
+    if (pisoProyectado.peso_neto < 0 || pisoProyectado.jabas < 0) {
+      throw new AppError(
+        `El cambio supera la disponibilidad de piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg y ${pisoDisponible.jabas} jabas.`,
+        400,
+      );
+    }
+  }
+
+  const updated = await prisma.lineaVenta.update({
+    where: { id },
+    data: {
+      granja_id: granja.id,
+      jabas: data.jabas,
+      tara,
+      tara_por_jaba: data.tara_por_jaba,
+      peso_neto: pesoNeto,
+    },
+    include: { granja: true },
+  });
+
+  await syncGuiaFromLineaVenta(updated.id, actorUserId);
+
+  return {
+    mensaje: "Pesada actualizada y recalculada correctamente",
     linea_venta: updated,
   };
 }

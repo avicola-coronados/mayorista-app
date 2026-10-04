@@ -5,6 +5,7 @@ import {
   calcularPesoNeto,
   calcularPisoDisponible,
   calcularPisoJornada,
+  calcularPisoTrasEditarLinea,
   calcularPorcentajeMerma,
   calcularTara,
   calcularVendidoNeto,
@@ -14,6 +15,34 @@ describe("calculos de pesadas", () => {
   it("calcula tara y peso neto redondeados", () => {
     expect(calcularTara(10, 5.8)).toBe(58);
     expect(calcularPesoNeto(250.456, 58.111)).toBe(192.34);
+  });
+
+  it("proyecta el piso al corregir una entrada o una partida", () => {
+    expect(
+      calcularPisoTrasEditarLinea({
+        disponibleKg: 20,
+        disponiblesJabas: 2,
+        pesoAnteriorKg: 100,
+        jabasAnteriores: 5,
+        factorAnterior: 1,
+        pesoNuevoKg: 90,
+        jabasNuevas: 4,
+        factorNuevo: 1,
+      }),
+    ).toEqual({ peso_neto: 10, jabas: 1 });
+
+    expect(
+      calcularPisoTrasEditarLinea({
+        disponibleKg: 20,
+        disponiblesJabas: 2,
+        pesoAnteriorKg: 50,
+        jabasAnteriores: 1,
+        factorAnterior: -1,
+        pesoNuevoKg: 75,
+        jabasNuevas: 3,
+        factorNuevo: -1,
+      }),
+    ).toEqual({ peso_neto: -5, jabas: 0 });
   });
 
   it("calcula piso disponible sin devoluciones ni desperdicio", () => {

@@ -58,9 +58,23 @@ export function Clientes() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const granjaMutation = useMutation({
-    mutationFn: ({ id, granjaId }: { id: number; granjaId: number }) =>
-      apiClient.updateLineaVentaGranja(id, granjaId),
+  const detalleMutation = useMutation({
+    mutationFn: ({
+      id,
+      granjaId,
+      jabas,
+      taraPorJaba,
+    }: {
+      id: number;
+      granjaId: number;
+      jabas: number;
+      taraPorJaba: number;
+    }) =>
+      apiClient.updateLineaVentaDetalle(id, {
+        granja_id: granjaId,
+        jabas,
+        tara_por_jaba: taraPorJaba,
+      }),
     onSuccess: async (response) => {
       toast.success(response.mensaje);
       await Promise.all([
@@ -193,9 +207,9 @@ export function Clientes() {
               onOpenNota={openNota}
               onSaveNota={saveNota}
               granjas={granjasQuery.data ?? []}
-              isSavingGranja={granjaMutation.isPending}
-              onSaveGranja={async (linea, granjaId) => {
-                await granjaMutation.mutateAsync({ id: linea.id, granjaId });
+              isSavingDetalle={detalleMutation.isPending}
+              onSaveDetalle={async (linea, detalle) => {
+                await detalleMutation.mutateAsync({ id: linea.id, ...detalle });
               }}
               devoluciones={
                 cliente.cliente.id != null

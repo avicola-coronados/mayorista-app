@@ -253,6 +253,26 @@ export type UpdateLineaVentaGranjaResponse = {
   };
 };
 
+export type UpdateLineaVentaDetallePayload = {
+  granja_id: number;
+  jabas: number;
+  tara_por_jaba: number;
+};
+
+export type UpdateLineaVentaDetalleResponse = {
+  mensaje: string;
+  linea_venta: {
+    id: number;
+    granja_id: number;
+    jabas: number;
+    peso_bruto: number;
+    tara: number;
+    tara_por_jaba: number;
+    peso_neto: number;
+    granja: Granja;
+  };
+};
+
 export type AdminPesadasConNotas = {
   total: number;
   pesadas_con_notas: Array<{
@@ -1313,6 +1333,17 @@ export const apiClient = {
       const response = await api.patch<UpdateLineaVentaGranjaResponse>(`/lineas-venta/${id}/granja`, {
         granja_id: granjaId,
       });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async updateLineaVentaDetalle(id: number, payload: UpdateLineaVentaDetallePayload) {
+    try {
+      const response = await api.patch<UpdateLineaVentaDetalleResponse>(
+        `/lineas-venta/${id}/detalle`,
+        payload,
+      );
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

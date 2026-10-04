@@ -28,9 +28,9 @@ const cliente: ClienteDelDia = {
 };
 
 describe("ClienteCard", () => {
-  it("permite seleccionar y guardar otra granja", async () => {
+  it("permite editar la granja, las jabas y la tara, mostrando el neto recalculado", async () => {
     const user = userEvent.setup();
-    const onSaveGranja = vi.fn().mockResolvedValue(undefined);
+    const onSaveDetalle = vi.fn().mockResolvedValue(undefined);
 
     render(
       <ClienteCard
@@ -47,16 +47,28 @@ describe("ClienteCard", () => {
           { id: 2, nombre: "Granja Norte", activo: true },
           { id: 3, nombre: "Granja Sur", activo: true },
         ]}
-        isSavingGranja={false}
-        onSaveGranja={onSaveGranja}
+        isSavingDetalle={false}
+        onSaveDetalle={onSaveDetalle}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: /Cliente Uno/i }));
-    await user.click(screen.getByRole("button", { name: "Editar granja" }));
+    await user.click(screen.getByRole("button", { name: "Editar pesada" }));
     await user.selectOptions(screen.getByLabelText("Granja"), "3");
-    await user.click(screen.getByRole("button", { name: "Guardar granja" }));
+    await user.clear(screen.getByLabelText("Jabas"));
+    await user.type(screen.getByLabelText("Jabas"), "4");
+    await user.clear(screen.getByLabelText("Tara por jaba (kg)"));
+    await user.type(screen.getByLabelText("Tara por jaba (kg)"), "6");
 
-    expect(onSaveGranja).toHaveBeenCalledWith(cliente.lineas[0], 3);
+    expect(screen.getByText("Tara total:").parentElement).toHaveTextContent("24.00 kg");
+    expect(screen.getByText("Peso neto:").parentElement).toHaveTextContent("76.00 kg");
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(onSaveDetalle).toHaveBeenCalledWith(cliente.lineas[0], {
+      granjaId: 3,
+      jabas: 4,
+      taraPorJaba: 6,
+    });
   });
 });

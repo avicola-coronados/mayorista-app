@@ -22,6 +22,13 @@ export const updateGranjaLineaVentaSchema = z.object({
   granja_id: z.coerce.number().int().positive("Granja inválida"),
 });
 
+export const updateDetalleLineaVentaSchema = z.object({
+  granja_id: z.coerce.number().int().positive("Granja inválida"),
+  jabas: z.coerce.number().int().positive("Las jabas deben ser mayores a cero"),
+  tara_por_jaba: z.coerce.number().positive("La tara por jaba debe ser mayor a cero"),
+});
+
 export type CreateLineaVentaInput = z.infer<typeof createLineaVentaSchema>;
 export type UpdateNotaLineaVentaInput = z.infer<typeof updateNotaLineaVentaSchema>;
 export type UpdateGranjaLineaVentaInput = z.infer<typeof updateGranjaLineaVentaSchema>;
+export type UpdateDetalleLineaVentaInput = z.infer<typeof updateDetalleLineaVentaSchema>;
