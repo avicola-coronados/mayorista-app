@@ -18,6 +18,7 @@ function buildEntradaOperativaWhere(jornadaId: number): Prisma.LineaVentaWhereIn
   return {
     jornada_id: jornadaId,
     deleted_at: null,
+    es_distribucion_pelado: false,
     OR: [
       // Mercadería ingresada sin cliente para mantenerla disponible en piso.
       { origen: "piso", devolucion_origen_id: null },

@@ -1,11 +1,16 @@
 import { AppError } from "../../errors/AppError";
 import { calcularTara, roundKg } from "../../domain/pesadas/calculos";
 import { prisma } from "../../lib/prisma";
-import { syncDevolucionKgForCliente } from "../guias/guias-sync.service";
+import {
+  syncDevolucionKgForCliente,
+  syncGuiaFromLineaVenta,
+} from "../guias/guias-sync.service";
+import { PISO_GRANJA_NOMBRE } from "../lineas-venta/piso-disponible.service";
 import type { z } from "zod";
 import {
   CreateDevolucionClienteInput,
   CreateDevolucionInput,
+  DistribuirPeladoInput,
   devolucionLegacySchema,
 } from "./devoluciones.schemas";
 
@@ -266,6 +271,36 @@ export async function deleteDevolucion(id: number) {
     );
   }
 
+  if (devolucion.tipo === "pelado") {
+    const [peladoTotal, distribuido] = await Promise.all([
+      prisma.devolucion.aggregate({
+        where: { jornada_id: devolucion.jornada_id, tipo: "pelado" },
+        _sum: { peso_neto: true },
+      }),
+      prisma.lineaVenta.aggregate({
+        where: {
+          jornada_id: devolucion.jornada_id,
+          es_distribucion_pelado: true,
+          deleted_at: null,
+        },
+        _sum: { peso_neto: true },
+      }),
+    ]);
+    const restante = roundKg(
+      Number(peladoTotal._sum.peso_neto ?? 0) -
+        devolucion.peso_neto.toNumber() -
+        Number(distribuido._sum.peso_neto ?? 0),
+    );
+
+    if (restante < -0.001) {
+      throw new AppError(
+        "No se puede eliminar: parte de esta devolución pelada ya fue distribuida",
+        400,
+        "PELADO_YA_DISTRIBUIDO",
+      );
+    }
+  }
+
   const { jornada_id, cliente_id } = devolucion;
 
   await prisma.devolucion.delete({ where: { id } });
@@ -273,6 +308,128 @@ export async function deleteDevolucion(id: number) {
   await syncDevolucionKgForCliente(jornada_id, cliente_id);
 
   return { mensaje: "Devolución eliminada" };
+}
+
+export async function getPeladoDisponible(jornadaId: number) {
+  const [devuelto, distribuido, distribuciones] = await Promise.all([
+    prisma.devolucion.aggregate({
+      where: { jornada_id: jornadaId, tipo: "pelado" },
+      _sum: { peso_neto: true },
+    }),
+    prisma.lineaVenta.aggregate({
+      where: { jornada_id: jornadaId, es_distribucion_pelado: true, deleted_at: null },
+      _sum: { peso_neto: true },
+    }),
+    prisma.lineaVenta.findMany({
+      where: { jornada_id: jornadaId, es_distribucion_pelado: true, deleted_at: null },
+      include: { cliente: { select: { id: true, nombre: true } } },
+      orderBy: { created_at: "desc" },
+    }),
+  ]);
+
+  const totalDevuelto = roundKg(Number(devuelto._sum.peso_neto ?? 0));
+  const totalDistribuido = roundKg(Number(distribuido._sum.peso_neto ?? 0));
+
+  return {
+    total_devuelto_kg: totalDevuelto,
+    total_distribuido_kg: totalDistribuido,
+    disponible_kg: Math.max(0, roundKg(totalDevuelto - totalDistribuido)),
+    distribuciones: distribuciones.map((linea) => ({
+      id: linea.id,
+      cliente_id: linea.cliente_id,
+      cliente_nombre: linea.cliente?.nombre ?? "Cliente",
+      peso_neto: linea.peso_neto.toNumber(),
+      jabas: linea.jabas,
+      tara: linea.tara.toNumber(),
+      created_at: linea.created_at,
+    })),
+  };
+}
+
+export async function distribuirDevolucionPelado(
+  data: DistribuirPeladoInput,
+  actorUserId: number,
+) {
+  const pesoNeto = roundKg(data.peso_neto);
+
+  const linea = await prisma.$transaction(async (transaction) => {
+    const [jornada, cliente, granjaPiso, devuelto, distribuido] = await Promise.all([
+      transaction.jornada.findUnique({ where: { id: data.jornada_id } }),
+      transaction.cliente.findFirst({ where: { id: data.cliente_id, activo: true } }),
+      transaction.granja.findFirst({
+        where: { nombre: { equals: PISO_GRANJA_NOMBRE, mode: "insensitive" } },
+        select: { id: true },
+      }),
+      transaction.devolucion.aggregate({
+        where: { jornada_id: data.jornada_id, tipo: "pelado" },
+        _sum: { peso_neto: true },
+      }),
+      transaction.lineaVenta.aggregate({
+        where: {
+          jornada_id: data.jornada_id,
+          es_distribucion_pelado: true,
+          deleted_at: null,
+        },
+        _sum: { peso_neto: true },
+      }),
+    ]);
+
+    if (!jornada) {
+      throw new AppError("Jornada no encontrada", 404, "JORNADA_NOT_FOUND");
+    }
+    if (jornada.estado === "cerrada") {
+      throw new AppError("No se puede distribuir en una jornada cerrada", 403, "JORNADA_CLOSED");
+    }
+    if (!cliente) {
+      throw new AppError("Cliente no encontrado o inactivo", 404, "CLIENTE_NOT_FOUND");
+    }
+    if (!granjaPiso) {
+      throw new AppError("No se encontró la granja Piso", 500);
+    }
+
+    const disponible = roundKg(
+      Number(devuelto._sum.peso_neto ?? 0) - Number(distribuido._sum.peso_neto ?? 0),
+    );
+    if (pesoNeto > disponible + 0.001) {
+      throw new AppError(
+        `El peso supera el pelado disponible (${Math.max(0, disponible).toFixed(2)} kg)`,
+        400,
+        "EXCEDE_PELADO_DISPONIBLE",
+      );
+    }
+
+    return transaction.lineaVenta.create({
+      data: {
+        jornada_id: data.jornada_id,
+        cliente_id: data.cliente_id,
+        granja_id: granjaPiso.id,
+        origen: "partida",
+        jabas: 0,
+        peso_bruto: pesoNeto,
+        tara: 0,
+        tara_por_jaba: 0,
+        peso_neto: pesoNeto,
+        nota: "Distribución de devolución pelada",
+        es_distribucion_pelado: true,
+      },
+      include: { cliente: true },
+    });
+  });
+
+  await syncGuiaFromLineaVenta(linea.id, actorUserId);
+
+  return {
+    mensaje: "Devolución pelada asignada correctamente",
+    distribucion: {
+      id: linea.id,
+      cliente_id: linea.cliente_id,
+      cliente_nombre: linea.cliente?.nombre ?? "Cliente",
+      peso_neto: linea.peso_neto.toNumber(),
+      jabas: linea.jabas,
+      tara: linea.tara.toNumber(),
+      created_at: linea.created_at,
+    },
+  };
 }
 
 export async function listDevolucionesByJornada(jornadaId: number) {

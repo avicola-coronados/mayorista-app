@@ -29,7 +29,18 @@ export const devolucionClienteSchema = z.object({
   peso_bruto: z.coerce.number().positive("El peso bruto debe ser mayor a cero"),
 });
 
+export const peladoDisponibleQuerySchema = z.object({
+  jornada_id: z.coerce.number().int().positive("Jornada inválida"),
+});
+
+export const distribuirPeladoSchema = z.object({
+  jornada_id: z.coerce.number().int().positive("Jornada inválida"),
+  cliente_id: z.coerce.number().int().positive("Cliente inválido"),
+  peso_neto: z.coerce.number().positive("El peso debe ser mayor a cero"),
+});
+
 export type CreateDevolucionInput =
   | z.infer<typeof devolucionClienteSchema>
   | z.infer<typeof devolucionLegacySchema>;
 export type CreateDevolucionClienteInput = z.infer<typeof devolucionClienteSchema>;
+export type DistribuirPeladoInput = z.infer<typeof distribuirPeladoSchema>;

@@ -22,7 +22,9 @@ vi.mock("../services/api", () => ({
     getClientes: vi.fn(),
     getGranjas: vi.fn(),
     getJornadaActiva: vi.fn(),
+    getPeladoDisponible: vi.fn(),
     getSobrante: vi.fn(),
+    distribuirPelado: vi.fn(),
   },
 }));
 
@@ -68,6 +70,24 @@ describe("RegistrarPesada", () => {
       { id: 40, nombre: "Piso", activo: true },
     ]);
     mockedApi.getSobrante.mockResolvedValue([{ id: 0, peso_neto: 500, jabas: 10 }]);
+    mockedApi.getPeladoDisponible.mockResolvedValue({
+      total_devuelto_kg: 30,
+      total_distribuido_kg: 5,
+      disponible_kg: 25,
+      distribuciones: [],
+    });
+    mockedApi.distribuirPelado.mockResolvedValue({
+      mensaje: "Devolución pelada asignada correctamente",
+      distribucion: {
+        id: 60,
+        cliente_id: 20,
+        cliente_nombre: "Cliente Uno",
+        peso_neto: 10,
+        jabas: 0,
+        tara: 0,
+        created_at: "2026-10-04T12:00:00.000Z",
+      },
+    });
     mockedApi.createLineaVenta.mockResolvedValue({} as never);
     mockedApi.createGranja.mockResolvedValue({
       id: 50,
@@ -125,6 +145,24 @@ describe("RegistrarPesada", () => {
     );
     await waitFor(() => expect(clienteSelect).toBeEnabled());
     expect(screen.getByRole("button", { name: "Piso" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("distribuye peso neto de una devolución pelada sin jabas ni tara", async () => {
+    const user = userEvent.setup();
+    renderPage("partida");
+
+    const clienteDestino = await screen.findByLabelText("Cliente destino");
+    await user.selectOptions(clienteDestino, "20");
+    await user.type(screen.getByLabelText("Peso neto a distribuir (kg)"), "10");
+    await user.click(screen.getByRole("button", { name: "Asignar" }));
+
+    await waitFor(() =>
+      expect(mockedApi.distribuirPelado).toHaveBeenCalledWith({
+        jornada_id: 10,
+        cliente_id: 20,
+        peso_neto: 10,
+      }),
+    );
   });
 
   it("crea una granja desde ingreso y la selecciona", async () => {

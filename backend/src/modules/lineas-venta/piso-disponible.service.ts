@@ -16,6 +16,7 @@ export async function getPisoDisponible(jornadaId: number) {
         jornada_id: jornadaId,
         cliente_id: { not: null },
         deleted_at: null,
+        es_distribucion_pelado: false,
         OR: [
           { origen: "piso" },
           {

@@ -147,7 +147,9 @@ export function ClienteCard({
                     <p className="font-semibold text-slate-800">
                       {linea.es_devolucion_viva
                         ? "Devolución viva · Piso"
-                        : `${linea.origen === "partida" ? "Partida" : "Piso"} · ${linea.granja.nombre}`}
+                        : linea.es_distribucion_pelado
+                          ? "Distribución de devolución pelada"
+                          : `${linea.origen === "partida" ? "Partida" : "Piso"} · ${linea.granja.nombre}`}
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
                       {new Date(linea.created_at).toLocaleTimeString("es-PE", {
@@ -159,7 +161,7 @@ export function ClienteCard({
 
                   <div className="flex items-center gap-3">
                     <p className="text-lg font-bold text-slate-900">{linea.peso_neto.toFixed(2)} kg</p>
-                    {!linea.es_devolucion_viva ? <button
+                    {!linea.es_devolucion_viva && !linea.es_distribucion_pelado ? <button
                       type="button"
                       onClick={() => {
                         if (isEditingDetalle) {

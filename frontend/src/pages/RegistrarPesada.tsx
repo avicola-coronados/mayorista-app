@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { Layout } from "../components/Layout";
+import { DistribuirPeladoSection } from "../components/operario/DistribuirPeladoSection";
 import { apiClient } from "../services/api";
 
 const DEFAULT_TARA_POR_JABA = 5.8;
@@ -458,6 +459,14 @@ export function RegistrarPesada({ modo }: { modo: ModoPesada }) {
           </div>
         </section>
       </form>
+
+      {esPartida && jornada ? (
+        <DistribuirPeladoSection
+          jornadaId={jornada.id}
+          jornadaCerrada={jornada.estado === "cerrada"}
+          clientes={clientesQuery.data ?? []}
+        />
+      ) : null}
 
       {showNewCliente ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

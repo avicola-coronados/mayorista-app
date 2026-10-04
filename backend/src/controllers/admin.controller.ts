@@ -323,6 +323,13 @@ export async function updateAdminLineaVenta(request: Request, response: Response
     });
   }
 
+  if (lineaVenta.es_distribucion_pelado) {
+    return response.status(400).json({
+      message: "Esta pesada pertenece a una distribución de devolución pelada",
+      code: "DISTRIBUCION_PELADO_LINE",
+    });
+  }
+
   if (pesoBruto <= tara) {
     return response.status(400).json({ message: "Peso bruto debe ser mayor que tara" });
   }

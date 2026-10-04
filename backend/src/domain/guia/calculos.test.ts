@@ -26,6 +26,20 @@ describe("calcularLineaGuia", () => {
       calcularLineaGuia({ jabas: 1, peso_bruto: 10, devolucion_kg: 20 }, 4),
     ).toThrow("La devolución no puede superar el peso neto");
   });
+
+  it("acepta peso neto sin jabas ni tara para una distribución de pelado", () => {
+    const result = calcularLineaGuia(
+      { jabas: 0, peso_bruto: 12.5, tara: 0, tara_por_jaba: 0 },
+      5,
+    );
+
+    expect(result).toMatchObject({
+      tara: 0,
+      peso_neto: 12.5,
+      neto_total: 12.5,
+      importe_guia: 62.5,
+    });
+  });
 });
 
 describe("calcularTotalesGuia", () => {

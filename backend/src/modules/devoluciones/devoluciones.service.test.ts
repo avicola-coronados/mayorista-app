@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const transaction = {
-    devolucion: { create: vi.fn() },
+    jornada: { findUnique: vi.fn() },
+    cliente: { findFirst: vi.fn() },
+    devolucion: { create: vi.fn(), aggregate: vi.fn() },
     granja: { findFirst: vi.fn() },
-    lineaVenta: { create: vi.fn() },
+    lineaVenta: { create: vi.fn(), aggregate: vi.fn() },
   };
 
   return {
@@ -17,6 +19,7 @@ const mocks = vi.hoisted(() => {
       async (callback: (client: typeof transaction) => Promise<unknown>) => callback(transaction),
     ),
     syncDevolucion: vi.fn(),
+    syncGuia: vi.fn(),
   };
 });
 
@@ -32,9 +35,10 @@ vi.mock("../../lib/prisma", () => ({
 
 vi.mock("../guias/guias-sync.service", () => ({
   syncDevolucionKgForCliente: mocks.syncDevolucion,
+  syncGuiaFromLineaVenta: mocks.syncGuia,
 }));
 
-import { createDevolucion } from "./devoluciones.service";
+import { createDevolucion, distribuirDevolucionPelado } from "./devoluciones.service";
 
 function decimal(value: number) {
   return { toNumber: () => value, valueOf: () => value };
@@ -66,7 +70,19 @@ describe("createDevolucion", () => {
       cliente: { nombre: "Cliente Uno" },
     });
     mocks.transaction.granja.findFirst.mockResolvedValue({ id: 40 });
-    mocks.transaction.lineaVenta.create.mockResolvedValue({ id: 50 });
+    mocks.transaction.jornada.findUnique.mockResolvedValue({ id: 10, estado: "abierta" });
+    mocks.transaction.cliente.findFirst.mockResolvedValue({ id: 20, nombre: "Cliente Uno" });
+    mocks.transaction.devolucion.aggregate.mockResolvedValue({ _sum: { peso_neto: decimal(30) } });
+    mocks.transaction.lineaVenta.aggregate.mockResolvedValue({ _sum: { peso_neto: decimal(5) } });
+    mocks.transaction.lineaVenta.create.mockResolvedValue({
+      id: 50,
+      cliente_id: 20,
+      jabas: 0,
+      tara: decimal(0),
+      peso_neto: decimal(10),
+      created_at: new Date("2026-10-04T12:00:00.000Z"),
+      cliente: { nombre: "Cliente Uno" },
+    });
   });
 
   it("crea una pesada de piso vinculada para una devolución viva", async () => {
@@ -115,5 +131,29 @@ describe("createDevolucion", () => {
         peso_neto: 25,
       }),
     });
+  });
+
+  it("distribuye pelado como una pesada neta con cero jabas y tara", async () => {
+    await distribuirDevolucionPelado(
+      { jornada_id: 10, cliente_id: 20, peso_neto: 10 },
+      1,
+    );
+
+    expect(mocks.transaction.lineaVenta.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        jornada_id: 10,
+        cliente_id: 20,
+        granja_id: 40,
+        origen: "partida",
+        jabas: 0,
+        peso_bruto: 10,
+        tara: 0,
+        tara_por_jaba: 0,
+        peso_neto: 10,
+        es_distribucion_pelado: true,
+      }),
+      include: { cliente: true },
+    });
+    expect(mocks.syncGuia).toHaveBeenCalledWith(50, 1);
   });
 });

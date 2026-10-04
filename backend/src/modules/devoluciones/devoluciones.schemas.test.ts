@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { devolucionClienteSchema, devolucionLegacySchema } from "./devoluciones.schemas";
+import {
+  devolucionClienteSchema,
+  devolucionLegacySchema,
+  distribuirPeladoSchema,
+} from "./devoluciones.schemas";
 
 describe("devolucionClienteSchema", () => {
   it("acepta jabas y tara por jaba en una devolución desde Clientes", () => {
@@ -77,5 +81,13 @@ describe("devolucionLegacySchema", () => {
       tara: 0,
       peso_neto: 25,
     });
+  });
+});
+
+describe("distribuirPeladoSchema", () => {
+  it("acepta cliente y peso neto sin datos de jabas o tara", () => {
+    expect(
+      distribuirPeladoSchema.parse({ jornada_id: "10", cliente_id: "20", peso_neto: "12.5" }),
+    ).toEqual({ jornada_id: 10, cliente_id: 20, peso_neto: 12.5 });
   });
 });

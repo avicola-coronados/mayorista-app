@@ -23,6 +23,7 @@ const cliente: ClienteDelDia = {
       created_at: "2026-10-04T12:00:00.000Z",
       usa_tara_personalizada: false,
       es_devolucion_viva: false,
+      es_distribucion_pelado: false,
       granja: { id: 2, nombre: "Granja Norte" },
     },
   ],

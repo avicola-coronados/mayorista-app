@@ -21,8 +21,8 @@ export type LineaGuiaCalculada = {
 };
 
 export function calcularLineaGuia(input: LineaGuiaCalculoInput, precioKg: number): LineaGuiaCalculada {
-  if (!Number.isInteger(input.jabas) || input.jabas <= 0) {
-    throw new Error("El número de jabas debe ser mayor a 0");
+  if (!Number.isInteger(input.jabas) || input.jabas < 0) {
+    throw new Error("El número de jabas no puede ser negativo");
   }
 
   if (input.peso_bruto < 0) {

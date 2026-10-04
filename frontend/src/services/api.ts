@@ -215,6 +215,7 @@ export type ClienteDelDia = {
     created_at: string;
     usa_tara_personalizada: boolean;
     es_devolucion_viva: boolean;
+    es_distribucion_pelado: boolean;
     granja: {
       id: number;
       nombre: string;
@@ -373,6 +374,21 @@ export type DevolucionesResponse = {
   devoluciones: Devolucion[];
   total_registros: number;
   total_kg: number;
+};
+
+export type PeladoDisponible = {
+  total_devuelto_kg: number;
+  total_distribuido_kg: number;
+  disponible_kg: number;
+  distribuciones: Array<{
+    id: number;
+    cliente_id: number | null;
+    cliente_nombre: string;
+    peso_neto: number;
+    jabas: number;
+    tara: number;
+    created_at: string;
+  }>;
 };
 
 export type DevolucionPayload = {
@@ -1344,6 +1360,27 @@ export const apiClient = {
   async deleteDevolucion(id: number) {
     try {
       const response = await api.delete<{ mensaje: string }>(`/devoluciones/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async getPeladoDisponible(jornadaId: number) {
+    try {
+      const response = await api.get<PeladoDisponible>("/devoluciones/pelado-disponible", {
+        params: { jornada_id: jornadaId },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  },
+  async distribuirPelado(payload: { jornada_id: number; cliente_id: number; peso_neto: number }) {
+    try {
+      const response = await api.post<{ mensaje: string; distribucion: PeladoDisponible["distribuciones"][number] }>(
+        "/devoluciones/pelado-distribuciones",
+        payload,
+      );
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
