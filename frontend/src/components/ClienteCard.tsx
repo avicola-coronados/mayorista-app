@@ -43,6 +43,7 @@ export function ClienteCard({
   const puedeRegistrarDevolucion = cliente.cliente.id != null && cliente.pesadas > 0 && onRegistrarDevolucion;
   const totalDevolucionesKg = devoluciones.reduce((acc, devolucion) => acc + devolucion.peso_neto, 0);
   const totalClienteAjustado = Math.max(cliente.total_kg - totalDevolucionesKg, 0);
+  const totalJabas = cliente.lineas.reduce((total, linea) => total + linea.jabas, 0);
 
   function getTipoMeta(tipo: TipoDevolucion) {
     switch (tipo) {
@@ -71,7 +72,8 @@ export function ClienteCard({
           <div>
             <h3 className="text-lg font-bold text-slate-900">{cliente.cliente.nombre}</h3>
             <p className="mt-1 text-sm text-slate-500">
-              {cliente.pesadas} pesada{cliente.pesadas === 1 ? "" : "s"} registradas
+              {cliente.pesadas} pesada{cliente.pesadas === 1 ? "" : "s"} registrada
+              {cliente.pesadas === 1 ? "" : "s"} · {totalJabas} jaba{totalJabas === 1 ? "" : "s"}
             </p>
           </div>
 

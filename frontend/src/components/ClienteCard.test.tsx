@@ -52,6 +52,8 @@ describe("ClienteCard", () => {
       />,
     );
 
+    expect(screen.getByText("1 pesada registrada · 5 jabas")).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: /Cliente Uno/i }));
     await user.click(screen.getByRole("button", { name: "Editar pesada" }));
     await user.selectOptions(screen.getByLabelText("Granja"), "3");
