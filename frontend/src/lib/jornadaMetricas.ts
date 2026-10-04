@@ -8,58 +8,55 @@ export function calcularVendidoNeto(vendidoBrutoKg: number, devolucionesKg: numb
 
 export function calcularEntradaDiaMostrada(
   entradaRegistradaKg: number,
-  vendidoBrutoKg: number,
-  devolucionesKg: number,
+  vendidoFisicoKg: number,
 ) {
   if (entradaRegistradaKg > 0) {
     return roundKg(entradaRegistradaKg);
   }
 
-  return roundKg(vendidoBrutoKg + devolucionesKg);
+  return roundKg(vendidoFisicoKg);
 }
 
 export function calcularPisoJornada({
   entradaRegistradaKg,
-  vendidoBrutoKg,
-  devolucionesKg,
+  vendidoFisicoKg,
+  devolucionesVivasKg,
   desperdicioKg,
   muerteroKg,
 }: {
   entradaRegistradaKg: number;
-  vendidoBrutoKg: number;
-  devolucionesKg: number;
+  vendidoFisicoKg: number;
+  devolucionesVivasKg: number;
   desperdicioKg: number;
   muerteroKg: number;
 }) {
-  const vendidoNeto = calcularVendidoNeto(vendidoBrutoKg, devolucionesKg);
+  const entradaBase = entradaRegistradaKg > 0 ? entradaRegistradaKg : vendidoFisicoKg;
 
-  if (entradaRegistradaKg > 0) {
-    return Math.max(0, roundKg(entradaRegistradaKg - vendidoNeto - desperdicioKg - muerteroKg));
-  }
-
-  return Math.max(0, roundKg(devolucionesKg - desperdicioKg - muerteroKg));
+  return Math.max(
+    0,
+    roundKg(
+      entradaBase - vendidoFisicoKg + devolucionesVivasKg - desperdicioKg - muerteroKg,
+    ),
+  );
 }
 
 export function calcularMermaJornada({
-  entradaRegistradaKg,
-  vendidoBrutoKg,
-  devolucionesKg,
+  devolucionesMuertasKg,
   desperdicioKg,
   muerteroKg,
 }: {
-  entradaRegistradaKg: number;
-  vendidoBrutoKg: number;
-  devolucionesKg: number;
+  devolucionesMuertasKg: number;
   desperdicioKg: number;
   muerteroKg: number;
 }) {
-  return calcularPisoJornada({
-    entradaRegistradaKg,
-    vendidoBrutoKg,
-    devolucionesKg,
-    desperdicioKg,
-    muerteroKg,
-  });
+  return roundKg(devolucionesMuertasKg + desperdicioKg + muerteroKg);
+}
+
+export function calcularPeladoDisponible(
+  devolucionesPeladasKg: number,
+  peladoDistribuidoKg: number,
+) {
+  return Math.max(0, roundKg(devolucionesPeladasKg - peladoDistribuidoKg));
 }
 
 export function calcularPorcentajeMerma(mermaKg: number, entradaKg: number) {

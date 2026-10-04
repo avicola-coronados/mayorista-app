@@ -3,7 +3,7 @@ import { prisma } from "../../lib/prisma";
 export const PISO_GRANJA_NOMBRE = "Piso";
 
 export async function getPisoDisponible(jornadaId: number) {
-  const [entradaAggregate, salidaAggregate] = await Promise.all([
+  const [entradaAggregate, salidaAggregate, jornada] = await Promise.all([
     prisma.lineaVenta.aggregate({
       where: { jornada_id: jornadaId, origen: "piso", deleted_at: null },
       _sum: {
@@ -28,12 +28,21 @@ export async function getPisoDisponible(jornadaId: number) {
         peso_neto: true,
       },
     }),
+    prisma.jornada.findUnique({
+      where: { id: jornadaId },
+      select: { desperdicio_kg: true, muertero_kg: true },
+    }),
   ]);
 
   const entradaKg = entradaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const salidaKg = salidaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const desperdicioKg = jornada?.desperdicio_kg?.toNumber() ?? 0;
+  const muerteroKg = jornada?.muertero_kg?.toNumber() ?? 0;
 
   return {
-    peso_neto: Math.max(0, Number((entradaKg - salidaKg).toFixed(2))),
+    peso_neto: Math.max(
+      0,
+      Number((entradaKg - salidaKg - desperdicioKg - muerteroKg).toFixed(2)),
+    ),
   };
 }

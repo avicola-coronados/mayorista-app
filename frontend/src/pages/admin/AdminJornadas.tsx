@@ -1218,14 +1218,9 @@ function DesgloseMerma({ detalle }: { detalle: JornadaDetalle }) {
   const { desglose_merma: desglose, jornada } = detalle;
   const resultClass = getMermaTextClass(jornada.merma_porcentaje);
   const rows = [
+    { label: "Devolución muerta", value: desglose.devolucion_muerta, symbol: "+", positive: true },
     { label: "Muertero", value: desglose.muertero, symbol: "+", positive: true },
     { label: "Desperdicio", value: desglose.desperdicio, symbol: "+", positive: true },
-    {
-      label: "Entrada − neto",
-      value: desglose.diferencia_entrada_neto,
-      symbol: desglose.diferencia_entrada_neto < 0 ? "−" : "+",
-      positive: desglose.diferencia_entrada_neto >= 0,
-    },
   ];
 
   return (
@@ -1239,6 +1234,14 @@ function DesgloseMerma({ detalle }: { detalle: JornadaDetalle }) {
         <div className="mb-3 flex items-center justify-between gap-4 py-2 text-[13px] font-medium text-neutral-500">
           <span>Neto vendido</span>
           <span>{formatKg(desglose.neto)}</span>
+        </div>
+        <div className="mb-3 flex items-center justify-between gap-4 py-2 text-[13px] font-medium text-neutral-500">
+          <span>Piso vivo recuperable</span>
+          <span>{formatKg(desglose.piso_vivo)}</span>
+        </div>
+        <div className="mb-3 flex items-center justify-between gap-4 py-2 text-[13px] font-medium text-neutral-500">
+          <span>Pelado recuperable</span>
+          <span>{formatKg(desglose.pelado_disponible)}</span>
         </div>
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-4 py-2 text-[14px] font-medium text-neutral-600">

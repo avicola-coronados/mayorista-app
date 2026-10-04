@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -18,6 +18,7 @@ export function CierreJornada() {
   const user = useAuthStore((state) => state.user);
   const [desperdicio, setDesperdicio] = useState("0");
   const [muertero, setMuertero] = useState("0");
+  const initializedJornadaIdRef = useRef<number | null>(null);
   const isAdmin = user?.role === "admin";
 
   const jornadaQuery = useQuery({
@@ -38,16 +39,23 @@ export function CierreJornada() {
 
   const jornada = jornadaQuery.data;
   const metricas = metricasQuery.data;
+
+  useEffect(() => {
+    if (!jornada || !metricas || initializedJornadaIdRef.current === jornada.id) {
+      return;
+    }
+
+    setDesperdicio(String(metricas.desperdicio_kg));
+    setMuertero(String(metricas.muertero_kg));
+    initializedJornadaIdRef.current = jornada.id;
+  }, [jornada, metricas]);
+
   const desperdicioKg = Number(desperdicio) || 0;
   const muerteroKg = Number(muertero) || 0;
 
   const entradaRegistradaKg = metricas?.entrada_registrada_kg ?? 0;
   const entradaDiaKg = metricas
-    ? calcularEntradaDiaMostrada(
-        entradaRegistradaKg,
-        metricas.vendido_total_kg,
-        metricas.devoluciones_total_kg,
-      )
+    ? calcularEntradaDiaMostrada(entradaRegistradaKg, metricas.vendido_fisico_kg)
     : 0;
   const vendidoNetoKg = metricas
     ? (metricas.vendido_neto_kg ??
@@ -60,13 +68,16 @@ export function CierreJornada() {
     }
 
     return calcularMermaJornada({
-      entradaRegistradaKg,
-      vendidoBrutoKg: metricas.vendido_total_kg,
-      devolucionesKg: metricas.devoluciones_total_kg,
+      devolucionesMuertasKg: metricas.devoluciones_muertas_kg ?? 0,
       desperdicioKg,
       muerteroKg,
     });
-  }, [desperdicioKg, entradaRegistradaKg, metricas, muerteroKg]);
+  }, [desperdicioKg, metricas, muerteroKg]);
+
+  const pisoAntesDePerdidas = metricas
+    ? metricas.piso_disponible_kg + metricas.desperdicio_kg + metricas.muertero_kg
+    : 0;
+  const pisoAlCerrar = Math.max(0, pisoAntesDePerdidas - desperdicioKg - muerteroKg);
 
   const mermaPorcentaje = useMemo(() => {
     return calcularPorcentajeMerma(merma, entradaDiaKg);
@@ -132,8 +143,10 @@ export function CierreJornada() {
       return;
     }
 
-    if (desperdicioKg + muerteroKg > entradaDiaKg) {
-      toast.error("Desperdicio y muertero no pueden exceder la entrada total");
+    if (desperdicioKg + muerteroKg > pisoAntesDePerdidas + 0.001) {
+      toast.error(
+        `Desperdicio y muertero no pueden exceder el piso vivo disponible (${pisoAntesDePerdidas.toFixed(2)} kg)`,
+      );
       return;
     }
 
@@ -163,7 +176,8 @@ export function CierreJornada() {
             <SummaryRow label="Total entrada" value={`${entradaDiaKg.toFixed(2)} kg`} />
             {entradaRegistradaKg === 0 && entradaDiaKg > 0 ? (
               <p className="rounded-2xl bg-amber-50 px-4 py-2 text-xs text-amber-900">
-                Sin entrada de granja registrada: se estima como vendido bruto + devoluciones.
+                Sin entrada física registrada: se estima con las salidas físicas del día, sin
+                contar redistribuciones de pelado como una entrada nueva.
               </p>
             ) : null}
             <SummaryRow label="Total vendido neto" value={`${vendidoNetoKg.toFixed(2)} kg`} />
@@ -176,7 +190,11 @@ export function CierreJornada() {
               <DevolucionTipo label="Pelado" value={metricas.devoluciones_peladas_kg ?? 0} />
               <DevolucionTipo label="Muerto" value={metricas.devoluciones_muertas_kg ?? 0} />
             </div>
-            <SummaryRow label="Piso disponible (previo al cierre)" value={`${(metricas?.piso_disponible_kg ?? 0).toFixed(2)} kg`} />
+            <SummaryRow label="Piso vivo al cerrar" value={`${pisoAlCerrar.toFixed(2)} kg`} />
+            <SummaryRow
+              label="Pelado disponible"
+              value={`${metricas.pelado_disponible_kg.toFixed(2)} kg`}
+            />
           </div>
 
           <div className="mt-6">
@@ -248,7 +266,8 @@ export function CierreJornada() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Merma y piso disponible = entrada − vendido neto − desperdicio − muertero.
+              Merma = devolución muerta + desperdicio + muertero. El pollo vivo y el pelado
+              devueltos permanecen como inventario recuperable y no suman merma.
             </p>
 
             <button

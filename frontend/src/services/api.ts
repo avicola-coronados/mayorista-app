@@ -13,6 +13,7 @@ export type Jornada = {
   desperdicio_kg?: number | null;
   muertero_kg?: number | null;
   piso_disponible_kg?: number;
+  pelado_disponible_kg?: number;
   merma_kg?: number;
   merma_porcentaje?: number;
   created_at?: string;
@@ -29,6 +30,7 @@ export type JornadaResumen = {
   desperdicio_kg: number;
   muertero_kg: number;
   piso_disponible_kg: number;
+  pelado_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
   estado: "abierta" | "cerrada";
@@ -58,7 +60,9 @@ export type JornadaDetalle = {
   desglose_merma: {
     entrada_total: number;
     neto: number;
-    diferencia_entrada_neto: number;
+    piso_vivo: number;
+    pelado_disponible: number;
+    devolucion_muerta: number;
     desperdicio: number;
     muertero: number;
     resultado_merma: number;
@@ -136,14 +140,18 @@ export type MetricasJornada = {
   entrada_registrada_kg?: number;
   entrada_total_kg: number;
   vendido_total_kg: number;
+  vendido_fisico_kg: number;
   vendido_neto_kg?: number;
   piso_disponible_kg: number;
+  pelado_disponible_kg: number;
   merma_kg?: number;
   merma_porcentaje?: number;
   devoluciones_total_kg: number;
   devoluciones_vivas_kg?: number;
   devoluciones_peladas_kg?: number;
   devoluciones_muertas_kg?: number;
+  desperdicio_kg: number;
+  muertero_kg: number;
   sobrante_total_kg: number;
   clientes_atendidos: number;
   pesadas_realizadas: number;
@@ -232,6 +240,7 @@ export type CierrePayload = {
 export type CierreResponse = {
   success: boolean;
   piso_disponible_kg: number;
+  pelado_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
 };

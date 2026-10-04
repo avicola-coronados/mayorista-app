@@ -1,6 +1,7 @@
 import {
   calcularEntradaDiaMostrada,
   calcularMermaJornada,
+  calcularPeladoDisponible,
   calcularPisoJornada,
   calcularPorcentajeMerma,
   calcularVendidoNeto,
@@ -46,6 +47,7 @@ type JornadaSummary = {
   desperdicio_kg: number;
   muertero_kg: number;
   piso_disponible_kg: number;
+  pelado_disponible_kg: number;
   merma_kg: number;
   merma_porcentaje: number;
   estado: "abierta" | "cerrada";
@@ -75,7 +77,9 @@ type JornadaDetalle = {
   desglose_merma: {
     entrada_total: number;
     neto: number;
-    diferencia_entrada_neto: number;
+    piso_vivo: number;
+    pelado_disponible: number;
+    devolucion_muerta: number;
     desperdicio: number;
     muertero: number;
     resultado_merma: number;
@@ -93,6 +97,7 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     devolucionVivaAggregate,
     devolucionPeladaAggregate,
     devolucionMuertaAggregate,
+    distribucionPeladoAggregate,
     counts,
     pesadasRealizadas,
   ] =
@@ -130,6 +135,14 @@ export async function calculateJornadaMetrics(jornadaId: number) {
         where: { jornada_id: jornadaId, tipo: "muerto" },
         _sum: { peso_neto: true },
       }),
+      prisma.lineaVenta.aggregate({
+        where: {
+          jornada_id: jornadaId,
+          es_distribucion_pelado: true,
+          deleted_at: null,
+        },
+        _sum: { peso_neto: true },
+      }),
       prisma.lineaVenta.groupBy({
         by: ["cliente_id"],
         where: { jornada_id: jornadaId, cliente_id: { not: null }, deleted_at: null },
@@ -156,21 +169,25 @@ export async function calculateJornadaMetrics(jornadaId: number) {
   const devolucionesVivasTotal = devolucionVivaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesPeladasTotal = devolucionPeladaAggregate._sum.peso_neto?.toNumber() ?? 0;
   const devolucionesMuertasTotal = devolucionMuertaAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const peladoDistribuidoTotal = distribucionPeladoAggregate._sum.peso_neto?.toNumber() ?? 0;
+  const vendidoFisicoTotal = Number((vendidoTotal - peladoDistribuidoTotal).toFixed(2));
+  const peladoDisponible = calcularPeladoDisponible(
+    devolucionesPeladasTotal,
+    peladoDistribuidoTotal,
+  );
   const vendidoNeto = calcularVendidoNeto(vendidoTotal, devolucionesTotal);
   const desperdicio = jornada.desperdicio_kg?.toNumber() ?? 0;
   const muertero = jornada.muertero_kg?.toNumber() ?? 0;
-  const entradaDia = calcularEntradaDiaMostrada(entradaRegistrada, vendidoTotal, devolucionesTotal);
+  const entradaDia = calcularEntradaDiaMostrada(entradaRegistrada, vendidoFisicoTotal);
   const pisoDisponible = calcularPisoJornada({
     entradaRegistradaKg: entradaRegistrada,
-    vendidoBrutoKg: vendidoTotal,
-    devolucionesKg: devolucionesVivasTotal,
+    vendidoFisicoKg: vendidoFisicoTotal,
+    devolucionesVivasKg: devolucionesVivasTotal,
     desperdicioKg: desperdicio,
     muerteroKg: muertero,
   });
   const merma = calcularMermaJornada({
-    entradaRegistradaKg: entradaRegistrada,
-    vendidoBrutoKg: vendidoTotal,
-    devolucionesKg: devolucionesTotal,
+    devolucionesMuertasKg: devolucionesMuertasTotal,
     desperdicioKg: desperdicio,
     muerteroKg: muertero,
   });
@@ -183,8 +200,10 @@ export async function calculateJornadaMetrics(jornadaId: number) {
     entrada_registrada_kg: entradaRegistrada,
     entrada_total_kg: entradaDia,
     vendido_total_kg: vendidoTotal,
+    vendido_fisico_kg: vendidoFisicoTotal,
     vendido_neto_kg: vendidoNeto,
     piso_disponible_kg: pisoDisponible,
+    pelado_disponible_kg: peladoDisponible,
     merma_kg: merma,
     merma_porcentaje: mermaPorcentaje,
     devoluciones_total_kg: devolucionesTotal,
@@ -280,7 +299,8 @@ export async function exportJornadaPdf(jornadaId: number) {
     `Devoluciones: ${jornada.devoluciones_total_kg} kg`,
     `Desperdicio: ${jornada.desperdicio_kg} kg`,
     `Muertero: ${jornada.muertero_kg} kg`,
-    `Piso disponible: ${jornada.piso_disponible_kg} kg`,
+    `Piso vivo disponible: ${jornada.piso_disponible_kg} kg`,
+    `Pelado disponible: ${jornada.pelado_disponible_kg} kg`,
     `Merma: ${jornada.merma_kg} kg (${jornada.merma_porcentaje}%)`,
     "",
     "Entradas por granja",
@@ -394,6 +414,7 @@ export async function exportJornadasXlsx(query: JornadasListQuery) {
     { header: "Desperdicio kg", key: "desperdicio", width: 16 },
     { header: "Muertero kg", key: "muertero", width: 14 },
     { header: "Piso disponible kg", key: "pisoDisponible", width: 20 },
+    { header: "Pelado disponible kg", key: "peladoDisponible", width: 22 },
     { header: "Merma kg", key: "merma", width: 12 },
     { header: "Merma %", key: "mermaPorcentaje", width: 12 },
     { header: "Estado", key: "estado", width: 12 },
@@ -409,6 +430,7 @@ export async function exportJornadasXlsx(query: JornadasListQuery) {
       desperdicio: jornada.desperdicio_kg,
       muertero: jornada.muertero_kg,
       pisoDisponible: jornada.piso_disponible_kg,
+      peladoDisponible: jornada.pelado_disponible_kg,
       merma: jornada.merma_kg,
       mermaPorcentaje: jornada.merma_porcentaje,
       estado: jornada.estado,
@@ -443,22 +465,33 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
   const metrics = await calculateJornadaMetrics(jornadaId);
   const balanceBase = {
     entradaRegistradaKg: metrics.entrada_registrada_kg,
-    vendidoBrutoKg: metrics.vendido_total_kg,
+    vendidoFisicoKg: metrics.vendido_fisico_kg,
     desperdicioKg: data.desperdicio_kg,
     muerteroKg: data.muertero_kg,
   };
   const pisoDisponible = calcularPisoJornada({
     ...balanceBase,
-    devolucionesKg: metrics.devoluciones_vivas_kg,
+    devolucionesVivasKg: metrics.devoluciones_vivas_kg,
   });
   const merma = calcularMermaJornada({
-    ...balanceBase,
-    devolucionesKg: metrics.devoluciones_total_kg,
+    devolucionesMuertasKg: metrics.devoluciones_muertas_kg,
+    desperdicioKg: data.desperdicio_kg,
+    muerteroKg: data.muertero_kg,
   });
   const mermaPorcentaje = calcularPorcentajeMerma(merma, metrics.entrada_total_kg);
 
-  if (data.desperdicio_kg + data.muertero_kg > metrics.entrada_total_kg) {
-    throw new AppError("Desperdicio y muertero no pueden exceder la entrada total", 400);
+  const pisoAntesDePerdidas = calcularPisoJornada({
+    entradaRegistradaKg: metrics.entrada_registrada_kg,
+    vendidoFisicoKg: metrics.vendido_fisico_kg,
+    devolucionesVivasKg: metrics.devoluciones_vivas_kg,
+    desperdicioKg: 0,
+    muerteroKg: 0,
+  });
+  if (data.desperdicio_kg + data.muertero_kg > pisoAntesDePerdidas + 0.001) {
+    throw new AppError(
+      `Desperdicio y muertero no pueden exceder el piso vivo disponible (${pisoAntesDePerdidas.toFixed(2)} kg)`,
+      400,
+    );
   }
 
   await prisma.jornada.update({
@@ -475,6 +508,7 @@ export async function closeJornadaById(jornadaId: number, data: CierreJornadaInp
   return {
     success: true,
     piso_disponible_kg: pisoDisponible,
+    pelado_disponible_kg: metrics.pelado_disponible_kg,
     merma_kg: merma,
     merma_porcentaje: mermaPorcentaje,
   };
@@ -580,6 +614,7 @@ async function buildJornadaSummary(jornada: {
     desperdicio_kg: jornada.desperdicio_kg?.toNumber() ?? 0,
     muertero_kg: jornada.muertero_kg?.toNumber() ?? 0,
     piso_disponible_kg: metrics.piso_disponible_kg,
+    pelado_disponible_kg: metrics.pelado_disponible_kg,
     merma_kg: metrics.merma_kg,
     merma_porcentaje: metrics.merma_porcentaje,
     estado: jornada.estado,
@@ -759,7 +794,9 @@ async function buildJornadaDetalle(jornada: {
       return {
         entrada_total: summary.entrada_total_kg,
         neto,
-        diferencia_entrada_neto: Number(
+        piso_vivo: summary.piso_disponible_kg,
+        pelado_disponible: summary.pelado_disponible_kg,
+        devolucion_muerta: Number(
           (summary.merma_kg - summary.desperdicio_kg - summary.muertero_kg).toFixed(2),
         ),
         desperdicio: summary.desperdicio_kg,

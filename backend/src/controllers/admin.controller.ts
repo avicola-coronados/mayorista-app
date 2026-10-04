@@ -3,6 +3,11 @@ import { z } from "zod";
 import { syncGuiaFromLineaVenta, unsyncGuiaFromLineaVenta } from "../modules/guias/guias-sync.service";
 import { prisma } from "../lib/prisma";
 import { calculateJornadaMetrics } from "../modules/jornadas/jornadas.service";
+import { calcularPisoTrasEditarLinea } from "../domain/pesadas/calculos";
+import {
+  getPisoDisponible,
+  PISO_GRANJA_NOMBRE,
+} from "../modules/lineas-venta/piso-disponible.service";
 
 const jornadaQuerySchema = z.object({
   jornada_id: z.coerce.number().int().positive("Jornada inválida"),
@@ -298,6 +303,9 @@ export async function updateAdminLineaVenta(request: Request, response: Response
       jornada: {
         select: { estado: true },
       },
+      granja: {
+        select: { nombre: true },
+      },
     },
   });
 
@@ -344,6 +352,46 @@ export async function updateAdminLineaVenta(request: Request, response: Response
   }
 
   const pesoNeto = Number((pesoBruto - tara).toFixed(2));
+  const granjaAnteriorEsPiso =
+    lineaVenta.granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase();
+  const granjaNuevaEsPiso =
+    granja.nombre.toLowerCase() === PISO_GRANJA_NOMBRE.toLowerCase();
+  const eraEntradaPiso = lineaVenta.origen === "piso" && !lineaVenta.cliente_id;
+  const seraEntradaPiso = origen === "piso" && !lineaVenta.cliente_id;
+  const consumiaPiso =
+    Boolean(lineaVenta.cliente_id) &&
+    (lineaVenta.origen === "piso" ||
+      (lineaVenta.origen === "partida" && granjaAnteriorEsPiso));
+  const consumiraPiso =
+    Boolean(lineaVenta.cliente_id) &&
+    (origen === "piso" || (origen === "partida" && granjaNuevaEsPiso));
+
+  if (seraEntradaPiso && granjaNuevaEsPiso) {
+    return response.status(400).json({
+      message: "Un ingreso a piso debe conservar una granja física de origen",
+    });
+  }
+
+  if (eraEntradaPiso || seraEntradaPiso || consumiaPiso || consumiraPiso) {
+    const pisoDisponible = await getPisoDisponible(lineaVenta.jornada_id);
+    const factorAnterior = eraEntradaPiso ? 1 : consumiaPiso ? -1 : 0;
+    const factorNuevo = seraEntradaPiso ? 1 : consumiraPiso ? -1 : 0;
+    const pisoProyectado = calcularPisoTrasEditarLinea({
+      disponibleKg: pisoDisponible.peso_neto,
+      pesoAnteriorKg: toNumber(lineaVenta.peso_neto),
+      factorAnterior,
+      pesoNuevoKg: pesoNeto,
+      factorNuevo,
+    });
+
+    if (pisoProyectado.peso_neto < 0) {
+      return response.status(400).json({
+        message: `El cambio supera la disponibilidad de piso. Disponible: ${pisoDisponible.peso_neto.toFixed(2)} kg netos.`,
+        code: "EXCEDE_PISO_DISPONIBLE",
+      });
+    }
+  }
+
   const updated = await prisma.lineaVenta.update({
     where: { id },
     data: {
